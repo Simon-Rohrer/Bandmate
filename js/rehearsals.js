@@ -849,6 +849,139 @@ const Rehearsals = {
         }
     },
 
+    formatProposalDateLabel(date) {
+        if (date && typeof date === 'object' && date.startTime) {
+            let label = UI.formatDate(date.startTime);
+            if (date.endTime) {
+                const start = new Date(date.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const end = new Date(date.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                label += ` (${start} - ${end})`;
+            }
+            return label;
+        }
+
+        return UI.formatDate(date);
+    },
+
+    getCheckedSingleRehearsalIndexes() {
+        return Array.from(document.querySelectorAll('.single-rehearsal-toggle:checked'))
+            .map(input => parseInt(input.dataset.dateIndex, 10))
+            .filter(index => !Number.isNaN(index));
+    },
+
+    collectSelectedSingleRehearsalIndexes(clickedDateIndex) {
+        return [...new Set([clickedDateIndex, ...this.getCheckedSingleRehearsalIndexes()])];
+    },
+
+    updateConfirmMemberSelectionSummary() {
+        const summary = document.getElementById('confirmMembersSummary');
+        const sendButton = document.getElementById('sendConfirmationBtn');
+        const memberCheckboxes = Array.from(
+            document.querySelectorAll('#confirmMembersList .confirm-member-checkbox')
+        ).filter(checkbox => !checkbox.disabled);
+        const selectedCount = memberCheckboxes.filter(checkbox => checkbox.checked).length;
+
+        if (summary) {
+            if (memberCheckboxes.length === 0) {
+                summary.textContent = 'Keine E-Mail-Adressen verfügbar';
+            } else if (selectedCount === 0) {
+                summary.textContent = 'Es wird keine E-Mail versendet';
+            } else if (selectedCount === memberCheckboxes.length) {
+                summary.textContent = `Alle ${selectedCount} Mitglieder erhalten eine E-Mail`;
+            } else {
+                summary.textContent = `${selectedCount} von ${memberCheckboxes.length} Mitgliedern erhalten eine E-Mail`;
+            }
+        }
+
+        if (sendButton) {
+            sendButton.textContent = selectedCount > 0
+                ? `✅ Probe bestätigen & ${selectedCount} E-Mail${selectedCount === 1 ? '' : 's'} senden`
+                : '✅ Probe bestätigen';
+        }
+    },
+
+    bindConfirmMemberSelectionUI() {
+        const memberCheckboxes = Array.from(document.querySelectorAll('#confirmMembersList .confirm-member-checkbox'));
+        const syncSelectionState = () => {
+            memberCheckboxes.forEach(checkbox => {
+                const card = checkbox.closest('.confirm-member-card');
+                if (card) {
+                    card.classList.toggle('is-selected', checkbox.checked);
+                    card.classList.toggle('is-disabled', checkbox.disabled);
+                }
+            });
+            this.updateConfirmMemberSelectionSummary();
+        };
+
+        memberCheckboxes.forEach(checkbox => {
+            checkbox.onchange = syncSelectionState;
+        });
+
+        const selectAllButton = document.getElementById('confirmSelectAllMembersBtn');
+        if (selectAllButton) {
+            selectAllButton.onclick = () => {
+                memberCheckboxes.forEach(checkbox => {
+                    if (!checkbox.disabled) {
+                        checkbox.checked = true;
+                    }
+                });
+                syncSelectionState();
+            };
+        }
+
+        const deselectAllButton = document.getElementById('confirmDeselectAllMembersBtn');
+        if (deselectAllButton) {
+            deselectAllButton.onclick = () => {
+                memberCheckboxes.forEach(checkbox => {
+                    if (!checkbox.disabled) {
+                        checkbox.checked = false;
+                    }
+                });
+                syncSelectionState();
+            };
+        }
+
+        syncSelectionState();
+    },
+
+    getProposalDateRange(proposal) {
+        const startTime = typeof proposal === 'string' ? proposal : proposal?.startTime;
+        let endTime = typeof proposal === 'object' && proposal?.endTime ? proposal.endTime : null;
+
+        if (startTime && !endTime) {
+            endTime = new Date(new Date(startTime).getTime() + 2 * 60 * 60 * 1000).toISOString();
+        }
+
+        return { startTime, endTime };
+    },
+
+    async createAdditionalConfirmedRehearsal(rehearsal, proposal, updates) {
+        const currentUser = Auth.getCurrentUser();
+        const { startTime, endTime } = this.getProposalDateRange(proposal);
+
+        if (!startTime || !endTime) {
+            return null;
+        }
+
+        return await Storage.createRehearsal({
+            bandId: rehearsal.bandId,
+            proposedBy: currentUser?.id || rehearsal.proposedBy,
+            title: updates.title,
+            description: updates.description,
+            locationId: updates.locationId || null,
+            eventId: rehearsal.eventId || null,
+            proposedDates: [{
+                startTime,
+                endTime,
+                confirmed: true
+            }],
+            status: 'confirmed',
+            confirmedDate: startTime,
+            confirmedLocation: updates.locationId || null,
+            endTime
+        });
+    },
+
     // Open rehearsal details for confirmation
     async openRehearsalDetails(rehearsalId) {
         const rehearsal = await Storage.getRehearsal(rehearsalId);
@@ -935,7 +1068,6 @@ const Rehearsals = {
         const notVoted = members.filter(m => !votedUserIds.has(m.userId))
             .map(m => Storage.getById('users', m.userId)?.name)
             .filter(Boolean);
-
         document.getElementById('rehearsalDetailsTitle').textContent = rehearsal.title;
 
         document.getElementById('rehearsalDetailsContent').innerHTML = `
@@ -951,23 +1083,14 @@ const Rehearsals = {
 
                 <div class="detail-section">
                     <h3>🏆 Beste Termine</h3>
+                    <p class="rehearsal-bulk-create-note">
+                        Setze Haken fuer Zusatztermine und nutze entweder einen einzelnen Termin-Button oder den Sammelbutton, um daraus bestaetigte Proben anzulegen.
+                    </p>
                     ${dateStats.sort((a, b) => b.score - a.score).map((stat, idx) => `
                         <div class="best-date-option ${idx === 0 ? 'is-best' : ''}">
                             <div class="date-header">
                                 ${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '📅'} 
-                                ${(() => {
-                if (stat.date && typeof stat.date === 'object' && stat.date.startTime) {
-                    let label = UI.formatDate(stat.date.startTime);
-                    if (stat.date.endTime) {
-                        const start = new Date(stat.date.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        const end = new Date(stat.date.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        label += ` (${start} - ${end})`;
-                    }
-                    return label;
-                } else {
-                    return UI.formatDate(stat.date);
-                }
-            })()}
+                                ${this.formatProposalDateLabel(stat.date)}
                             </div>
                             <div class="vote-breakdown">
                                 ✅ ${stat.yesCount} können • 
@@ -981,13 +1104,28 @@ const Rehearsals = {
                                     `).join('')}
                                 </div>
                             ` : ''}
-                            <button class="btn btn-primary select-date-btn" 
-                                    data-date-index="${stat.index}"
-                                    data-date="${typeof stat.date === 'string' ? stat.date : stat.date.startTime}">
-                                Diesen Termin auswählen
-                            </button>
+                            <div class="best-date-actions">
+                                <label class="rehearsal-bulk-create-toggle">
+                                    <input type="checkbox" class="single-rehearsal-toggle" data-date-index="${stat.index}">
+                                    <span class="rehearsal-bulk-create-indicator" aria-hidden="true"></span>
+                                    <span class="rehearsal-bulk-create-copy">
+                                        <span class="rehearsal-bulk-create-title">Als Einzelprobe anlegen</span>
+                                        <span class="rehearsal-bulk-create-subtitle">Diesen Termin zusaetzlich als eigene Probe erstellen</span>
+                                    </span>
+                                </label>
+                                <button class="btn btn-primary select-date-btn" 
+                                        data-date-index="${stat.index}"
+                                        data-date="${typeof stat.date === 'string' ? stat.date : stat.date.startTime}">
+                                    Diese Probe bestätigen
+                                </button>
+                            </div>
                         </div>
                     `).join('')}
+                    <div class="best-date-bulk-actions">
+                        <button class="btn btn-secondary create-selected-rehearsals-btn">
+                            Markierte Proben erstellen
+                        </button>
+                    </div>
                 </div>
             </div>
         `;
@@ -996,16 +1134,44 @@ const Rehearsals = {
         document.querySelectorAll('.select-date-btn').forEach(btn => {
             btn.addEventListener('click', async () => {
                 const dateIndex = parseInt(btn.dataset.dateIndex);
-                const date = btn.dataset.date;
-                await this.showConfirmationModal(rehearsalId, dateIndex, date);
+                const date = proposedDates[dateIndex] || btn.dataset.date;
+                const selectedDateIndexes = this.collectSelectedSingleRehearsalIndexes(dateIndex);
+
+                await this.showConfirmationModal(rehearsalId, dateIndex, date, selectedDateIndexes);
             });
         });
+
+        document.querySelectorAll('.single-rehearsal-toggle').forEach(toggle => {
+            const syncSelectionState = () => {
+                const option = toggle.closest('.best-date-option');
+                if (!option) return;
+                option.classList.toggle('is-multi-selected', toggle.checked);
+            };
+
+            syncSelectionState();
+            toggle.addEventListener('change', syncSelectionState);
+        });
+
+        const createSelectedButton = document.querySelector('.create-selected-rehearsals-btn');
+        if (createSelectedButton) {
+            createSelectedButton.addEventListener('click', async () => {
+                const selectedDateIndexes = this.getCheckedSingleRehearsalIndexes();
+                if (selectedDateIndexes.length === 0) {
+                    UI.showToast('Bitte mindestens einen Termin anhaken', 'warning');
+                    return;
+                }
+
+                const dateIndex = selectedDateIndexes[0];
+                const date = proposedDates[dateIndex];
+                await this.showConfirmationModal(rehearsalId, dateIndex, date, selectedDateIndexes);
+            });
+        }
 
         UI.openModal('rehearsalDetailsModal');
     },
 
     // Show confirmation modal
-    async showConfirmationModal(rehearsalId, dateIndex, date) {
+    async showConfirmationModal(rehearsalId, dateIndex, date, selectedDateIndexes = [dateIndex]) {
         const rehearsal = await Storage.getRehearsal(rehearsalId);
         if (!rehearsal) {
             console.error('Rehearsal not found:', rehearsalId);
@@ -1014,6 +1180,9 @@ const Rehearsals = {
 
         document.getElementById('confirmRehearsalId').value = rehearsalId;
         document.getElementById('confirmDateIndex').value = dateIndex;
+        document.getElementById('confirmAdditionalDateIndexes').value = JSON.stringify(
+            selectedDateIndexes.filter(index => index !== dateIndex)
+        );
 
         // Populate editable fields
         document.getElementById('confirmRehearsalTitle').value = rehearsal.title;
@@ -1116,6 +1285,29 @@ const Rehearsals = {
             locationSelect.value = rehearsal.locationId;
         }
 
+        const additionalDatesInfo = document.getElementById('confirmAdditionalDatesInfo');
+        const additionalDatesList = document.getElementById('confirmAdditionalDatesList');
+        const additionalDateIndexes = selectedDateIndexes.filter(index => index !== dateIndex);
+
+        if (additionalDatesInfo && additionalDatesList) {
+            if (additionalDateIndexes.length > 0) {
+                additionalDatesInfo.style.display = 'block';
+                additionalDatesList.innerHTML = additionalDateIndexes.map(index => {
+                    const proposal = rehearsal.proposedDates?.[index];
+                    if (!proposal) return '';
+
+                    return `
+                        <div class="checkbox-item">
+                            <span>${this.formatProposalDateLabel(proposal)}</span>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                additionalDatesInfo.style.display = 'none';
+                additionalDatesList.innerHTML = '';
+            }
+        }
+
         // Populate members list with checkboxes
         const members = await Storage.getBandMembers(rehearsal.bandId);
         const membersArray = Array.isArray(members) ? members : [];
@@ -1128,27 +1320,48 @@ const Rehearsals = {
         membersList.innerHTML = users.map(user => {
             if (!user) return '';
 
+            const displayName = UI.getUserDisplayName(user);
+            const hasEmail = Boolean(user.email);
+            const escapedEmail = hasEmail ? Bands.escapeHtml(user.email) : 'Keine E-Mail-Adresse hinterlegt';
             let instrumentText = '';
             // Handle 'instrument' as comma-separated string (database format)
             if (user.instrument) {
                 const instruments = user.instrument.split(',').map(s => s.trim()).filter(s => s);
                 if (instruments.length > 0) {
-                    instrumentText = `<span class="member-instruments">${Bands.escapeHtml(instruments.join(', '))}</span>`;
+                    instrumentText = `<span class="confirm-member-badge">${Bands.escapeHtml(instruments.join(', '))}</span>`;
                 }
             } else if (user.instruments && Array.isArray(user.instruments) && user.instruments.length > 0) {
-                instrumentText = `<span class="member-instruments">${Bands.escapeHtml(user.instruments.join(', '))}</span>`;
+                instrumentText = `<span class="confirm-member-badge">${Bands.escapeHtml(user.instruments.join(', '))}</span>`;
             }
 
             return `
-                <div class="checkbox-item">
-                    <input type="checkbox" id="notify_${user.id}" value="${user.id}" checked>
-                    <label for="notify_${user.id}">
-                        <span>${Bands.escapeHtml(user.name)} (${Bands.escapeHtml(user.email)})</span>
-                        ${instrumentText}
+                <div class="confirm-member-card ${hasEmail ? 'is-selected' : 'is-disabled'}">
+                    <input
+                        type="checkbox"
+                        class="confirm-member-checkbox"
+                        id="notify_${user.id}"
+                        value="${user.id}"
+                        ${hasEmail ? 'checked' : ''}
+                        ${hasEmail ? '' : 'disabled'}
+                    >
+                    <label for="notify_${user.id}" class="confirm-member-label ${hasEmail ? '' : 'is-disabled'}">
+                        <span class="confirm-member-indicator" aria-hidden="true"></span>
+                        <span class="confirm-member-main">
+                            <span class="confirm-member-name-row">
+                                <span class="confirm-member-name">${Bands.escapeHtml(displayName)}</span>
+                                ${instrumentText}
+                            </span>
+                            <span class="confirm-member-email">${escapedEmail}</span>
+                            <span class="confirm-member-note">
+                                ${hasEmail ? 'Erhält eine Bestätigungs-Mail, wenn markiert' : 'Keine Benachrichtigung möglich'}
+                            </span>
+                        </span>
                     </label>
                 </div>
             `;
         }).join('');
+
+        this.bindConfirmMemberSelectionUI();
 
         UI.closeModal('rehearsalDetailsModal');
         UI.openModal('confirmRehearsalModal');
@@ -1159,6 +1372,9 @@ const Rehearsals = {
         const rehearsalId = document.getElementById('confirmRehearsalId').value;
         const dateIndex = parseInt(document.getElementById('confirmDateIndex').value);
         const locationId = document.getElementById('confirmRehearsalLocation').value;
+        const additionalDateIndexes = JSON.parse(
+            document.getElementById('confirmAdditionalDateIndexes').value || '[]'
+        );
 
         // Get edited values
         const editedTitle = document.getElementById('confirmRehearsalTitle').value;
@@ -1171,113 +1387,189 @@ const Rehearsals = {
             return;
         }
 
-        const rehearsal = await Storage.getRehearsal(rehearsalId);
-        if (!rehearsal) {
-            console.error('Rehearsal not found:', rehearsalId);
-            UI.showToast('Probe nicht gefunden', 'error');
-            return;
-        }
+        try {
+            const rehearsal = await Storage.getRehearsal(rehearsalId);
+            if (!rehearsal) {
+                console.error('Rehearsal not found:', rehearsalId);
+                UI.showToast('Probe nicht gefunden', 'error');
+                return;
+            }
 
-        // Use edited start time
-        const selectedDate = new Date(editedStartTime).toISOString();
-        const selectedEndTime = new Date(editedEndTime).toISOString();
+            // Use edited start time
+            const selectedDate = new Date(editedStartTime).toISOString();
+            const selectedEndTime = new Date(editedEndTime).toISOString();
+            const additionalProposals = additionalDateIndexes
+                .map(index => rehearsal.proposedDates?.[index])
+                .filter(Boolean);
 
-        // Check location availability if location is selected and not forcing confirmation
-        if (locationId && !forceConfirm && typeof App !== 'undefined' && App.checkLocationAvailability) {
-            const startDate = new Date(editedStartTime);
-            const endDate = new Date(editedEndTime);
+            // Check location availability if location is selected and not forcing confirmation
+            if (locationId && !forceConfirm && typeof App !== 'undefined' && App.checkLocationAvailability) {
+                const startDate = new Date(editedStartTime);
+                const endDate = new Date(editedEndTime);
 
-            const availability = await App.checkLocationAvailability(locationId, startDate, endDate);
+                const availability = await App.checkLocationAvailability(locationId, startDate, endDate);
 
-            if (!availability.available && availability.conflicts && availability.conflicts.length > 0) {
-                // Show conflict warning modal
-                const location = await Storage.getLocation(locationId);
-                let dateLabel = '';
-                if (editedStartTime) {
-                    dateLabel = UI.formatDate(editedStartTime);
-                    if (editedEndTime) {
-                        const start = new Date(editedStartTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        const end = new Date(editedEndTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        dateLabel += ` (${start} - ${end})`;
+                if (!availability.available && availability.conflicts && availability.conflicts.length > 0) {
+                    // Show conflict warning modal
+                    const location = await Storage.getLocation(locationId);
+                    let dateLabel = '';
+                    if (editedStartTime) {
+                        dateLabel = UI.formatDate(editedStartTime);
+                        if (editedEndTime) {
+                            const start = new Date(editedStartTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                            const end = new Date(editedEndTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                            dateLabel += ` (${start} - ${end})`;
+                        }
+                    }
+                    const conflictDetailsHtml = `
+                        <div style="background: var(--color-bg); padding: 1rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-danger);">
+                            <p><strong>Ort:</strong> ${Bands.escapeHtml(location?.name || 'Unbekannt')}</p>
+                            <p><strong>Gewählte Zeit:</strong> ${dateLabel}</p>
+                            <div style="margin-top: 1rem;">
+                                <strong>Konflikte:</strong>
+                                <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
+                                    ${availability.conflicts.map(conflict => {
+                        const start = new Date(conflict.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        const end = new Date(conflict.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        return `<li><strong>${Bands.escapeHtml(conflict.summary)}</strong><br><small>${start} - ${end}</small></li>`;
+                    }).join('')}
+                                </ul>
+                            </div>
+                        </div>
+                    `;
+
+                    document.getElementById('conflictDetails').innerHTML = conflictDetailsHtml;
+
+                    // Close confirmation modal and open conflict modal
+                    UI.closeModal('confirmRehearsalModal');
+                    UI.openModal('locationConflictModal');
+
+                    return; // Stop here, wait for user decision
+                }
+            }
+
+            if (locationId && !forceConfirm && additionalProposals.length > 0) {
+                const conflictingAdditionalDates = [];
+
+                for (const proposal of additionalProposals) {
+                    const { startTime, endTime } = this.getProposalDateRange(proposal);
+                    if (!startTime || !endTime) continue;
+
+                    const availability = await this.checkSingleDateAvailability(locationId, startTime, endTime);
+                    if (!availability.available) {
+                        conflictingAdditionalDates.push(this.formatProposalDateLabel(proposal));
                     }
                 }
-                const conflictDetailsHtml = `
-                    <div style="background: var(--color-bg); padding: 1rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-danger);">
-                        <p><strong>Ort:</strong> ${Bands.escapeHtml(location?.name || 'Unbekannt')}</p>
-                        <p><strong>Gewählte Zeit:</strong> ${dateLabel}</p>
-                        <div style="margin-top: 1rem;">
-                            <strong>Konflikte:</strong>
-                            <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
-                                ${availability.conflicts.map(conflict => {
-                    const start = new Date(conflict.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    const end = new Date(conflict.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                    return `<li><strong>${Bands.escapeHtml(conflict.summary)}</strong><br><small>${start} - ${end}</small></li>`;
-                }).join('')}
-                            </ul>
-                        </div>
-                    </div>
-                `;
 
-                document.getElementById('conflictDetails').innerHTML = conflictDetailsHtml;
-
-                // Close confirmation modal and open conflict modal
-                UI.closeModal('confirmRehearsalModal');
-                UI.openModal('locationConflictModal');
-
-                return; // Stop here, wait for user decision
+                if (conflictingAdditionalDates.length > 0) {
+                    UI.showToast(
+                        `Zusatztermine haben Ortskonflikte: ${conflictingAdditionalDates.join(', ')}`,
+                        'error'
+                    );
+                    return;
+                }
             }
-        }
 
-        // Get selected members
-        const checkboxes = document.querySelectorAll('#confirmMembersList input[type="checkbox"]:checked');
-        const selectedMemberIds = Array.from(checkboxes).map(cb => cb.value);
+            // Get selected members
+            const checkboxes = document.querySelectorAll('#confirmMembersList input[type="checkbox"]:checked');
+            const selectedMemberIds = Array.from(checkboxes).map(cb => cb.value);
 
-        console.log('[Email Debug] Selected IDs:', selectedMemberIds);
-        console.log('[Email Debug] Total checkboxes:', document.querySelectorAll('#confirmMembersList input[type="checkbox"]').length);
+            // Update rehearsal with confirmed date and edited details
+            const updatedRehearsal = await Storage.updateRehearsal(rehearsalId, {
+                status: 'confirmed',
+                title: editedTitle,
+                description: editedDescription,
+                locationId: locationId || null,
+                confirmedLocation: locationId || null,
+                confirmedDate: selectedDate,
+                endTime: selectedEndTime
+            });
 
-        // Update rehearsal with confirmed date and edited details
-        await Storage.updateRehearsal(rehearsalId, {
-            status: 'confirmed',
-            title: editedTitle,
-            description: editedDescription,
-            confirmedLocation: locationId || null,
-            confirmedDate: selectedDate,
-            endTime: selectedEndTime
-        });
-        // Only send emails if members are selected
-        if (selectedMemberIds.length > 0) {
-            const members = await Storage.getBandMembers(rehearsal.bandId);
-            const selectedMembers = members.filter(m => selectedMemberIds.includes(m.userId));
+            if (!updatedRehearsal) {
+                UI.showToast('Probe konnte nicht bestätigt werden', 'error');
+                return;
+            }
 
-            console.log('[Email Debug] Band members:', members);
-            console.log('[Email Debug] Selected members for email:', selectedMembers);
+            const additionalCreatedRehearsals = [];
+            for (const proposal of additionalProposals) {
+                const created = await this.createAdditionalConfirmedRehearsal(rehearsal, proposal, {
+                    title: editedTitle,
+                    description: editedDescription,
+                    locationId
+                });
 
-            UI.showToast('Termin bestätigt. Sende E-Mails...', 'info');
+                if (created) {
+                    additionalCreatedRehearsals.push(created);
+                }
+            }
 
-            // Send emails
-            const result = await EmailService.sendRehearsalConfirmation(rehearsal, selectedDate, selectedMembers);
+            // Only send emails if members are selected
+            if (selectedMemberIds.length > 0) {
+                const members = await Storage.getBandMembers(rehearsal.bandId);
+                const selectedMembers = members.filter(m => selectedMemberIds.includes(m.userId));
+                const confirmationTargets = [
+                    {
+                        rehearsal: {
+                            ...rehearsal,
+                            title: editedTitle,
+                            description: editedDescription,
+                            locationId: locationId || null
+                        },
+                        selectedDate
+                    },
+                    ...additionalCreatedRehearsals.map(created => ({
+                        rehearsal: created,
+                        selectedDate: created.confirmedDate
+                    }))
+                ];
 
-            console.log('[Email Debug] EmailService result:', result);
+                UI.showToast('Termin(e) bestätigt. Sende E-Mails...', 'info');
 
-            if (result.success) {
-                UI.showToast(result.message, 'success');
+                let sentMailCount = 0;
+                let hasMailErrors = false;
+
+                for (const target of confirmationTargets) {
+                    const result = await EmailService.sendRehearsalConfirmation(
+                        target.rehearsal,
+                        target.selectedDate,
+                        selectedMembers
+                    );
+
+                    sentMailCount += (result.results || []).filter(entry => entry && entry.success).length;
+                    if (!result.success) {
+                        hasMailErrors = true;
+                    }
+                }
+
+                if (sentMailCount > 0) {
+                    UI.showToast(
+                        `${1 + additionalCreatedRehearsals.length} Probe(n) bestätigt, ${sentMailCount} E-Mails versendet`,
+                        hasMailErrors ? 'warning' : 'success'
+                    );
+                } else {
+                    UI.showToast('Probe(n) bestätigt, aber keine E-Mails versendet', hasMailErrors ? 'warning' : 'success');
+                }
             } else {
-                UI.showToast(result.message, 'warning');
+                UI.showToast(
+                    `${1 + additionalCreatedRehearsals.length} Probe(n) bestätigt (keine E-Mails versendet)`,
+                    'success'
+                );
             }
-        } else {
-            UI.showToast('Termin bestätigt (keine E-Mails versendet)', 'success');
-        }
 
-        UI.closeModal('confirmRehearsalModal');
-        UI.closeModal('locationConflictModal'); // Close conflict modal if it was open
+            UI.closeModal('confirmRehearsalModal');
+            UI.closeModal('locationConflictModal'); // Close conflict modal if it was open
 
-        // Force refresh of data
-        this.invalidateCache();
-        this.rehearsals = null;
-        await this.renderRehearsals(this.currentFilter);
+            // Force refresh of data
+            this.invalidateCache();
+            this.rehearsals = null;
+            await this.renderRehearsals(this.currentFilter);
 
-        if (typeof App !== 'undefined' && App.updateDashboard) {
-            await App.updateDashboard();
+            if (typeof App !== 'undefined' && App.updateDashboard) {
+                await App.updateDashboard();
+            }
+        } catch (error) {
+            console.error('[Rehearsals] confirmRehearsal failed', error);
+            UI.showToast(error?.message || 'Probe konnte nicht bestätigt werden', 'error');
         }
     },
 

@@ -1,131 +1,474 @@
 // Main Application Controller
 window.APP_START_TIME = performance.now();
 
-/* ===== Rich Text Editor Helper ===== */
-const RichTextEditor = {
-    savedRange: null,  // Store current selection
+if (typeof Quill !== 'undefined') {
+    const BaseImageBlot = Quill.import('formats/image');
 
-    // State flags
-    isPasswordRecoveryMode: false,
+    class ResizableImageBlot extends BaseImageBlot {
+        static blotName = 'image';
+        static tagName = 'IMG';
+
+        static formats(domNode) {
+            const width = domNode.getAttribute('data-width') || domNode.style.width || domNode.getAttribute('width');
+            return width ? { width } : {};
+        }
+
+        format(name, value) {
+            if (name === 'width') {
+                if (value) {
+                    this.domNode.style.width = value;
+                    this.domNode.setAttribute('data-width', value);
+                } else {
+                    this.domNode.style.removeProperty('width');
+                    this.domNode.removeAttribute('data-width');
+                    this.domNode.removeAttribute('width');
+                }
+                return;
+            }
+
+            super.format(name, value);
+        }
+    }
+
+    Quill.register(ResizableImageBlot, true);
+}
+
+/* ===== Quill Rich Text Editor Helper ===== */
+const RichTextEditor = {
+
+    // Quill instance
+    quill: null,
+    lastRange: null,
+    activeImage: null,
+    imageResizeHandle: null,
+    boundEditorRoot: null,
+    outsideClickHandlerBound: false,
+    windowResizeHandlerBound: false,
 
     init() {
+        const container = document.getElementById('quillEditor');
+        const toolbarContainer = document.getElementById('newsEditorToolbar');
+        if (!container || !toolbarContainer || typeof Quill === 'undefined') return;
 
-        // Toolbar buttons
-        document.querySelectorAll('.rte-button').forEach(btn => {
-            // Remove existing listeners to avoid duplicates (clone node)
-            const newBtn = btn.cloneNode(true);
-            btn.parentNode.replaceChild(newBtn, btn);
-
-            newBtn.addEventListener('mousedown', (e) => {  // CRITICAL: mousedown preserves selection
-                e.preventDefault();
-                e.stopPropagation();
-
-                const editor = document.getElementById('newsContent');
-                if (!editor) return;
-
-                // Focus editor and restore selection
-                editor.focus();
-                if (this.savedRange) {
-                    this.restoreSelection(this.savedRange);
-                }
-
-                const command = newBtn.dataset.command;
-                const value = newBtn.dataset.value || null;
-
-                if (command === 'insertImage') {
-                    const input = document.getElementById('rteImageInput');
-                    if (input) input.click();
-                } else if (command === 'formatBlock') {
-                    document.execCommand(command, false, value);
-                } else {
-                    document.execCommand(command, false, value);
-                }
-
-                // Save selection after command
-                this.savedRange = this.saveSelection();
-
-                // Update toolbar active states
-                this.updateToolbarState();
-
-                // Keep focus in editor
-                editor.focus();
-            });
-        });
-
-        // Image insert button specific listener (if ID is used)
-        const imgBtn = document.getElementById('rteInsertImageBtn');
-        if (imgBtn) {
-            imgBtn.onclick = (e) => {
-                e.preventDefault();
-                const input = document.getElementById('rteImageInput');
-                if (input) {
-                    const editor = document.getElementById('newsContent');
-                    if (editor) {
-                        editor.focus();
-                        this.savedRange = this.saveSelection();
-                    }
-                    input.click();
-                }
-            };
-        }
-
-        // Image input change
-        const imgInput = document.getElementById('rteImageInput');
-        if (imgInput) {
-            imgInput.onchange = (e) => this.handleImageUpload(e);
-        }
-
-        // Editor events for toolbar state updates and selection tracking
-        const editor = document.getElementById('newsContent');
-        if (editor) {
-            editor.addEventListener('keyup', () => {
-                this.savedRange = this.saveSelection();
-                this.updateToolbarState();
-            });
-            editor.addEventListener('mouseup', () => {
-                this.savedRange = this.saveSelection();
-                this.updateToolbarState();
-            });
-            editor.addEventListener('click', () => {
-                this.savedRange = this.saveSelection();
-                this.updateToolbarState();
-            });
-        }
-    },
-
-    updateToolbarState() {
-        document.querySelectorAll('.rte-button[data-command]').forEach(btn => {
-            const command = btn.dataset.command;
-            if (document.queryCommandState(command)) {
-                btn.classList.add('active');
-            } else {
-                btn.classList.remove('active');
+        // If we have an instance but it's detached from the current DOM element
+        // (e.g. because the parent form was cloned/replaced), we must re-init.
+        if (this.quill) {
+            // Check if our quill container is actually inside the current DOM element
+            if (container.contains(this.quill.container)) {
+                this.bindImageInput();
+                this.bindImageInteractions();
+                this.refreshEditorImages();
+                return; // Everything is fine
             }
-        });
+            // Quill is detached or pointing to an old element -> Reset
+            this.quill = null;
+            this.lastRange = null;
+            this.clearImageSelection();
+        }
+
+        if (!this.quill) {
+            this.quill = new Quill('#quillEditor', {
+                theme: 'snow',
+                placeholder: 'Beschreibe das Update oder Feature... Du kannst Text formatieren und Bilder einfügen.',
+                modules: {
+                    toolbar: {
+                        container: '#newsEditorToolbar',
+                        handlers: {
+                            bold: () => this.toggleInlineFormat('bold'),
+                            italic: () => this.toggleInlineFormat('italic'),
+                            underline: () => this.toggleInlineFormat('underline'),
+                            list: (value) => this.applyBlockFormat('list', value),
+                            header: (value) => this.applyBlockFormat('header', value),
+                            link: () => this.insertOrEditLink(),
+                            image: () => this.openImagePicker(),
+                            clean: () => this.clearFormatting()
+                        }
+                    }
+                }
+            });
+
+            this.quill.on('selection-change', (range) => {
+                if (range) {
+                    this.lastRange = range;
+                }
+            });
+
+            this.quill.on('text-change', () => {
+                const range = this.quill.getSelection();
+                if (range) {
+                    this.lastRange = range;
+                }
+                this.refreshEditorImages();
+                this.positionImageResizeHandle();
+            });
+        }
+
+        this.bindImageInput();
+        this.bindImageInteractions();
+        this.refreshEditorImages();
     },
 
-    async handleImageUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
+    getEditorShell() {
+        return document.querySelector('.news-editor-shell');
+    },
 
-        // Check size (max 5MB)
-        if (file.size > 5 * 1024 * 1024) {
-            UI.showToast('Bild ist zu groß (max 5MB)', 'error');
+    bindImageInteractions() {
+        if (!this.quill) return;
+
+        const root = this.quill.root;
+        if (this.boundEditorRoot !== root) {
+            root.addEventListener('click', (event) => {
+                const image = event.target.closest('img');
+                if (image && root.contains(image)) {
+                    this.selectImage(image);
+                    return;
+                }
+
+                if (!event.target.closest('.news-image-resize-handle')) {
+                    this.clearImageSelection();
+                }
+            });
+
+            root.addEventListener('dragstart', (event) => {
+                if (event.target.closest('img')) {
+                    event.preventDefault();
+                }
+            });
+
+            root.addEventListener('scroll', () => {
+                this.positionImageResizeHandle();
+            });
+
+            this.boundEditorRoot = root;
+        }
+
+        this.ensureImageResizeHandle();
+
+        if (!this.outsideClickHandlerBound) {
+            document.addEventListener('click', (event) => {
+                const shell = this.getEditorShell();
+                if (!shell || !shell.contains(event.target)) {
+                    this.clearImageSelection();
+                }
+            });
+            this.outsideClickHandlerBound = true;
+        }
+
+        if (!this.windowResizeHandlerBound) {
+            window.addEventListener('resize', () => {
+                this.positionImageResizeHandle();
+            });
+            this.windowResizeHandlerBound = true;
+        }
+    },
+
+    ensureImageResizeHandle() {
+        if (this.imageResizeHandle) return this.imageResizeHandle;
+
+        const shell = this.getEditorShell();
+        if (!shell) return null;
+
+        const handle = document.createElement('button');
+        handle.type = 'button';
+        handle.className = 'news-image-resize-handle';
+        handle.setAttribute('aria-label', 'Bildgröße ändern');
+        handle.addEventListener('pointerdown', (event) => {
+            this.startImageResize(event);
+        });
+
+        shell.appendChild(handle);
+        this.imageResizeHandle = handle;
+        return handle;
+    },
+
+    refreshEditorImages() {
+        if (!this.quill) return;
+
+        this.quill.root.querySelectorAll('img').forEach((image) => {
+            this.prepareEditorImage(image);
+        });
+
+        if (this.activeImage && !this.quill.root.contains(this.activeImage)) {
+            this.clearImageSelection();
+        }
+    },
+
+    prepareEditorImage(image) {
+        if (!image) return;
+
+        image.draggable = false;
+        image.classList.add('news-editor-inline-image');
+        const persistedWidth = image.getAttribute('data-width') || image.dataset.resizedWidth || image.style.width || image.getAttribute('width');
+        if (persistedWidth) {
+            image.style.width = persistedWidth;
+            image.setAttribute('data-width', persistedWidth);
+        }
+        image.style.maxWidth = '100%';
+        image.style.height = 'auto';
+
+        if (!image.style.width) {
+            image.style.width = '100%';
+        }
+    },
+
+    selectImage(image) {
+        if (!image) return;
+
+        this.prepareEditorImage(image);
+
+        if (this.activeImage && this.activeImage !== image) {
+            this.activeImage.classList.remove('news-editor-image-selected');
+        }
+
+        this.activeImage = image;
+        image.classList.add('news-editor-image-selected');
+        this.positionImageResizeHandle();
+    },
+
+    clearImageSelection() {
+        if (this.activeImage) {
+            this.activeImage.classList.remove('news-editor-image-selected');
+        }
+
+        this.activeImage = null;
+
+        if (this.imageResizeHandle) {
+            this.imageResizeHandle.classList.remove('active');
+        }
+    },
+
+    positionImageResizeHandle() {
+        const handle = this.ensureImageResizeHandle();
+        const shell = this.getEditorShell();
+
+        if (!handle || !shell || !this.activeImage || !this.activeImage.isConnected) {
+            if (handle) handle.classList.remove('active');
             return;
         }
 
-        UI.showLoading('Bild wird verarbeitet...');
+        const shellRect = shell.getBoundingClientRect();
+        const imageRect = this.activeImage.getBoundingClientRect();
 
-        try {
-            // Compress/Resize image before insertion
-            const resizedDataUrl = await this.resizeImage(file);
-            this.insertImage(resizedDataUrl);
-        } catch (err) {
-            console.error('Image processing error:', err);
-            UI.showToast('Fehler beim Einfügen des Bildes', 'error');
-        } finally {
-            UI.hideLoading();
-            e.target.value = ''; // Reset input
+        if (imageRect.width === 0 || imageRect.height === 0) {
+            handle.classList.remove('active');
+            return;
+        }
+
+        handle.classList.add('active');
+        handle.style.left = `${imageRect.right - shellRect.left}px`;
+        handle.style.top = `${imageRect.bottom - shellRect.top}px`;
+    },
+
+    startImageResize(event) {
+        if (!this.activeImage || !this.quill) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+
+        const image = this.activeImage;
+        const editorWidth = this.quill.root.clientWidth;
+        if (!editorWidth) return;
+
+        const startX = event.clientX;
+        const startWidth = image.getBoundingClientRect().width;
+        const minWidth = 120;
+
+        const onPointerMove = (moveEvent) => {
+            const deltaX = moveEvent.clientX - startX;
+            const nextWidth = Math.max(minWidth, Math.min(editorWidth, startWidth + deltaX));
+            const percentWidth = Math.max(15, Math.min(100, (nextWidth / editorWidth) * 100));
+            const widthValue = `${percentWidth.toFixed(2)}%`;
+            const imageBlot = Quill.find(image);
+
+            if (imageBlot && typeof imageBlot.format === 'function') {
+                imageBlot.format('width', widthValue);
+            } else {
+                image.style.width = widthValue;
+                image.dataset.resizedWidth = widthValue;
+                image.setAttribute('data-width', widthValue);
+            }
+            image.style.maxWidth = '100%';
+            image.style.height = 'auto';
+
+            this.positionImageResizeHandle();
+        };
+
+        const onPointerUp = () => {
+            window.removeEventListener('pointermove', onPointerMove);
+            window.removeEventListener('pointerup', onPointerUp);
+            this.positionImageResizeHandle();
+        };
+
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+    },
+
+    bindImageInput() {
+        const imgInput = document.getElementById('rteImageInput');
+        if (!imgInput) return;
+
+        imgInput.onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            if (file.size > 5 * 1024 * 1024) {
+                UI.showToast('Bild ist zu groß (max 5MB)', 'error');
+                return;
+            }
+
+            UI.showLoading('Bild wird verarbeitet...');
+            try {
+                const dataUrl = await this.resizeImage(file);
+                const range = this.ensureRange();
+                if (!range) return;
+
+                this.quill.insertEmbed(range.index, 'image', dataUrl, Quill.sources.USER);
+                this.quill.setSelection(range.index + 1, 0, Quill.sources.SILENT);
+                this.lastRange = { index: range.index + 1, length: 0 };
+
+                const [leaf] = this.quill.getLeaf(range.index);
+                if (leaf && leaf.domNode && leaf.domNode.tagName === 'IMG') {
+                    this.prepareEditorImage(leaf.domNode);
+                    this.selectImage(leaf.domNode);
+                }
+            } catch (err) {
+                console.error('Image insert error:', err);
+                UI.showToast('Fehler beim Einfügen des Bildes', 'error');
+            } finally {
+                UI.hideLoading();
+                e.target.value = '';
+            }
+        };
+    },
+
+    ensureRange() {
+        if (!this.quill) return null;
+
+        this.quill.focus();
+        let range = this.quill.getSelection();
+
+        if (!range && this.lastRange) {
+            range = this.lastRange;
+            this.quill.setSelection(range.index, range.length, Quill.sources.SILENT);
+        }
+
+        if (!range) {
+            const index = Math.max(0, this.quill.getLength() - 1);
+            range = { index, length: 0 };
+            this.quill.setSelection(index, 0, Quill.sources.SILENT);
+        }
+
+        this.lastRange = range;
+        return range;
+    },
+
+    normalizeToolbarValue(value) {
+        if (value === '' || value === 'false' || value === false || value == null) {
+            return false;
+        }
+
+        if (/^\d+$/.test(String(value))) {
+            return Number(value);
+        }
+
+        return value;
+    },
+
+    toggleInlineFormat(format) {
+        const range = this.ensureRange();
+        if (!range) return;
+
+        const currentFormats = this.quill.getFormat(range);
+        const isActive = !!currentFormats[format];
+        this.quill.format(format, !isActive, Quill.sources.USER);
+        this.quill.focus();
+    },
+
+    applyBlockFormat(format, value) {
+        const range = this.ensureRange();
+        if (!range) return;
+
+        const normalizedValue = this.normalizeToolbarValue(value);
+        const currentValue = this.quill.getFormat(range)[format];
+        const shouldReset = String(currentValue) === String(normalizedValue);
+        this.quill.format(format, shouldReset ? false : normalizedValue, Quill.sources.USER);
+        this.quill.focus();
+    },
+
+    openImagePicker() {
+        const input = document.getElementById('rteImageInput');
+        if (input) {
+            this.ensureRange();
+            input.click();
+        }
+    },
+
+    normalizeLink(url) {
+        if (!url) return '';
+        if (/^(https?:|mailto:|tel:)/i.test(url)) {
+            return url;
+        }
+        return `https://${url}`;
+    },
+
+    insertOrEditLink() {
+        const range = this.ensureRange();
+        if (!range) return;
+
+        const currentFormats = this.quill.getFormat(range);
+        const currentLink = typeof currentFormats.link === 'string' ? currentFormats.link : '';
+        const rawUrl = window.prompt('Link eingeben', currentLink || 'https://');
+
+        if (rawUrl === null) return;
+
+        const normalizedUrl = this.normalizeLink(rawUrl.trim());
+        if (!normalizedUrl) {
+            this.quill.format('link', false, Quill.sources.USER);
+            return;
+        }
+
+        if (range.length === 0) {
+            const label = window.prompt('Linktext eingeben', normalizedUrl);
+            if (label === null) return;
+
+            const text = label.trim() || normalizedUrl;
+            this.quill.insertText(range.index, text, { link: normalizedUrl }, Quill.sources.USER);
+            this.quill.setSelection(range.index + text.length, 0, Quill.sources.SILENT);
+            this.lastRange = { index: range.index + text.length, length: 0 };
+            return;
+        }
+
+        this.quill.format('link', normalizedUrl, Quill.sources.USER);
+        this.quill.focus();
+    },
+
+    clearFormatting() {
+        const range = this.ensureRange();
+        if (!range) return;
+
+        if (range.length > 0) {
+            this.quill.removeFormat(range.index, range.length, Quill.sources.USER);
+            this.quill.setSelection(range.index, range.length, Quill.sources.SILENT);
+            this.lastRange = { index: range.index, length: range.length };
+            return;
+        }
+
+        ['bold', 'italic', 'underline', 'link'].forEach(format => {
+            this.quill.format(format, false, Quill.sources.USER);
+        });
+        this.quill.format('header', false, Quill.sources.USER);
+        this.quill.format('list', false, Quill.sources.USER);
+        this.quill.focus();
+    },
+
+    focusAtEnd(shouldFocus = false) {
+        if (!this.quill) return;
+
+        const index = Math.max(0, this.quill.getLength() - 1);
+        this.lastRange = { index, length: 0 };
+
+        if (shouldFocus) {
+            this.quill.setSelection(index, 0, Quill.sources.SILENT);
+            this.quill.focus();
         }
     },
 
@@ -138,20 +481,14 @@ const RichTextEditor = {
                     const canvas = document.createElement('canvas');
                     let width = img.width;
                     let height = img.height;
-
-                    // Max width 800px for consistency
                     if (width > 800) {
                         height = Math.round(height * (800 / width));
                         width = 800;
                     }
-
                     canvas.width = width;
                     canvas.height = height;
-
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
-
-                    // Output as JPEG high quality
                     resolve(canvas.toDataURL('image/jpeg', 0.8));
                 };
                 img.onerror = reject;
@@ -162,103 +499,50 @@ const RichTextEditor = {
         });
     },
 
-    insertImage(src) {
-        // Focus editor first
-        const editor = document.getElementById('newsContent');
-        if (!editor) return;
-        editor.focus();
-
-        // If we have a saved range, restore it
-        if (this.savedRange) {
-            this.restoreSelection(this.savedRange);
-        }
-
-        // Create image element
-        const img = document.createElement('img');
-        img.src = src;
-        img.className = 'rte-inline-image';
-        img.style.maxWidth = '800px';
-        img.style.minWidth = '400px';
-        img.style.width = '100%';
-        img.style.height = 'auto';
-        img.style.margin = '1rem 0';
-        img.style.borderRadius = '8px';
-        img.style.display = 'block';
-        img.style.cursor = 'pointer';
-
-        this.insertNodeAtCursor(img);
-
-        // Add a line break after image for easier text continuation
-        const br = document.createElement('br');
-        this.insertNodeAtCursor(br);
-
-        // Save new selection
-        this.savedRange = this.saveSelection();
-    },
-
     getContent() {
-        const editor = document.getElementById('newsContent');
-        if (!editor) return '';
-        // Sanitize before returning? Or on save?
-        // Let's return raw logic here
-        return editor.innerHTML;
+        if (this.quill) return this.quill.root.innerHTML;
+        return '';
     },
 
     setContent(html) {
-        const editor = document.getElementById('newsContent');
-        if (!editor) return;
-        editor.innerHTML = html;
+        if (this.quill) {
+            if (!html) {
+                this.clear();
+                return;
+            }
+
+            this.quill.setText('');
+            this.quill.clipboard.dangerouslyPasteHTML(html);
+            this.refreshEditorImages();
+            this.focusAtEnd();
+        }
     },
 
     clear() {
-        const editor = document.getElementById('newsContent');
-        if (editor) editor.innerHTML = '';
-    },
-
-    // Save current selection
-    saveSelection() {
-        const selection = window.getSelection();
-        if (selection.rangeCount > 0) {
-            return selection.getRangeAt(0);
-        }
-        return null;
-    },
-
-    // Restore saved selection
-    restoreSelection(range) {
-        if (range) {
-            const selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(range);
+        if (this.quill) {
+            this.quill.setText('');
+            this.lastRange = { index: 0, length: 0 };
+            this.clearImageSelection();
         }
     },
 
-    // Insert node at cursor position
-    insertNodeAtCursor(node) {
-        const selection = window.getSelection();
-        if (!selection.rangeCount) return;
-
-        const range = selection.getRangeAt(0);
-        range.deleteContents();
-        range.insertNode(node);
-
-        // Move cursor after inserted node
-        range.setStartAfter(node);
-        range.setEndAfter(node);
-        selection.removeAllRanges();
-        selection.addRange(range);
-    },
-
-    // Simple sanitization
     sanitize(html) {
         if (!html) return '';
-
-        // Remove script tags and on* attributes
-        // This is a basic protection. For production use a library like DOMPurify.
         return html
-            .replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gim, "")
-            .replace(/ on\w+="[^"]*"/g, "")
-            .replace(/javascript:/g, "");
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gim, '')
+            .replace(/ on\w+="[^"]*"/g, '')
+            .replace(/javascript:/g, '');
+    },
+
+    getPlainText(html) {
+        if (!html) return '';
+        try {
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html;
+            return tmp.textContent || tmp.innerText || '';
+        } catch (e) {
+            return html.replace(/<[^>]+>/g, '');
+        }
     }
 };
 
@@ -2143,21 +2427,28 @@ const App = {
                 const imagesInput = document.getElementById('newsImages');
                 if (imagesInput) imagesInput.value = null;
                 document.getElementById('newsTitle').value = '';
-                document.getElementById('newsContent').value = '';
 
                 UI.openModal('createNewsModal');
+
+                // Init / clear quill editor after modal is open
+                setTimeout(() => {
+                    RichTextEditor.init();
+                    RichTextEditor.clear();
+                }, 50);
             });
         }
 
-        // Create news form (clone to remove old listeners)
+        // Create news form
         const createNewsForm = document.getElementById('createNewsForm');
         if (createNewsForm) {
-            const newForm = createNewsForm.cloneNode(true);
-            createNewsForm.parentNode.replaceChild(newForm, createNewsForm);
-            newForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                this.handleCreateNews();
-            });
+            // Check if we already added the listener to avoid double-submit
+            if (!createNewsForm._newsListenerAdded) {
+                createNewsForm.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleCreateNews();
+                });
+                createNewsForm._newsListenerAdded = true;
+            }
         }
 
         // News images preview handler
@@ -2541,7 +2832,7 @@ const App = {
                     await Statistics.initStatisticsFilters();
                     await Statistics.renderGeneralStatistics();
                 } else if (view === 'news') {
-                    await this.renderNewsView();
+                    await this.renderNewsView(triggerSource === 'news-refresh');
 
                     // Hide news banner when viewing news
                     this.hideNewsBanner();
@@ -2550,11 +2841,7 @@ const App = {
                     const createNewsBtn = document.getElementById('createNewsBtn');
                     if (createNewsBtn) {
                         const user = Auth.getCurrentUser();
-                        let canCreate = Auth.isAdmin();
-                        if (!canCreate && user) {
-                            const userBands = await Storage.getUserBands(user.id);
-                            canCreate = Array.isArray(userBands) && userBands.some(b => b.role === 'leader' || b.role === 'co-leader');
-                        }
+                        const canCreate = await this.canCurrentUserCreateNews(user);
                         createNewsBtn.style.display = canCreate ? 'inline-flex' : 'none';
                     }
 
@@ -2967,12 +3254,12 @@ const App = {
     },
 
     // News Management
-    async renderNewsView() {
+    async renderNewsView(force = false) {
         // Show loading overlay if present
         const overlay = document.getElementById('globalLoadingOverlay');
 
-        // Nur laden, wenn noch keine News im Speicher
-        if (this.newsItems && Array.isArray(this.newsItems) && this.newsItems.length > 0) {
+        // Nur laden, wenn noch keine News im Speicher ODER force refresh
+        if (!force && this.newsItems && Array.isArray(this.newsItems) && this.newsItems.length > 0) {
             this.renderNewsList(this.newsItems);
             // CRITICAL FIX: Hide overlay when using cached news
             if (overlay) {
@@ -3054,8 +3341,9 @@ const App = {
             // mark unread for this user
             const isReadForUser = currentUser && Array.isArray(news.readBy) && news.readBy.includes(currentUser.id);
 
-            // Truncate content to 3 lines
-            const truncatedContent = this.truncateText(news.content, 150);
+            // Extract plain text for preview (strip HTML)
+            const plainContent = RichTextEditor.getPlainText(news.content || '');
+            const truncatedContent = this.truncateText(plainContent, 150);
 
             return `
                 <div class="news-card news-card-modern ${!isReadForUser ? 'news-card-unread' : ''}" data-id="${news.id}">
@@ -3110,8 +3398,52 @@ const App = {
         }
     },
 
+    async canCurrentUserCreateNews(user = Auth.getCurrentUser()) {
+        if (!user) return false;
+        if (Auth.isAdmin()) return true;
+
+        const userBands = await Storage.getUserBands(user.id);
+        return Array.isArray(userBands) && userBands.some(
+            band => band.role === 'leader' || band.role === 'co-leader'
+        );
+    },
+
+    resetNewsComposer() {
+        const titleInput = document.getElementById('newsTitle');
+        if (titleInput) {
+            titleInput.value = '';
+        }
+
+        RichTextEditor.clear();
+
+        const imagesInput = document.getElementById('newsImages');
+        if (imagesInput) {
+            imagesInput.value = null;
+        }
+
+        const preview = document.getElementById('newsImagesPreview');
+        if (preview) {
+            preview.innerHTML = '';
+        }
+
+        const editIdInput = document.getElementById('editNewsId');
+        if (editIdInput) {
+            editIdInput.value = '';
+        }
+
+        const modalTitle = document.querySelector('#createNewsModal .modal-header h2');
+        if (modalTitle) {
+            modalTitle.textContent = 'News erstellen';
+        }
+
+        const submitBtn = document.querySelector('#createNewsModal .modal-actions .btn-primary');
+        if (submitBtn) {
+            submitBtn.textContent = 'Veröffentlichen';
+        }
+    },
+
     async handleCreateNews() {
-        const title = document.getElementById('newsTitle').value;
+        const title = document.getElementById('newsTitle').value.trim();
         // Use Rich Text Editor content
         let content = RichTextEditor.getContent();
         content = RichTextEditor.sanitize(content);
@@ -3119,105 +3451,115 @@ const App = {
         const imagesInput = document.getElementById('newsImages');
         const editIdInput = document.getElementById('editNewsId');
         const user = Auth.getCurrentUser();
-
-        if (!user || !Auth.isAdmin()) {
-            UI.showToast('Keine Berechtigung', 'error');
-            return;
-        }
-
-        // Read image files (convert to data URLs) - these are ADDITIONAL attachments, distinct from inline images
-        const images = [];
-        if (imagesInput && imagesInput.files && imagesInput.files.length > 0) {
-            const files = Array.from(imagesInput.files).slice(0, 6); // limit to 6 images
-            const readFileAsDataURL = (file) => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(file);
-            });
-
-            try {
-                const results = await Promise.all(files.map(f => readFileAsDataURL(f)));
-                results.forEach(r => images.push(r));
-            } catch (err) {
-                console.error('Fehler beim Lesen der Bilddateien', err);
-                UI.showToast('Fehler beim Verarbeiten der Bilder', 'error');
-            }
-        }
-
-        // If edit mode -> update existing item, else create new
         const editId = editIdInput ? editIdInput.value : '';
-        if (editId) {
-            // fetch existing
-            const existing = await Storage.getById('news', editId);
-            if (!existing) {
-                UI.showToast('News nicht gefunden', 'error');
+        let successMessage = '';
+
+        try {
+            if (!user) {
+                UI.showToast('Keine Berechtigung', 'error');
                 return;
             }
 
-            // Only allow editor if admin or original author
-            if (!(Auth.isAdmin() || existing.createdBy === user.id)) {
-                UI.showToast('Keine Berechtigung zum Bearbeiten', 'error');
-                return;
+            if (!editId) {
+                const canCreateNews = await this.canCurrentUserCreateNews(user);
+                if (!canCreateNews) {
+                    UI.showToast('Keine Berechtigung', 'error');
+                    return;
+                }
             }
 
-            // If no new images selected, keep existing images
-            let finalImages = existing.images || [];
+            // Read image files (convert to data URLs) - these are ADDITIONAL attachments, distinct from inline images
+            const images = [];
             if (imagesInput && imagesInput.files && imagesInput.files.length > 0) {
-                const files = Array.from(imagesInput.files).slice(0, 6);
+                const files = Array.from(imagesInput.files).slice(0, 6); // limit to 6 images
                 const readFileAsDataURL = (file) => new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result);
                     reader.onerror = reject;
                     reader.readAsDataURL(file);
                 });
+
                 try {
                     const results = await Promise.all(files.map(f => readFileAsDataURL(f)));
-                    finalImages = results.slice();
+                    results.forEach(r => images.push(r));
                 } catch (err) {
                     console.error('Fehler beim Lesen der Bilddateien', err);
                     UI.showToast('Fehler beim Verarbeiten der Bilder', 'error');
                 }
             }
 
-            await Storage.updateNewsItem(editId, {
-                title,
-                content, // Rich Text HTML
-                images: finalImages,
-                updatedAt: new Date().toISOString(),
-                updatedBy: user.id,
-                // reset read state so others see it as new again
-                readBy: [user.id]
-            });
-            UI.showToast('News aktualisiert!', 'success');
-        } else {
-            await Storage.createNewsItem(title, content, user.id, images);
-            UI.showToast('News veröffentlicht!', 'success');
+            // If edit mode -> update existing item, else create new
+            if (editId) {
+                // fetch existing
+                const existing = await Storage.getById('news', editId);
+                if (!existing) {
+                    UI.showToast('News nicht gefunden', 'error');
+                    return;
+                }
+
+                // Only allow editor if admin or original author
+                if (!(Auth.isAdmin() || existing.createdBy === user.id)) {
+                    UI.showToast('Keine Berechtigung zum Bearbeiten', 'error');
+                    return;
+                }
+
+                // If no new images selected, keep existing images
+                let finalImages = existing.images || [];
+                if (imagesInput && imagesInput.files && imagesInput.files.length > 0) {
+                    const files = Array.from(imagesInput.files).slice(0, 6);
+                    const readFileAsDataURL = (file) => new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    });
+                    try {
+                        const results = await Promise.all(files.map(f => readFileAsDataURL(f)));
+                        finalImages = results.slice();
+                    } catch (err) {
+                        console.error('Fehler beim Lesen der Bilddateien', err);
+                        UI.showToast('Fehler beim Verarbeiten der Bilder', 'error');
+                    }
+                }
+
+                await Storage.updateNewsItem(editId, {
+                    title,
+                    content, // Rich Text HTML
+                    images: finalImages,
+                    updatedAt: new Date().toISOString(),
+                    updatedBy: user.id,
+                    // reset read state so others see it as new again
+                    readBy: [user.id]
+                });
+                successMessage = 'News aktualisiert!';
+            } else {
+                // Check if title or content is provided
+                if (!title || !content || content === '<p><br></p>') {
+                    UI.showToast('Bitte Titel und Inhalt eingeben', 'error');
+                    return;
+                }
+                await Storage.createNewsItem(title, content, user.id, images);
+                successMessage = 'News veröffentlicht!';
+            }
+        } catch (error) {
+            console.error('[handleCreateNews] Fehler:', error);
+            UI.showToast(error.message || 'Fehler beim Speichern der News', 'error');
+            return;
         }
 
-        // Clear form and close modal
-        document.getElementById('newsTitle').value = '';
-        RichTextEditor.clear(); // Clear editor
-
-        if (imagesInput) {
-            imagesInput.value = null;
-        }
-        const preview = document.getElementById('newsImagesPreview');
-        if (preview) preview.innerHTML = '';
-
-        // reset edit id if any
-        if (editIdInput) editIdInput.value = '';
-
+        this.resetNewsComposer();
         UI.closeModal('createNewsModal');
+        UI.showToast(successMessage, 'success');
 
         // Clear cache to force refresh
         this.newsItems = null;
 
-        // Navigate to news view (this will automatically call renderNewsView)
-        await this.navigateTo('news');
-
-        // Update badge
-        await this.updateNewsNavBadge();
+        void this.navigateTo('news', 'news-refresh').catch(error => {
+            console.error('[handleCreateNews] News-Refresh fehlgeschlagen:', error);
+        });
+        void this.updateNewsNavBadge().catch(error => {
+            console.error('[handleCreateNews] Badge-Update fehlgeschlagen:', error);
+        });
     },
 
     async deleteNews(newsId) {
@@ -3260,8 +3602,6 @@ const App = {
         const editInput = document.getElementById('editNewsId');
 
         if (titleInput) titleInput.value = news.title || '';
-        // Populate Rich Text Editor
-        RichTextEditor.setContent(news.content || '');
         if (editInput) editInput.value = news.id;
 
         console.log('Populated fields - Title:', news.title, 'Content:', news.content);
@@ -3291,12 +3631,42 @@ const App = {
 
         UI.openModal('createNewsModal');
 
+        // Init Quill and populate content after modal is open (so DOM is visible)
+        setTimeout(() => {
+            RichTextEditor.init();
+            RichTextEditor.setContent(news.content || '');
+        }, 50);
+
     },
 
     // Truncate text to a maximum length
     truncateText(text, maxLength) {
         if (!text || text.length <= maxLength) return text;
         return text.substring(0, maxLength) + '...';
+    },
+
+    getConfirmedRehearsalDate(rehearsal) {
+        if (!rehearsal) return null;
+        if (rehearsal.confirmedDate) return rehearsal.confirmedDate;
+
+        if (!Array.isArray(rehearsal.proposedDates)) {
+            return null;
+        }
+
+        const confirmedProposal = rehearsal.proposedDates.find(proposal => proposal && typeof proposal === 'object' && proposal.confirmed);
+        if (confirmedProposal) {
+            return confirmedProposal.startTime || confirmedProposal.endTime || null;
+        }
+
+        if (
+            typeof rehearsal.confirmedDateIndex === 'number' &&
+            rehearsal.proposedDates[rehearsal.confirmedDateIndex] !== undefined
+        ) {
+            const indexedProposal = rehearsal.proposedDates[rehearsal.confirmedDateIndex];
+            return typeof indexedProposal === 'string' ? indexedProposal : indexedProposal?.startTime || null;
+        }
+
+        return null;
     },
 
     // Open news detail modal
@@ -3310,8 +3680,19 @@ const App = {
         // Reset Containers
         const heroContainer = document.getElementById('newsDetailHero');
         const imagesContainer = document.getElementById('newsDetailImages');
+        const imagesSection = document.getElementById('newsDetailImagesSection');
+        const metaContainer = document.getElementById('newsDetailMeta');
+        const leadElement = document.getElementById('newsDetailLead');
+        const imagesCountElement = document.getElementById('newsDetailImagesCount');
         heroContainer.innerHTML = '';
         imagesContainer.innerHTML = '';
+        if (metaContainer) metaContainer.innerHTML = '';
+        if (leadElement) {
+            leadElement.textContent = '';
+            leadElement.style.display = 'none';
+        }
+        if (imagesCountElement) imagesCountElement.textContent = '';
+        if (imagesSection) imagesSection.style.display = 'none';
 
         // Determine Hero Image vs Gallery Images
         let heroImgSrc = null;
@@ -3336,16 +3717,44 @@ const App = {
 
         // Populate Text
         document.getElementById('newsDetailTitle').textContent = news.title || '';
+        const author = news.createdBy ? await Storage.getById('users', news.createdBy) : null;
+        const authorName = author ? UI.getUserDisplayName(author) : '';
 
         const date = new Date(news.createdAt).toLocaleDateString('de-DE', {
             year: 'numeric',
             month: 'long',
             day: 'numeric'
         });
-        document.getElementById('newsDetailDate').textContent = `📅 ${date}`;
+        document.getElementById('newsDetailDate').textContent = date;
+
+        if (metaContainer) {
+            const metaItems = [
+                '<span class="news-detail-pill news-detail-pill-accent">Aktuelle Info</span>'
+            ];
+
+            if (authorName) {
+                metaItems.push(`<span class="news-detail-pill">Von ${this.escapeHtml(authorName)}</span>`);
+            }
+
+            if (heroImgSrc) {
+                const imageCount = news.images.length;
+                metaItems.push(`<span class="news-detail-pill">${imageCount} Bild${imageCount === 1 ? '' : 'er'}</span>`);
+            }
+
+            metaContainer.innerHTML = metaItems.join('');
+        }
 
         // Use innerHTML directly (content is sanitized on save by RichTextEditor)
         document.getElementById('newsDetailContent').innerHTML = news.content || '';
+
+        if (leadElement) {
+            const plainContent = RichTextEditor.getPlainText(news.content || '').trim();
+            const leadText = plainContent.length > 140 ? this.truncateText(plainContent, 190) : '';
+            if (leadText) {
+                leadElement.textContent = leadText;
+                leadElement.style.display = '';
+            }
+        }
 
         // Render remaining images in modern gallery grid
         if (galleryImages.length > 0) {
@@ -3366,6 +3775,12 @@ const App = {
                 gallery.appendChild(imgWrapper);
             });
 
+            if (imagesSection) {
+                imagesSection.style.display = 'block';
+            }
+            if (imagesCountElement) {
+                imagesCountElement.textContent = `${galleryImages.length} weitere${galleryImages.length === 1 ? 's Bild' : ' Bilder'}`;
+            }
             imagesContainer.appendChild(gallery);
         }
 
@@ -5117,11 +5532,7 @@ const App = {
             // Run in background
             (async () => {
                 const user = Auth.getCurrentUser();
-                let canCreate = Auth.isAdmin();
-                if (!canCreate && user) {
-                    const userBands = await Storage.getUserBands(user.id);
-                    canCreate = Array.isArray(userBands) && userBands.some(b => b.role === 'leader' || b.role === 'co-leader');
-                }
+                const canCreate = await this.canCurrentUserCreateNews(user);
                 createNewsBtnGlobal.style.display = canCreate ? 'inline-flex' : 'none';
             })();
         }
@@ -6707,7 +7118,19 @@ const App = {
                             <div class="user-meta">
                                 <span>👤 @${Bands.escapeHtml(user.username)}</span>
                                 <span>📧 ${Bands.escapeHtml(user.email)}</span>
-                                ${user.instrument ? `<span>🎵 ${Bands.getInstrumentName(user.instrument)}</span>` : ''}
+                                ${user.instrument ? (() => {
+                                    try {
+                                        const parsed = JSON.parse(user.instrument);
+                                        if (Array.isArray(parsed) && parsed.length > 0) {
+                                            return `<span>🎵 ${parsed.map(i => Bands.getInstrumentName(i)).join(', ')}</span>`;
+                                        } else if (typeof user.instrument === 'string' && !user.instrument.startsWith('[')) {
+                                            return `<span>🎵 ${Bands.getInstrumentName(user.instrument)}</span>`;
+                                        }
+                                        return '';
+                                    } catch (e) {
+                                        return `<span>🎵 ${Bands.getInstrumentName(user.instrument)}</span>`;
+                                    }
+                                })() : ''}
                             </div>
                         </div>
                         <div class="user-card-actions">
@@ -7585,15 +8008,20 @@ const App = {
                 if (news.length === 0) {
                     newsSection.innerHTML = '<div class="empty-state"><div class="empty-icon">📰</div><p>Keine News vorhanden.</p></div>';
                 } else {
-                    newsSection.innerHTML = news.slice(0, 3).map(n => `
-                    <div class="dashboard-news-item clickable" data-id="${n.id}">
-                        <div class="news-heading"><strong>📰 News</strong></div>
-                        <div class="news-title">${Bands.escapeHtml(n.title)}</div>
-                        <div class="news-date">${UI.formatDateShort(n.createdAt)}</div>
-                        <div class="news-content">${Bands.escapeHtml(n.content).slice(0, 80)}${n.content.length > 80 ? '…' : ''}</div>
-                        <div class="btn-show-more-news">Mehr anzeigen</div>
-                    </div>
-                `).join('');
+                    newsSection.innerHTML = news.slice(0, 3).map(n => {
+                        const dashPlainContent = RichTextEditor.getPlainText(n.content || '');
+                        const dashTruncated = dashPlainContent.slice(0, 80) + (dashPlainContent.length > 80 ? '…' : '');
+
+                        return `
+                            <div class="dashboard-news-item clickable" data-id="${n.id}">
+                                <div class="news-heading"><strong>📰 News</strong></div>
+                                <div class="news-title">${Bands.escapeHtml(n.title)}</div>
+                                <div class="news-date">${UI.formatDateShort(n.createdAt)}</div>
+                                <div class="news-content">${this.escapeHtml(dashTruncated)}</div>
+                                <div class="btn-show-more-news">Mehr anzeigen</div>
+                            </div>
+                        `;
+                    }).join('');
                     const self = this;
                     newsSection.querySelectorAll('.dashboard-news-item.clickable').forEach(item => {
                         item.addEventListener('click', async (e) => {
@@ -7697,9 +8125,14 @@ const App = {
                 let activities = [];
                 activities = activities.concat(
                     (events || []).map(e => ({ type: 'event', date: e.date, title: e.title, id: e.id })),
-                    (rehearsals || []).filter(r => r.status === 'confirmed' && r.confirmedDateIndex !== undefined).map(r => ({
-                        type: 'rehearsal', date: r.proposedDates[r.confirmedDateIndex], title: r.title, id: r.id
-                    })),
+                    (rehearsals || [])
+                        .map(r => ({
+                            type: 'rehearsal',
+                            date: this.getConfirmedRehearsalDate(r),
+                            title: r.title,
+                            id: r.id
+                        }))
+                        .filter(r => r.date),
                     (news || []).map(n => ({ type: 'news', date: n.createdAt, title: n.title, id: n.id }))
                 );
                 activities = activities.filter(a => a.date).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
@@ -7762,19 +8195,20 @@ const App = {
             }));
 
         const upcomingRehearsals = rehearsals
-            .filter(r => r.status === 'confirmed' && ((r.confirmedDate && r.confirmedDate !== '') || (r.confirmedDateIndex !== undefined && r.proposedDates && r.proposedDates[r.confirmedDateIndex])))
-            .map(r => {
-                const dateIso = r.confirmedDate ? r.confirmedDate : (r.proposedDates && r.confirmedDateIndex !== undefined ? r.proposedDates[r.confirmedDateIndex] : null);
-                return {
-                    type: 'rehearsal',
-                    date: dateIso,
-                    title: r.title,
-                    bandId: r.bandId,
-                    band: r.band, // Pass through joined band data
-                    locationId: r.locationId || null,
-                    id: r.id
-                };
-            })
+            .map(r => ({
+                rehearsal: r,
+                dateIso: this.getConfirmedRehearsalDate(r)
+            }))
+            .filter(({ rehearsal, dateIso }) => rehearsal.status === 'confirmed' && dateIso)
+            .map(({ rehearsal, dateIso }) => ({
+                type: 'rehearsal',
+                date: dateIso,
+                title: rehearsal.title,
+                bandId: rehearsal.bandId,
+                band: rehearsal.band, // Pass through joined band data
+                locationId: rehearsal.locationId || null,
+                id: rehearsal.id
+            }))
             .filter(item => item.date && new Date(item.date) >= now);
 
         const combined = [...upcomingEvents, ...upcomingRehearsals]

@@ -452,9 +452,9 @@ const Storage = {
     async createRehearsal(rehearsalData) {
         const rehearsal = {
             id: this.generateId(),
-            ...rehearsalData,
             status: 'pending',
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            ...rehearsalData,
         };
         return await this.save('rehearsals', rehearsal);
     },

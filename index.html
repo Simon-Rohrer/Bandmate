@@ -28,6 +28,9 @@
     <link rel="stylesheet" href="css/settings_modal.css">
     <link rel="stylesheet" href="css/statistics.css">
 
+    <!-- Quill Rich Text Editor -->
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+
     <!-- Supabase JS (CDN) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -1857,6 +1860,13 @@
             <div class="modal-body">
                 <input type="hidden" id="confirmRehearsalId">
                 <input type="hidden" id="confirmDateIndex">
+                <input type="hidden" id="confirmAdditionalDateIndexes">
+
+                <div id="confirmAdditionalDatesInfo" class="section" style="display: none;">
+                    <h3>Weitere Einzelproben</h3>
+                    <p class="help-text">Diese zusaetzlich angehakten Termine werden ebenfalls als einzelne bestaetigte Proben angelegt.</p>
+                    <div id="confirmAdditionalDatesList"></div>
+                </div>
 
                 <div class="section">
                     <h3>Probendetails bearbeiten</h3>
@@ -1888,12 +1898,25 @@
                     </select>
                 </div>
 
-                <div class="section">
+                <div class="section confirm-notify-section">
                     <h3>Bandmitglieder benachrichtigen</h3>
                     <p class="help-text">Wähle aus, welche Bandmitglieder eine Bestätigungs-E-Mail
                         erhalten
                         sollen:
                     </p>
+                    <div class="confirm-notify-toolbar">
+                        <div class="confirm-notify-summary">
+                            <span class="confirm-notify-icon">📧</span>
+                            <div class="confirm-notify-summary-copy">
+                                <strong>E-Mail-Empfänger</strong>
+                                <span id="confirmMembersSummary">Keine Mitglieder ausgewählt</span>
+                            </div>
+                        </div>
+                        <div class="confirm-notify-actions">
+                            <button type="button" class="btn btn-secondary" id="confirmSelectAllMembersBtn">Alle</button>
+                            <button type="button" class="btn btn-secondary" id="confirmDeselectAllMembersBtn">Keine</button>
+                        </div>
+                    </div>
                     <div id="confirmMembersList" class="confirm-members-list"></div>
                 </div>
 
@@ -2414,69 +2437,56 @@
 
     <!-- Create News Modal -->
     <div id="createNewsModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
+        <div class="modal-content news-compose-modal">
+            <div class="modal-header news-compose-header">
                 <h2>News erstellen</h2>
                 <button class="modal-close">&times;</button>
             </div>
-            <form id="createNewsForm">
+            <form id="createNewsForm" class="news-compose-form">
                 <input type="hidden" id="editNewsId">
-                <div class="form-group">
-                    <label for="newsTitle">Titel</label>
-                    <input type="text" id="newsTitle" required placeholder="z.B. Neue Feature: Abwesenheiten">
-                </div>
-                <div class="form-group">
-                    <label for="newsContent">Inhalt</label>
-                    <!-- Rich Text Editor Toolbar -->
-                    <div class="rte-toolbar">
-                        <button type="button" class="rte-button" data-command="bold" title="Fett (Strg+B)">
-                            <strong>B</strong>
-                        </button>
-                        <button type="button" class="rte-button" data-command="italic" title="Kursiv (Strg+I)">
-                            <em>I</em>
-                        </button>
-                        <button type="button" class="rte-button" data-command="underline"
-                            title="Unterstrichen (Strg+U)">
-                            <u>U</u>
-                        </button>
-                        <span class="rte-divider"></span>
-                        <button type="button" class="rte-button" data-command="formatBlock" data-value="h3"
-                            title="Überschrift 3">
-                            H3
-                        </button>
-                        <button type="button" class="rte-button" data-command="formatBlock" data-value="h4"
-                            title="Überschrift 4">
-                            H4
-                        </button>
-                        <button type="button" class="rte-button" data-command="formatBlock" data-value="p"
-                            title="Normal">
-                            P
-                        </button>
-                        <span class="rte-divider"></span>
-                        <button type="button" class="rte-button" data-command="insertUnorderedList" title="Aufzählung">
-                            • List
-                        </button>
-                        <button type="button" class="rte-button" data-command="insertOrderedList"
-                            title="Nummerierte Liste">
-                            1. List
-                        </button>
-                        <span class="rte-divider"></span>
-                        <button type="button" class="rte-button" id="rteInsertImageBtn" title="Bild einfügen">
-                            🖼️ Bild
-                        </button>
+                <div class="news-compose-body">
+                    <div class="form-group">
+                        <label for="newsTitle">Titel</label>
+                        <input type="text" id="newsTitle" required placeholder="z.B. Neue Feature: Abwesenheiten">
                     </div>
-                    <!-- Rich Text Editor Content Area -->
-                    <div id="newsContent" class="rte-editor" contenteditable="true" role="textbox"
-                        aria-label="News content editor"
-                        data-placeholder="Beschreibe das Update oder Feature... Du kannst Text formatieren und Bilder einfügen.">
+                    <div class="form-group news-editor-field">
+                        <div class="news-editor-label-row">
+                            <label for="quillEditor">Inhalt</label>
+                            <span class="news-editor-hint">Text markieren und dann formatieren, z.B. fett oder kursiv.</span>
+                        </div>
+                        <div class="news-editor-shell">
+                            <div id="newsEditorToolbar" class="news-editor-toolbar">
+                                <span class="ql-formats">
+                                    <select class="ql-header" title="Überschrift">
+                                        <option selected></option>
+                                        <option value="2">Überschrift</option>
+                                        <option value="3">Zwischenüberschrift</option>
+                                    </select>
+                                </span>
+                                <span class="ql-formats">
+                                    <button type="button" class="ql-bold" title="Fett"></button>
+                                    <button type="button" class="ql-italic" title="Kursiv"></button>
+                                    <button type="button" class="ql-underline" title="Unterstrichen"></button>
+                                </span>
+                                <span class="ql-formats">
+                                    <button type="button" class="ql-list" value="ordered" title="Nummerierte Liste"></button>
+                                    <button type="button" class="ql-list" value="bullet" title="Aufzählung"></button>
+                                </span>
+                                <span class="ql-formats">
+                                    <button type="button" class="ql-link" title="Link einfügen"></button>
+                                    <button type="button" class="ql-image" title="Bild im Text einfügen"></button>
+                                    <button type="button" class="ql-clean" title="Formatierung entfernen"></button>
+                                </span>
+                            </div>
+                            <div id="quillEditor" class="news-editor"></div>
+                        </div>
+                        <input type="file" id="rteImageInput" accept="image/*" style="display:none;">
                     </div>
-                    <!-- Hidden file input for inline images -->
-                    <input type="file" id="rteImageInput" accept="image/*" style="display:none;">
-                </div>
-                <div class="form-group">
-                    <label for="newsImages">Bilder (optional)</label>
-                    <input type="file" id="newsImages" accept="image/*" multiple>
-                    <div id="newsImagesPreview" style="display:flex; gap:0.5rem; margin-top:0.5rem; flex-wrap:wrap;">
+                    <div class="form-group">
+                        <label for="newsImages">Bilder (optional)</label>
+                        <input type="file" id="newsImages" accept="image/*" multiple>
+                        <div id="newsImagesPreview" class="news-images-preview">
+                        </div>
                     </div>
                 </div>
                 <div class="modal-actions">
@@ -2492,32 +2502,47 @@
         <div class="modal-content news-modal-content">
             <button class="modal-close news-modal-close">&times;</button>
 
-            <div id="newsDetailHero" class="news-hero-section">
-                <!-- Hero Image injected here -->
-            </div>
-
-            <div class="modal-body news-modal-body">
-                <div class="news-header-block">
-                    <h2 id="newsDetailTitle"></h2>
-                    <p id="newsDetailDate"></p>
+            <div class="news-detail-scroll-area">
+                <div id="newsDetailHero" class="news-hero-section">
+                    <!-- Hero Image injected here -->
                 </div>
 
-                <div id="newsDetailContent" class="news-content-modern">
+                <div class="modal-body news-modal-body">
+                    <div class="news-header-block">
+                        <div class="news-header-topline">
+                            <span class="news-header-kicker">News</span>
+                            <p id="newsDetailDate"></p>
+                        </div>
+                        <h2 id="newsDetailTitle"></h2>
+                        <div id="newsDetailMeta" class="news-detail-meta"></div>
+                        <p id="newsDetailLead" class="news-detail-lead"></p>
+                    </div>
+
+                    <div class="news-detail-card news-detail-content-card">
+                        <div id="newsDetailContent" class="news-content-modern">
+                        </div>
+                    </div>
+
+                    <div id="newsDetailImagesSection" class="news-detail-card news-gallery-section">
+                        <div class="news-gallery-header">
+                            <h3>Weitere Bilder</h3>
+                            <span id="newsDetailImagesCount" class="news-gallery-count"></span>
+                        </div>
+                        <div id="newsDetailImages" class="news-gallery-section-content">
+                            <!-- Remaining images rendered here -->
+                        </div>
+                    </div>
                 </div>
 
-                <div id="newsDetailImages" class="news-gallery-section">
-                    <!-- Remaining images rendered here -->
-                </div>
-            </div>
-
-            <!-- Update Email Section (only for confirmed rehearsals) -->
-            <div id="updateEmailSection"
-                style="display: none; margin-top: 1rem; padding: 1rem; background: var(--color-bg-secondary); border-radius: var(--radius-md); border-left: 3px solid var(--color-warning);">
-                <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">📧 Update-Email versenden</h3>
-                <div class="checkbox-item" style="display: flex; align-items: center; gap: 0.5rem;">
-                    <input type="checkbox" id="sendUpdateEmail" />
-                    <label for="sendUpdateEmail" style="cursor: pointer; margin: 0;">Bandmitglieder über
-                        Änderungen informieren</label>
+                <!-- Update Email Section (only for confirmed rehearsals) -->
+                <div id="updateEmailSection"
+                    style="display: none; margin: 1rem 2.5rem 1.5rem 2.5rem; padding: 1rem; background: var(--color-bg-secondary); border-radius: var(--radius-md); border-left: 3px solid var(--color-warning);">
+                    <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">📧 Update-Email versenden</h3>
+                    <div class="checkbox-item" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="sendUpdateEmail" />
+                        <label for="sendUpdateEmail" style="cursor: pointer; margin: 0;">Bandmitglieder über
+                            Änderungen informieren</label>
+                    </div>
                 </div>
             </div>
 
@@ -2670,26 +2695,27 @@
     <!-- Scripts -->
 
     <script src="https://cdn.jsdelivr.net/npm/ical.js@1.5.0/build/ical.min.js"></script>
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 
-    <script src="js/logger.js?v=20260131"></script>
-    <script src="js/proxy-service.js?v=20260131"></script>
-    <script src="js/supabase.js?v=20260131"></script>
-    <script src="js/storage.js?v=20260131"></script>
-    <script src="js/auth.js?v=20260131"></script>
-    <script src="js/email-service.js?v=20260131"></script>
-    <script src="js/bands.js?v=20260131"></script>
-    <script src="js/pdf-generator.js?v=20260131"></script>
-    <script src="js/events.js?v=20260131"></script>
-    <script src="js/rehearsals.js?v=20260131"></script>
-    <script src="js/statistics.js?v=20260131"></script>
-    <script src="js/calendar.js?v=20260131"></script>
-    <script src="js/personal-calendar.js?v=20260131"></script>
-    <script src="js/churchtools-api.js?v=20260131"></script>
-    <script src="js/musikpool.js?v=20260131"></script>
-    <script src="js/ui.js?v=20260131"></script>
-    <script src="js/feedback-service.js?v=20260131"></script>
-    <script src="js/chordpro-converter.js?v=20260131"></script>
-    <script src="js/app.js?v=20260131"></script>
+    <script src="js/logger.js?v=20260311"></script>
+    <script src="js/proxy-service.js?v=20260311"></script>
+    <script src="js/supabase.js?v=20260311"></script>
+    <script src="js/storage.js?v=20260311"></script>
+    <script src="js/auth.js?v=20260311"></script>
+    <script src="js/email-service.js?v=20260311"></script>
+    <script src="js/bands.js?v=20260311"></script>
+    <script src="js/pdf-generator.js?v=20260311"></script>
+    <script src="js/events.js?v=20260311"></script>
+    <script src="js/rehearsals.js?v=20260311"></script>
+    <script src="js/statistics.js?v=20260311"></script>
+    <script src="js/calendar.js?v=20260311"></script>
+    <script src="js/personal-calendar.js?v=20260311"></script>
+    <script src="js/churchtools-api.js?v=20260311"></script>
+    <script src="js/musikpool.js?v=20260311"></script>
+    <script src="js/ui.js?v=20260311"></script>
+    <script src="js/feedback-service.js?v=20260311"></script>
+    <script src="js/chordpro-converter.js?v=20260311"></script>
+    <script src="js/app.js?v=20260311"></script>
 
     <!-- Skip duplicated pdf.js block -->
 

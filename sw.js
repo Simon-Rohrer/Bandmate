@@ -1,4 +1,4 @@
-const CACHE_NAME = 'band-planning-v7';
+const CACHE_NAME = 'band-planning-v8';
 const urlsToCache = [
   '/',
   '/index.html',
