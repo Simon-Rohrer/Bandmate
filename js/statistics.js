@@ -4,6 +4,27 @@ const Statistics = {
     loadingStates: {},
     statsCache: {}, // { [bandId || 'all']: { data, timestamp } }
 
+    escapeHtml(value = '') {
+        return String(value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    },
+
+    pluralize(count, singular, plural = `${singular}en`) {
+        return count === 1 ? singular : plural;
+    },
+
+    getSelectedBandLabel(bandId = null) {
+        if (!bandId) return 'Alle Bands';
+        const select = document.getElementById('statsBandSelect');
+        if (!select) return 'Ausgewählte Band';
+        const option = Array.from(select.options).find(entry => String(entry.value) === String(bandId));
+        return option?.textContent?.trim() || 'Ausgewählte Band';
+    },
+
     invalidateCache() {
         Logger.info('[Statistics] Cache invalidated.');
         this.statsCache = {};
@@ -48,11 +69,17 @@ const Statistics = {
     // NEW: Render General Statistics Dashboard
     async renderGeneralStatistics(bandId = null) {
         const cacheKey = bandId || 'all';
+        const bandLabel = this.getSelectedBandLabel(bandId);
+        const summaryContainer = document.getElementById('statsSummaryContainer');
 
         // Check Cache
         if (this.statsCache[cacheKey]) {
             Logger.info(`[Statistics] Using cached data for ${cacheKey}.`);
-            this._renderDashboard(this.statsCache[cacheKey].data);
+            this._renderDashboard({
+                ...this.statsCache[cacheKey].data,
+                bandLabel,
+                currentYear: new Date().getFullYear()
+            });
             return;
         }
 
@@ -62,7 +89,30 @@ const Statistics = {
         if (!container) return; // Should exist if HTML is updated
 
         // Show loading state
-        container.innerHTML = '<div class="loader-spinner" style="margin:50px auto;"></div>';
+        if (summaryContainer) {
+            summaryContainer.innerHTML = `
+                <div class="stats-overview-panel stats-overview-panel-loading">
+                    <div class="stats-overview-copy">
+                        <span class="stats-panel-kicker">Überblick</span>
+                        <h3>Wird geladen</h3>
+                        <p>${this.escapeHtml(bandLabel)}</p>
+                    </div>
+                    <div class="stats-overview-meta">
+                        <span class="stats-scope-chip">${this.escapeHtml(bandLabel)}</span>
+                    </div>
+                </div>
+            `;
+        }
+
+        container.innerHTML = `
+            <div class="stats-loading-state">
+                <div class="stats-loading-spinner" aria-hidden="true"></div>
+                <div class="stats-loading-copy">
+                    <strong>Statistiken werden geladen</strong>
+                    <span>Die Kennzahlen werden gerade für dich zusammengestellt.</span>
+                </div>
+            </div>
+        `;
 
         try {
             const user = Auth.getCurrentUser();
@@ -148,7 +198,9 @@ const Statistics = {
                 repertoireSize,
                 topSong,
                 favLocation,
-                eventsYear: events.filter(e => new Date(e.date).getFullYear() === new Date().getFullYear()).length
+                eventsYear: events.filter(e => new Date(e.date).getFullYear() === new Date().getFullYear()).length,
+                bandLabel,
+                currentYear: new Date().getFullYear()
             };
 
             // Set Cache
@@ -157,12 +209,24 @@ const Statistics = {
             this._renderDashboard(dashboardData);
         } catch (error) {
             console.error('[Statistics] Error rendering general stats:', error);
+            if (summaryContainer) {
+                summaryContainer.innerHTML = `
+                    <div class="stats-overview-panel stats-overview-panel-error">
+                        <div class="stats-overview-copy">
+                            <span class="stats-panel-kicker">Überblick</span>
+                            <h3>Nicht verfügbar</h3>
+                            <p>Bitte später erneut versuchen.</p>
+                        </div>
+                    </div>
+                `;
+            }
             const container = document.getElementById('statsDashboardContainer');
             if (container) {
                 container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-icon">⚠️</div>
-                        <p>Fehler beim Laden der Statistiken.</p>
+                    <div class="stats-empty-state">
+                        <span class="stats-panel-kicker">Fehler</span>
+                        <h3>Statistiken konnten nicht geladen werden</h3>
+                        <p>Bitte versuche es in einem Moment erneut. Falls das Problem bestehen bleibt, hilft ein kurzes Neuladen der Seite.</p>
                     </div>
                 `;
             }
@@ -174,83 +238,99 @@ const Statistics = {
     // Helper: Render the dashboard from data
     _renderDashboard(data) {
         const container = document.getElementById('statsDashboardContainer');
+        const summaryContainer = document.getElementById('statsSummaryContainer');
         if (!container) return;
 
-        container.innerHTML = `
-                <!-- Key Metrics Grid -->
-                <div class="stats-grid">
-                    <div class="stats-card-modern">
-                        <span class="stats-card-icon-bg">🎤</span>
-                        <div class="stats-metric-label">Auftritte Gesamt</div>
-                        <div class="stats-metric-value">${data.totalEvents}</div>
-                        <div class="stats-metric-trend positive">
-                            <span>📅 Dieses Jahr: ${data.eventsYear}</span>
-                        </div>
+        const bandLabel = this.escapeHtml(data.bandLabel || 'Alle Bands');
+        const year = data.currentYear || new Date().getFullYear();
+        const topSongName = data.topSong.count > 0 ? this.escapeHtml(data.topSong.name) : 'Noch keine Daten';
+        const favLocationName = data.favLocation.count > 0 ? this.escapeHtml(data.favLocation.name) : 'Noch keine Daten';
+        const eventSentence = data.totalEvents > 0
+            ? `Davon ${data.eventsYear} ${data.eventsYear === 1 ? 'Auftritt' : 'Auftritte'} in ${year}.`
+            : 'Sobald Auftritte geplant sind, erscheinen sie hier.';
+        const rehearsalSentence = data.totalRehearsals > 0
+            ? `Es stehen aktuell ${data.totalRehearsals} ${this.pluralize(data.totalRehearsals, 'Probe', 'Proben')} in deinen Daten.`
+            : 'Noch keine Proben in deinen Statistiken erfasst.';
+        const repertoireSentence = data.repertoireSize > 0
+            ? `${data.repertoireSize} ${this.pluralize(data.repertoireSize, 'Song', 'Songs')} liegen aktuell im Repertoire.`
+            : 'Noch keine Songs im Repertoire hinterlegt.';
+        const bandSentence = data.totalBands > 0
+            ? `Du spielst aktuell in ${data.totalBands} ${this.pluralize(data.totalBands, 'Band', 'Bands')}.`
+            : 'Aktuell ist noch keine Band verknüpft.';
+        const topSongSentence = data.topSong.count > 0
+            ? `Der Song war bereits ${data.topSong.count} ${this.pluralize(data.topSong.count, 'Mal', 'Mal')} Teil deiner Planungen.`
+            : 'Sobald Setlists genutzt werden, taucht hier automatisch dein meistgespielter Song auf.';
+        const favLocationSentence = data.favLocation.count > 0
+            ? `${data.favLocation.count} ${this.pluralize(data.favLocation.count, 'Termin', 'Termine')} fanden dort statt.`
+            : 'Noch keine ausreichend belastbaren Daten für einen Lieblingsort.';
+        const summarySentence = data.totalEvents + data.totalRehearsals > 0
+            ? `${data.totalEvents} ${this.pluralize(data.totalEvents, 'Auftritt', 'Auftritte')} · ${data.totalRehearsals} ${this.pluralize(data.totalRehearsals, 'Probe', 'Proben')}`
+            : 'Noch keine Termine';
+
+        if (summaryContainer) {
+            summaryContainer.innerHTML = `
+                <section class="stats-overview-panel">
+                    <div class="stats-overview-copy">
+                        <span class="stats-panel-kicker">Überblick</span>
+                        <h3>Auf einen Blick</h3>
+                        <p>${this.escapeHtml(summarySentence)}</p>
                     </div>
-                    
-                    <div class="stats-card-modern">
-                        <span class="stats-card-icon-bg">🎸</span>
-                        <div class="stats-metric-label">Proben Gesamt</div>
-                        <div class="stats-metric-value">${data.totalRehearsals}</div>
-                        <div class="stats-metric-trend neutral">
-                            <span>💪 Fleißig!</span>
-                        </div>
+                    <div class="stats-overview-meta">
+                        <span class="stats-scope-chip">${bandLabel}</span>
+                        <span class="stats-year-chip">${year}</span>
                     </div>
-    
-                    <div class="stats-card-modern">
-                        <span class="stats-card-icon-bg">🎵</span>
-                        <div class="stats-metric-label">Repertoire Größe</div>
-                        <div class="stats-metric-value">${data.repertoireSize}</div>
-                        <div class="stats-metric-trend positive">
-                            <span>Songs in allen Bands</span>
-                        </div>
-                    </div>
-    
-                    <div class="stats-card-modern">
-                        <span class="stats-card-icon-bg">🏘️</span>
-                        <div class="stats-metric-label">Aktive Bands</div>
-                        <div class="stats-metric-value">${data.totalBands}</div>
-                    </div>
-                </div>
-    
-                <!-- Fun Stats Section -->
-                <h3 style="margin-bottom: var(--spacing-md); color: var(--color-text);">🏆 Fun Facts</h3>
-                <div class="stats-fun-section">
-                    
-                    <!-- Top Song Card -->
-                    <div class="stats-card-modern stats-highlight-card">
-                        <span class="stats-card-icon-bg">⭐</span>
-                        <div class="stats-metric-label">Meistgespielter Song</div>
-                        <div class="stats-metric-value" style="font-size: 1.8rem; word-break: break-word;">
-                            ${data.topSong.count > 0 ? data.topSong.name : 'Noch keine Daten'}
-                        </div>
-                        <div class="stats-metric-trend">
-                            ${data.topSong.count > 0 ? `Gespielt ${data.topSong.count} mal` : ''}
-                        </div>
-                    </div>
-    
-                    <!-- Favorite Location Card -->
-                    <div class="stats-card-modern">
-                        <span class="stats-card-icon-bg">📍</span>
-                        <div class="stats-metric-label">Lieblings-Location</div>
-                        <div class="stats-metric-value" style="font-size: 1.8rem;">
-                            ${data.favLocation.count > 0 ? data.favLocation.name : '-'}
-                        </div>
-                        <div class="stats-metric-trend neutral">
-                            ${data.favLocation.count > 0 ? `${data.favLocation.count} Besuche` : ''}
-                        </div>
-                    </div>
-    
-                </div>
-    
-                <!-- Recent Activity Helper -->
-                <div style="margin-top: var(--spacing-xl);">
-                    <h4 style="margin-bottom: var(--spacing-sm); color: var(--color-text-secondary);">💡 Tipp</h4>
-                    <p style="color: var(--color-text-secondary); font-size: 0.9rem;">
-                        Wusstest du? Deine Statistiken werden automatisch aktualisiert, sobald du neue Auftritte oder Proben anlegst.
-                    </p>
-                </div>
+                </section>
             `;
+        }
+
+        container.innerHTML = `
+            <div class="stats-shell">
+                <div class="stats-kpi-grid">
+                    <article class="stats-kpi-card stats-kpi-card-events">
+                        <span class="stats-kpi-kicker">Auftritte</span>
+                        <div class="stats-kpi-value">${data.totalEvents}</div>
+                        <p>${this.escapeHtml(eventSentence)}</p>
+                    </article>
+
+                    <article class="stats-kpi-card stats-kpi-card-rehearsals">
+                        <span class="stats-kpi-kicker">Proben</span>
+                        <div class="stats-kpi-value">${data.totalRehearsals}</div>
+                        <p>${this.escapeHtml(rehearsalSentence)}</p>
+                    </article>
+
+                    <article class="stats-kpi-card stats-kpi-card-repertoire">
+                        <span class="stats-kpi-kicker">Repertoire</span>
+                        <div class="stats-kpi-value">${data.repertoireSize}</div>
+                        <p>${this.escapeHtml(repertoireSentence)}</p>
+                    </article>
+
+                    <article class="stats-kpi-card stats-kpi-card-bands">
+                        <span class="stats-kpi-kicker">Bands</span>
+                        <div class="stats-kpi-value">${data.totalBands}</div>
+                        <p>${this.escapeHtml(bandSentence)}</p>
+                    </article>
+                </div>
+
+                <div class="stats-insights-grid">
+                    <article class="stats-insight-card stats-insight-card-feature">
+                        <span class="stats-panel-kicker">Meistgespielt</span>
+                        <h4>${topSongName}</h4>
+                        <p>${this.escapeHtml(topSongSentence)}</p>
+                    </article>
+
+                    <article class="stats-insight-card stats-insight-card-location">
+                        <span class="stats-panel-kicker">Lieblings-Location</span>
+                        <h4>${favLocationName}</h4>
+                        <p>${this.escapeHtml(favLocationSentence)}</p>
+                    </article>
+                </div>
+
+                <article class="stats-note-card">
+                    <span class="stats-panel-kicker">Hinweis</span>
+                    <p>Deine Kennzahlen aktualisieren sich automatisch, sobald du neue Auftritte, Proben oder Songs anlegst.</p>
+                </article>
+            </div>
+        `;
     },
     // Calculate best dates (used by other modules)
     async getBestDates(rehearsalId, limit = 3) {

@@ -279,7 +279,7 @@ const Rehearsals = {
         const containerResolved = document.getElementById('rehearsalsListResolved');
         if (containerResolved) {
             if (resolvedRehearsals.length === 0) {
-                UI.showCompactEmptyState(containerResolved, 'Keine bestaetigten Proben');
+                UI.showCompactEmptyState(containerResolved, 'Keine bestätigten Proben');
             } else {
                 containerResolved.innerHTML = (await Promise.all(resolvedRehearsals.map(rehearsal =>
                     this.renderRehearsalCard(rehearsal, dataContext)
@@ -380,29 +380,22 @@ const Rehearsals = {
             ? rehearsal.proposedDates[0]
             : null;
         const confirmedDateValue = this.getConfirmedDateValue(rehearsal);
-        const primaryDateLabel = rehearsal.status === 'confirmed' && confirmedDateValue
-            ? UI.formatDateShort(confirmedDateValue)
-            : primaryDate
-                ? this.formatProposalDateLabel(primaryDate)
-                : 'Kein Termin hinterlegt';
-
         const headerChips = [];
         if (rehearsal.status === 'confirmed' && confirmedDateValue) {
-            headerChips.push(`<span class="schedule-card-chip"><span>📅</span>${UI.formatDateShort(confirmedDateValue)}</span>`);
+            headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${UI.formatDateShort(confirmedDateValue)}</span>`);
         } else if (Array.isArray(rehearsal.proposedDates) && rehearsal.proposedDates.length > 0) {
-            headerChips.push(`<span class="schedule-card-chip"><span>🗓️</span>${rehearsal.proposedDates.length} Termin${rehearsal.proposedDates.length === 1 ? '' : 'e'}</span>`);
-            headerChips.push(`<span class="schedule-card-chip"><span>⏱️</span>${this.formatProposalDateLabel(primaryDate)}</span>`);
+            if (rehearsal.proposedDates.length > 1) {
+                headerChips.push(`<span class="schedule-card-chip">${rehearsal.proposedDates.length} Termine</span>`);
+            }
+            headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${this.formatProposalDateLabel(primaryDate)}</span>`);
         }
         if (locationName && locationName !== 'Kein Ort') {
-            headerChips.push(`<span class="schedule-card-chip"><span>📍</span>${Bands.escapeHtml(locationName)}</span>`);
-        }
-        if (rehearsal.status === 'pending') {
-            headerChips.push(`<span class="schedule-card-chip"><span>🗳️</span>${respondedCount} Rueckmeldung${respondedCount === 1 ? '' : 'en'}</span>`);
+            headerChips.push(`<span class="schedule-card-chip">${Bands.escapeHtml(locationName)}</span>`);
         }
 
         const userStateLabel = rehearsal.status === 'pending'
-            ? (hasCurrentUserVoted ? 'Du hast abgestimmt' : 'Antwort offen')
-            : 'Termin steht';
+            ? (hasCurrentUserVoted ? 'Abgestimmt' : 'Antwort offen')
+            : '';
         const userStateClass = rehearsal.status === 'pending'
             ? (hasCurrentUserVoted ? 'is-complete' : 'is-open')
             : 'is-confirmed';
@@ -413,17 +406,16 @@ const Rehearsals = {
 
 
         return `
-            <div class="rehearsal-card accordion-card ${cardStateClass} ${isExpanded ? 'expanded' : ''}" data-rehearsal-id="${rehearsal.id}" style="border-left: 4px solid ${bandColor}">
+            <div class="rehearsal-card accordion-card ${cardStateClass} ${isExpanded ? 'expanded' : ''}" data-rehearsal-id="${rehearsal.id}" style="--band-accent: ${bandColor}">
                 <div class="accordion-header" data-rehearsal-id="${rehearsal.id}">
                     <div class="accordion-title">
                         <div class="schedule-card-title-row">
                             <h3>${Bands.escapeHtml(rehearsal.title)}</h3>
-                            <span class="schedule-card-date-highlight">${primaryDateLabel}</span>
                         </div>
-                        <div class="rehearsal-band schedule-card-band" style="color: ${bandColor}; display: flex; align-items: center; gap: 8px;">
+                        <div class="rehearsal-band schedule-card-band">
                             ${band?.image_url ?
                 `<img src="${band.image_url}" class="band-mini-logo" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--color-border-subtle); display: block;">` :
-                '<span style="font-size: 1.2rem; line-height: 1;">🎸</span>'} 
+                `<span class="schedule-card-band-dot" style="background:${bandColor};"></span>`} 
                             <span style="font-weight: 500;">${Bands.escapeHtml(bandName)}</span>
                         </div>
                         <div class="schedule-card-meta-row">
@@ -431,10 +423,12 @@ const Rehearsals = {
                         </div>
                     </div>
                     <div class="accordion-actions">
-                        <span class="rehearsal-status status-${rehearsal.status}">
-                            ${rehearsal.status === 'pending' ? 'Abstimmung läuft' : 'Bestätigt'}
-                        </span>
-                        <span class="schedule-card-user-state ${userStateClass}">${userStateLabel}</span>
+                        <div class="schedule-card-status-stack">
+                            <span class="rehearsal-status status-${rehearsal.status}">
+                                ${rehearsal.status === 'pending' ? 'Offen' : 'Bestätigt'}
+                            </span>
+                            ${userStateLabel ? `<span class="schedule-card-user-state ${userStateClass}">${userStateLabel}</span>` : ''}
+                        </div>
                         <button class="accordion-toggle" aria-label="Ausklappen">
                             <span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>
                         </button>
@@ -474,7 +468,7 @@ const Rehearsals = {
                                 <button class="btn btn-vote-now" 
                                         data-rehearsal-id="${rehearsal.id}"
                                         onclick="Rehearsals.openVotingModal('${rehearsal.id}')">
-                                    🗳️ Jetzt abstimmen
+                                    Jetzt abstimmen
                                 </button>
                             ` : ''}
                             ${canManage && rehearsal.status === 'pending' ? `
@@ -485,10 +479,10 @@ const Rehearsals = {
                             ` : ''}
                             ${canManage ? `
                                 <button class="btn btn-secondary edit-rehearsal" data-rehearsal-id="${rehearsal.id}">
-                                    ✏️ Bearbeiten
+                                    Bearbeiten
                                 </button>
                                 <button class="btn btn-danger delete-rehearsal" data-rehearsal-id="${rehearsal.id}">
-                                    🗑️ Löschen
+                                    Löschen
                                 </button>
                             ` : ''}
                         </div>
@@ -798,9 +792,9 @@ const Rehearsals = {
 
                 // Get location and check availability
                 const locationId = document.getElementById('rehearsalLocation')?.value;
-                let availabilityText = availabilitySpan?.textContent || '';
                 let hasConflict = false;
                 let conflictDetails = null;
+                let conflictCount = 0;
 
                 if (locationId && typeof App !== 'undefined' && App.checkLocationAvailability) {
                     const startDateTime = `${dateInput.value}T${startInput.value}`;
@@ -812,9 +806,12 @@ const Rehearsals = {
                         new Date(endDateTime)
                     );
 
-                    if (!availability.available && availability.conflicts && availability.conflicts.length > 0) {
+                    if (!availability.available) {
                         hasConflict = true;
-                        conflictDetails = availability.conflicts;
+                        conflictCount = availability.conflicts?.length || 1;
+                        conflictDetails = availability.conflicts && availability.conflicts.length > 0
+                            ? availability.conflicts
+                            : null;
                     }
                 }
 
@@ -824,13 +821,21 @@ const Rehearsals = {
                 // Update display
                 const dateStr = new Date(dateInput.value).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
                 const timeStr = `${startInput.value} - ${endInput.value}`;
+                const availabilityLabel = !locationId
+                    ? 'Kein Ort gewählt'
+                    : hasConflict
+                        ? `⚠️ ${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}`
+                        : '✓ Ort ist frei';
+                const availabilityClass = locationId
+                    ? (hasConflict ? 'has-conflict' : 'is-available')
+                    : 'is-neutral';
 
                 const displayDiv = item.querySelector('.confirmed-proposal-display') || document.createElement('div');
                 displayDiv.className = 'confirmed-proposal-display';
                 displayDiv.innerHTML = `
                     <span class="confirmed-date">📅 ${dateStr}, ${timeStr}</span>
-                    <span class="confirmed-availability ${availabilitySpan && availabilitySpan.classList.contains('is-available') ? 'is-available' : 'has-conflict'}">
-                        ${availabilitySpan && availabilitySpan.innerText || 'Prüfung ausstehend'}
+                    <span class="confirmed-availability ${availabilityClass}">
+                        ${availabilityLabel}
                     </span>
                 `;
 
@@ -844,7 +849,7 @@ const Rehearsals = {
                 item.dataset.confirmed = 'true';
                 item.dataset.startTime = new Date(`${dateInput.value}T${startInput.value}`).toISOString();
                 item.dataset.endTime = new Date(`${dateInput.value}T${endInput.value}`).toISOString();
-                item.dataset.hasConflict = hasConflict;
+                item.dataset.hasConflict = hasConflict ? 'true' : 'false';
 
                 // Clear item and add confirmed display
                 item.innerHTML = '';
@@ -1208,7 +1213,7 @@ const Rehearsals = {
                 <div class="detail-section">
                     <h3>🏆 Beste Termine</h3>
                     <p class="rehearsal-bulk-create-note">
-                        Setze Haken fuer Zusatztermine und nutze entweder einen einzelnen Termin-Button oder den Sammelbutton, um daraus bestaetigte Proben anzulegen.
+                        Setze Haken für Zusatztermine und nutze entweder einen einzelnen Termin-Button oder den Sammelbutton, um daraus bestätigte Proben anzulegen.
                     </p>
                     ${dateStats.sort((a, b) => b.score - a.score).map((stat, idx) => `
                         <div class="best-date-option ${idx === 0 ? 'is-best' : ''}">
@@ -1234,7 +1239,7 @@ const Rehearsals = {
                                     <span class="rehearsal-bulk-create-indicator" aria-hidden="true"></span>
                                     <span class="rehearsal-bulk-create-copy">
                                         <span class="rehearsal-bulk-create-title">Als Einzelprobe anlegen</span>
-                                        <span class="rehearsal-bulk-create-subtitle">Diesen Termin zusaetzlich als eigene Probe erstellen</span>
+                                        <span class="rehearsal-bulk-create-subtitle">Diesen Termin zusätzlich als eigene Probe erstellen</span>
                                     </span>
                                 </label>
                                 <button class="btn btn-primary select-date-btn" 
@@ -1537,6 +1542,7 @@ const Rehearsals = {
                     // Show conflict warning modal
                     const location = await Storage.getLocation(locationId);
                     let dateLabel = '';
+                    const conflictCount = availability.conflicts.length;
                     if (editedStartTime) {
                         dateLabel = UI.formatDate(editedStartTime);
                         if (editedEndTime) {
@@ -1546,18 +1552,41 @@ const Rehearsals = {
                         }
                     }
                     const conflictDetailsHtml = `
-                        <div style="background: var(--color-bg); padding: 1rem; border-radius: var(--radius-md); border-left: 3px solid var(--color-danger);">
-                            <p><strong>Ort:</strong> ${Bands.escapeHtml(location?.name || 'Unbekannt')}</p>
-                            <p><strong>Gewählte Zeit:</strong> ${dateLabel}</p>
-                            <div style="margin-top: 1rem;">
-                                <strong>Konflikte:</strong>
-                                <ul style="margin-top: 0.5rem; padding-left: 1.5rem;">
-                                    ${availability.conflicts.map(conflict => {
-                        const start = new Date(conflict.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        const end = new Date(conflict.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        return `<li><strong>${Bands.escapeHtml(conflict.summary)}</strong><br><small>${start} - ${end}</small></li>`;
-                    }).join('')}
-                                </ul>
+                        <div class="conflict-container">
+                            <div class="conflict-header">
+                                <div class="conflict-header-title-row">
+                                    <span class="conflict-header-kicker">Ort</span>
+                                    <span class="conflict-header-badge">${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}</span>
+                                </div>
+                                <div class="conflict-header-title">${Bands.escapeHtml(location?.name || 'Unbekannt')}</div>
+                                <div class="conflict-header-info">
+                                    <span class="conflict-header-info-label">Gewählter Zeitraum</span>
+                                    <strong>${dateLabel}</strong>
+                                </div>
+                                <p class="conflict-header-text">Der gewählte Zeitraum überschneidet sich mit bestehenden Buchungen an diesem Ort.</p>
+                            </div>
+                            <div class="conflict-card">
+                                <div class="conflict-card-header">
+                                    <div class="date-badge">Kalendereinträge mit Überschneidung</div>
+                                    <span class="conflict-count">${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}</span>
+                                </div>
+                                <div class="conflict-card-body">
+                                    <div class="conflict-event-list">
+                                        ${availability.conflicts.map(conflict => {
+                                            const start = new Date(conflict.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                            const end = new Date(conflict.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                                            const day = new Date(conflict.startDate).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+                                            return `
+                                                <div class="conflict-event-item">
+                                                    <span class="conflict-event-bullet" aria-hidden="true"></span>
+                                                    <div class="conflict-event-info">
+                                                        <div class="conflict-event-title">${Bands.escapeHtml(conflict.summary)}</div>
+                                                        <div class="conflict-event-time">${day} · ${start} - ${end} Uhr</div>
+                                                    </div>
+                                                </div>`;
+                                        }).join('')}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     `;
@@ -1980,13 +2009,20 @@ const Rehearsals = {
                     const card = document.createElement('div');
                     card.className = 'date-proposal-item';
                     card.dataset.confirmed = date.confirmed ? 'true' : 'false';
+                    card.dataset.hasConflict = availability.available ? 'false' : 'true';
                     card.dataset.startTime = date.startTime;
                     card.dataset.endTime = date.endTime;
-                    card.style.border = `2px solid ${availability.available ? 'green' : 'red'}`;
+                    const conflictCount = availability.conflicts?.length || 1;
+                    const availabilityLabel = locationId
+                        ? (availability.available ? '✓ Ort ist frei' : `⚠️ ${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}`)
+                        : 'Kein Ort gewählt';
+                    const availabilityClass = locationId
+                        ? (availability.available ? 'is-available' : 'has-conflict')
+                        : 'is-neutral';
                     card.innerHTML = `
                         <div class="confirmed-proposal-display">
                             <span class="confirmed-date">📅 ${dateStr}, ${timeStr}</span>
-                            <span class="confirmed-availability ${availability.available ? 'is-available' : 'has-conflict'}">${availability.available ? '✓ Ort ist frei' : '⚠️ Raum belegt'}</span>
+                            <span class="confirmed-availability ${availabilityClass}">${availabilityLabel}</span>
                         </div>
                         ${conflictDetails}
                         <button type="button" class="btn-icon remove-confirmed">🗑️</button>
@@ -2161,8 +2197,7 @@ const Rehearsals = {
 
             if (!dateInput || !dateInput.value || !startInput || !startInput.value || !endInput || !endInput.value || !locationId) {
                 indicator.textContent = '';
-                indicator.style.color = '';
-                indicator.style.fontWeight = '';
+                indicator.className = 'date-availability';
                 continue;
             }
 
@@ -2186,13 +2221,11 @@ const Rehearsals = {
 
                 if (availability.available) {
                     indicator.textContent = '✓ Ort ist frei';
-                    indicator.style.color = 'green';
-                    indicator.style.fontWeight = '600';
+                    indicator.className = 'date-availability is-available';
                 } else {
-                    const conflictCount = availability.conflicts?.length || 0;
+                    const conflictCount = availability.conflicts?.length || 1;
                     indicator.textContent = `⚠️ ${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}`;
-                    indicator.style.color = 'red';
-                    indicator.style.fontWeight = '600';
+                    indicator.className = 'date-availability has-conflict';
                 }
             }
         }

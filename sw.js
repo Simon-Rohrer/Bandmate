@@ -119,7 +119,7 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification('Band Planning', options)
+    self.registration.showNotification('Bandmate', options)
   );
 });
 

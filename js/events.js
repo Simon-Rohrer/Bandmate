@@ -274,13 +274,7 @@ const Events = {
         const firstProposal = Array.isArray(event.proposedDates) && event.proposedDates.length > 0
             ? event.proposedDates[0]
             : null;
-        const primaryDateLabel = event.status === 'confirmed' && event.date
-            ? UI.formatDateShort(event.date)
-            : firstProposal?.start
-                ? UI.formatDateShort(firstProposal.start)
-                : 'Termin offen';
-
-        let statusText = event.status === 'pending' ? 'Abstimmung läuft' : 'Bestätigt';
+        let statusText = event.status === 'pending' ? 'Offen' : 'Bestätigt';
         let statusClass = `status-${event.status}`;
 
         let cardContent = '';
@@ -292,23 +286,22 @@ const Events = {
 
         const headerChips = [];
         if (event.status === 'confirmed' && event.date) {
-            headerChips.push(`<span class="schedule-card-chip"><span>📅</span>${UI.formatDateShort(event.date)}</span>`);
+            headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${UI.formatDateShort(event.date)}</span>`);
         } else if (Array.isArray(event.proposedDates) && event.proposedDates.length > 0) {
-            headerChips.push(`<span class="schedule-card-chip"><span>🗓️</span>${event.proposedDates.length} Termin${event.proposedDates.length === 1 ? '' : 'e'}</span>`);
+            if (event.proposedDates.length > 1) {
+                headerChips.push(`<span class="schedule-card-chip">${event.proposedDates.length} Termine</span>`);
+            }
             if (firstProposal?.start) {
-                headerChips.push(`<span class="schedule-card-chip"><span>⏱️</span>${UI.formatDateShort(firstProposal.start)}</span>`);
+                headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${UI.formatDateShort(firstProposal.start)}</span>`);
             }
         }
         if (event.location) {
-            headerChips.push(`<span class="schedule-card-chip"><span>📍</span>${Bands.escapeHtml(event.location)}</span>`);
-        }
-        if (event.status === 'pending' && eventMembers.length > 0) {
-            headerChips.push(`<span class="schedule-card-chip"><span>🗳️</span>${respondedCount}/${eventMembers.length} Rueckmeldungen</span>`);
+            headerChips.push(`<span class="schedule-card-chip">${Bands.escapeHtml(event.location)}</span>`);
         }
 
         const userStateLabel = event.status === 'pending'
-            ? (hasVoted ? 'Du hast abgestimmt' : 'Antwort offen')
-            : 'Termin steht';
+            ? (hasVoted ? 'Abgestimmt' : 'Antwort offen')
+            : '';
         const userStateClass = event.status === 'pending'
             ? (hasVoted ? 'is-complete' : 'is-open')
             : 'is-confirmed';
@@ -317,17 +310,16 @@ const Events = {
             : 'schedule-state-resolved';
 
         return `
-            <div class="event-card accordion-card ${event.status === 'confirmed' && new Date(event.date) < new Date() ? 'event-past' : ''} ${cardStateClass} ${isExpanded ? 'expanded' : ''}" data-event-id="${event.id}" style="border-left: 4px solid ${bandColor}">
+            <div class="event-card accordion-card ${event.status === 'confirmed' && new Date(event.date) < new Date() ? 'event-past' : ''} ${cardStateClass} ${isExpanded ? 'expanded' : ''}" data-event-id="${event.id}" style="--band-accent: ${bandColor}">
                 <div class="accordion-header" data-event-id="${event.id}">
                     <div class="accordion-title">
                         <div class="schedule-card-title-row">
                             <h3>${Bands.escapeHtml(event.title)}</h3>
-                            <span class="schedule-card-date-highlight">${primaryDateLabel}</span>
                         </div>
-                        <div class="event-band schedule-card-band" style="color: ${bandColor}; display: flex; align-items: center; gap: 8px;">
+                        <div class="event-band schedule-card-band">
                             ${(band && band.image_url) ?
                 `<img src="${band.image_url}" class="band-mini-logo" style="width: 20px; height: 20px; border-radius: 50%; object-fit: cover; border: 1px solid var(--color-border-subtle); display: block;">` :
-                '<span style="font-size: 1.2rem; line-height: 1;">🎸</span>'} 
+                `<span class="schedule-card-band-dot" style="background:${bandColor};"></span>`} 
                             <span style="font-weight: 500;">${Bands.escapeHtml(bandName)}</span>
                         </div>
                         <div class="schedule-card-meta-row">
@@ -335,10 +327,12 @@ const Events = {
                         </div>
                     </div>
                     <div class="accordion-actions">
-                        <span class="rehearsal-status ${statusClass}">
-                            ${statusText}
-                        </span>
-                        <span class="schedule-card-user-state ${userStateClass}">${userStateLabel}</span>
+                        <div class="schedule-card-status-stack">
+                            <span class="rehearsal-status ${statusClass}">
+                                ${statusText}
+                            </span>
+                            ${userStateLabel ? `<span class="schedule-card-user-state ${userStateClass}">${userStateLabel}</span>` : ''}
+                        </div>
                         <button class="accordion-toggle" aria-label="Ausklappen">
                             <span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>
                         </button>
@@ -369,8 +363,8 @@ const Events = {
             </div>
             ${canManage ? `
                 <div class="event-action-buttons">
-                    <button class="btn btn-secondary edit-event" data-event-id="${event.id}">✏️ Bearbeiten</button>
-                    <button class="btn btn-danger delete-event" data-event-id="${event.id}">🗑️ Löschen</button>
+                    <button class="btn btn-secondary edit-event" data-event-id="${event.id}">Bearbeiten</button>
+                    <button class="btn btn-danger delete-event" data-event-id="${event.id}">Löschen</button>
                 </div>
             ` : ''}
         `;
@@ -387,14 +381,14 @@ const Events = {
 
                 <div class="event-action-buttons" style="margin-bottom: 1.5rem;">
                     <button class="btn btn-vote-now" data-event-id="${event.id}">
-                        🗳️ Jetzt abstimmen
+                        Jetzt abstimmen
                     </button>
                     ${canManage ? `
                         <button class="btn btn-primary open-event-btn" data-event-id="${event.id}">
                             Termin bestätigen
                         </button>
-                        <button class="btn btn-secondary edit-event" data-event-id="${event.id}">✏️ Bearbeiten</button>
-                        <button class="btn btn-danger delete-event" data-event-id="${event.id}">🗑️ Löschen</button>
+                        <button class="btn btn-secondary edit-event" data-event-id="${event.id}">Bearbeiten</button>
+                        <button class="btn btn-danger delete-event" data-event-id="${event.id}">Löschen</button>
                     ` : ''}
                 </div>
 
@@ -1219,38 +1213,109 @@ const Events = {
         return text.split('\n').filter(l => l.trim());
     },
 
+    getInstrumentLabels(user = {}) {
+        if (typeof Bands !== 'undefined' && typeof Bands.getInstrumentLabels === 'function') {
+            const direct = Bands.getInstrumentLabels(user.instrument);
+            if (direct && direct.length > 0) return direct;
+        }
+
+        const rawValues = [];
+        if (typeof user.instrument === 'string' && user.instrument.trim()) rawValues.push(user.instrument);
+        if (Array.isArray(user.instruments)) rawValues.push(...user.instruments);
+
+        const parsed = rawValues.flatMap(value => {
+            if (typeof value !== 'string') return [];
+            const trimmed = value.trim();
+            if (!trimmed) return [];
+
+            if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+                try {
+                    const json = JSON.parse(trimmed);
+                    return Array.isArray(json) ? json : [];
+                } catch (error) {
+                    // ignore invalid JSON and fall back to CSV parsing
+                }
+            }
+
+            return trimmed.split(',').map(part => part.trim());
+        });
+
+        return [...new Set(parsed.filter(Boolean))];
+    },
+
     async loadBandMembers(bandId, selectedMembers = null) {
         const container = document.getElementById('eventBandMembers');
         if (!container) return;
+        if (!bandId) {
+            container.innerHTML = '<div class="member-selection-empty">Bitte zuerst eine Band auswählen.</div>';
+            return;
+        }
+
         const members = await Storage.getBandMembers(bandId);
-        const users = await Promise.all(members.map(m => Storage.getById('users', m.userId)));
-        const toSelect = selectedMembers || users.map(u => u.id);
+        const users = await Promise.all(members.map(member => Storage.getById('users', member.userId)));
+        const selectableUsers = users.filter(Boolean);
 
-        container.innerHTML = users.map(user => {
-            if (!user) return '';
+        if (selectableUsers.length === 0) {
+            container.innerHTML = '<div class="member-selection-empty">In dieser Band sind noch keine Mitglieder hinterlegt.</div>';
+            return;
+        }
 
-            let instrumentText = '';
-            // Handle 'instrument' as comma-separated string (database format)
-            if (user.instrument) {
-                // If it's a string, split and join to ensure clean formatting, or just display
-                const instruments = user.instrument.split(',').map(s => s.trim()).filter(s => s);
-                if (instruments.length > 0) {
-                    instrumentText = `<span class="member-instruments">${Bands.escapeHtml(instruments.join(', '))}</span>`;
-                }
-            } else if (user.instruments && Array.isArray(user.instruments) && user.instruments.length > 0) {
-                // Fallback for array if that ever becomes the standard
-                instrumentText = `<span class="member-instruments">${Bands.escapeHtml(user.instruments.join(', '))}</span>`;
-            }
+        const toSelect = new Set((selectedMembers || selectableUsers.map(user => user.id)).map(id => String(id)));
+        container.innerHTML = users.map((user, index) => {
+            const membership = members[index];
+            if (!user || !membership) return '';
+
+            const displayName = UI.getUserDisplayName(user);
+            const profileImage = user.profile_image_url
+                ? `<img src="${Bands.escapeHtml(user.profile_image_url)}" alt="${Bands.escapeHtml(displayName)}">`
+                : `<span class="member-select-initials">${Bands.escapeHtml(UI.getUserInitials(displayName))}</span>`;
+
+            const roleLabel = UI.getRoleDisplayName(membership.role || 'member');
+            const instrumentLabels = this.getInstrumentLabels(user);
+            const instrumentHtml = instrumentLabels.length > 0
+                ? `
+                    <span class="member-select-instrument-list">
+                        ${instrumentLabels.map(label => `<span class="member-select-instrument-pill">${Bands.escapeHtml(label)}</span>`).join('')}
+                    </span>
+                `
+                : '<span class="member-select-meta is-empty">Kein Instrument hinterlegt</span>';
+
+            const isChecked = toSelect.has(String(user.id));
 
             return `
-            <div class="checkbox-item">
-                <input type="checkbox" id="member_${user.id}" value="${user.id}" ${toSelect.includes(user.id) ? 'checked' : ''}>
-                <label for="member_${user.id}">
-                    <span>${Bands.escapeHtml(this._getUserName(user))}</span>
-                    ${instrumentText}
+                <label class="member-select-card ${isChecked ? 'is-selected' : ''}" for="member_${user.id}">
+                    <input
+                        class="member-select-checkbox"
+                        type="checkbox"
+                        id="member_${user.id}"
+                        value="${user.id}"
+                        ${isChecked ? 'checked' : ''}
+                    >
+                    <span class="member-select-body">
+                        <span class="member-select-avatar" style="${user.profile_image_url ? '' : `background: ${UI.getAvatarColor(displayName)};`}">
+                            ${profileImage}
+                        </span>
+                        <span class="member-select-copy">
+                            <span class="member-select-name-row">
+                                <span class="member-select-name">${Bands.escapeHtml(displayName)}</span>
+                                <span class="member-select-role">${Bands.escapeHtml(roleLabel)}</span>
+                            </span>
+                            ${instrumentHtml}
+                        </span>
+                        <span class="member-select-check" aria-hidden="true">✓</span>
+                    </span>
                 </label>
-            </div>
-        `}).join('');
+            `;
+        }).join('');
+
+        container.querySelectorAll('.member-select-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const card = checkbox.closest('.member-select-card');
+                if (card) {
+                    card.classList.toggle('is-selected', checkbox.checked);
+                }
+            });
+        });
     },
 
     async populateBandSelect() {

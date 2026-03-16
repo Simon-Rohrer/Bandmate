@@ -510,6 +510,7 @@ const UI = {
             loader.innerHTML = `
                 <div class="loader-overlay">
                     <div class="loader-content">
+                        <div class="loader-chip">Bandmate</div>
                         <div class="loader-spinner"></div>
                         <p class="loader-message">${message}</p>
                     </div>

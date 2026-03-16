@@ -610,13 +610,13 @@ const App = {
         const optionsDiv = document.getElementById('quickAccessOptions');
         const cancelBtn = document.getElementById('cancelQuickAccessBtn');
         const quickLinks = [
-            { key: 'kalender', label: '📆 Mein Kalender', view: 'kalender' },
-            { key: 'news', label: '📰 News', view: 'news' },
-            { key: 'musikpool', label: '🎵 Musikerpool', view: 'musikpool' },
-            { key: 'bands', label: '🎸 Meine Bands', view: 'bands' },
-            { key: 'rehearsals', label: '📅 Probetermine', view: 'rehearsals' },
-            { key: 'events', label: '🎤 Auftritte', view: 'events' },
-            { key: 'statistics', label: '📊 Statistiken', view: 'statistics' },
+            { key: 'kalender', label: 'Mein Kalender', view: 'kalender' },
+            { key: 'news', label: 'News', view: 'news' },
+            { key: 'musikpool', label: 'Musikerpool', view: 'musikpool' },
+            { key: 'bands', label: 'Meine Bands', view: 'bands' },
+            { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals' },
+            { key: 'events', label: 'Auftritte', view: 'events' },
+            { key: 'statistics', label: 'Statistiken', view: 'statistics' },
         ];
         if (!editBtn || !modal || !form || !optionsDiv || !cancelBtn) return;
         editBtn.onclick = (e) => {
@@ -677,32 +677,150 @@ const App = {
             }
         });
     },
+
+    getStoredThemePreference() {
+        return localStorage.getItem('theme');
+    },
+
+    syncThemeMeta(mode) {
+        const resolvedMode = mode === 'dark' ? 'dark' : 'light';
+        const themeColorMeta = document.getElementById('themeColorMeta');
+        const appleStatusBarMeta = document.getElementById('appleStatusBarMeta');
+
+        if (themeColorMeta) {
+            themeColorMeta.setAttribute('content', resolvedMode === 'dark' ? '#0B1220' : '#F8FAFC');
+        }
+
+        if (appleStatusBarMeta) {
+            appleStatusBarMeta.setAttribute('content', resolvedMode === 'dark' ? 'black-translucent' : 'default');
+        }
+
+        document.documentElement.style.colorScheme = resolvedMode;
+        window.__bandmateTheme = resolvedMode;
+    },
+
+    getResolvedThemeMode() {
+        const savedTheme = this.getStoredThemePreference();
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+            return savedTheme;
+        }
+        return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    },
+
+    getThemeIconMarkup(mode) {
+        if (mode === 'dark') {
+            return `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="4"></circle>
+                    <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"></path>
+                </svg>
+            `;
+        }
+
+        return `
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"></path>
+            </svg>
+        `;
+    },
+
+    syncThemeControls(mode = this.getResolvedThemeMode()) {
+        const themeToggleIcon = document.getElementById('themeToggleIcon');
+        const themeToggleHeader = document.getElementById('themeToggleHeader');
+        const settingsToggle = document.getElementById('themeToggle');
+        const landingThemeToggle = document.getElementById('landingThemeToggle');
+
+        if (themeToggleIcon) {
+            themeToggleIcon.innerHTML = this.getThemeIconMarkup(mode);
+        }
+        if (themeToggleHeader) {
+            themeToggleHeader.title = mode === 'dark' ? 'Hellmodus aktivieren' : 'Dunkelmodus aktivieren';
+            themeToggleHeader.setAttribute('aria-label', themeToggleHeader.title);
+        }
+        if (settingsToggle) {
+            settingsToggle.checked = mode === 'dark';
+        }
+        if (landingThemeToggle) {
+            landingThemeToggle.innerHTML = this.getThemeIconMarkup(mode);
+            landingThemeToggle.title = mode === 'dark' ? 'Hellmodus aktivieren' : 'Dunkelmodus aktivieren';
+            landingThemeToggle.setAttribute('aria-label', landingThemeToggle.title);
+        }
+
+        try {
+            const logoutImg = document.querySelector('#logoutBtn img.icon-img') || document.querySelector('#logoutBtn img');
+            if (logoutImg) {
+                logoutImg.src = mode === 'dark' ? 'images/logout darkmode.jpg' : 'images/logout whitemode.jpg';
+                logoutImg.alt = mode === 'dark' ? 'Abmelden im Dunkelmodus' : 'Abmelden im Hellmodus';
+            }
+        } catch (error) {
+            console.warn('[Theme] Logout icon could not be updated', error);
+        }
+    },
+
+    applyThemeMode(mode, persist = true) {
+        const resolvedMode = mode === 'dark' ? 'dark' : 'light';
+        document.documentElement.dataset.theme = resolvedMode;
+        document.documentElement.classList.toggle('theme-dark', resolvedMode === 'dark');
+        if (document.body) {
+            document.body.dataset.theme = resolvedMode;
+        }
+
+        if (persist) {
+            localStorage.setItem('theme', resolvedMode);
+        }
+
+        this.syncThemeMeta(resolvedMode);
+        this.syncThemeControls(resolvedMode);
+        return resolvedMode;
+    },
+
+    toggleThemeMode() {
+        const nextMode = this.getResolvedThemeMode() === 'dark' ? 'light' : 'dark';
+        this.applyThemeMode(nextMode);
+    },
+
+    bindThemeControls() {
+        const themeToggleHeader = document.getElementById('themeToggleHeader');
+        if (themeToggleHeader && !themeToggleHeader._themeInit) {
+            themeToggleHeader.addEventListener('click', () => this.toggleThemeMode());
+            themeToggleHeader._themeInit = true;
+        }
+
+        const landingThemeToggle = document.getElementById('landingThemeToggle');
+        if (landingThemeToggle && !landingThemeToggle._themeInit) {
+            landingThemeToggle.addEventListener('click', () => this.toggleThemeMode());
+            landingThemeToggle._themeInit = true;
+        }
+    },
+
+    initializeThemeSystem() {
+        this.applyThemeMode(this.getResolvedThemeMode(), false);
+        this.bindThemeControls();
+    },
+
     // Update header to show current page title
     updateHeaderSubmenu(view) {
         const titleMap = {
-            dashboard: { label: 'Home', icon: '🎙️' },
-            bands: { label: 'Meine Bands', icon: '🎸' },
-            musikpool: { label: 'Musikerpool', icon: '🎵' },
-            rehearsals: { label: 'Probetermine', icon: '📅' },
-            probeorte: { label: 'Probeorte', icon: '🎙️' },
-            kalender: { label: 'Mein Kalender', icon: '📆' },
-            events: { label: 'Auftritte', icon: '🎸' },
-            statistics: { label: 'Statistiken', icon: '📊' },
-            news: { label: 'News', icon: '📰' },
-            settings: { label: 'Settings', icon: '⚙️' },
-            pdftochordpro: { label: 'PDF to ChordPro', icon: '📄' }
+            dashboard: { label: 'Überblick', description: 'Dashboard und nächste Termine' },
+            bands: { label: 'Meine Bands', description: 'Bands, Mitglieder und Organisation' },
+            musikpool: { label: 'Musikerpool', description: 'Kontakte, Musiker und Verbindungen' },
+            rehearsals: { label: 'Probetermine', description: 'Abstimmungen und bestätigte Proben' },
+            probeorte: { label: 'Probeorte', description: 'Kalender und Belegungen der Locations' },
+            kalender: { label: 'Mein Kalender', description: 'Synchronisation und Terminansicht' },
+            events: { label: 'Auftritte', description: 'Anfragen, Zusagen und feste Termine' },
+            statistics: { label: 'Statistiken', description: 'Auswertungen und Kennzahlen' },
+            news: { label: 'News', description: 'Updates und Ankündigungen' },
+            settings: { label: 'Einstellungen', description: 'Profil, Abwesenheiten und Verwaltung' },
+            pdftochordpro: { label: 'PDF to ChordPro', description: 'Songs konvertieren und zuordnen' }
         };
 
-        const info = titleMap[view] || { label: 'BandManager', icon: '🎸' };
+        const info = titleMap[view] || { label: 'Bandmate', description: 'Organisation für Bands und Termine' };
 
-        // Update Header Title (Absolute centered)
         const headerTitle = document.getElementById('headerPageTitle');
         if (headerTitle) {
-            headerTitle.innerHTML = `<h2 class="header-page-title">${info.icon} ${info.label}</h2>`;
+            headerTitle.innerHTML = `<h2 class="header-page-title">${info.label}</h2>`;
         }
 
-        // Keep container clean but synced with title for desktop
-        // (Removing redundant title population to avoid double headers)
         const container = document.getElementById('headerSubmenu');
         if (container) {
             container.innerHTML = '';
@@ -1136,17 +1254,53 @@ const App = {
 
         // Instrument Options Map
         const instrumentOptions = [
-            { value: 'Vocals', label: '🎤 Gesang' },
-            { value: 'Guitar', label: '🎸 Gitarre' },
-            { value: 'Bass', label: '🎸 Bass' },
-            { value: 'Drums', label: '🥁 Drums' },
-            { value: 'Keys', label: '🎹 Keys / Piano' },
-            { value: 'Brass', label: '🎷 Bläser' },
-            { value: 'Strings', label: '🎻 Streicher' }
+            { value: 'Vocals', label: 'Gesang' },
+            { value: 'Guitar', label: 'Gitarre' },
+            { value: 'Bass', label: 'Bass' },
+            { value: 'Drums', label: 'Drums' },
+            { value: 'Keys', label: 'Keys / Piano' },
+            { value: 'Brass', label: 'Bläser' },
+            { value: 'Strings', label: 'Streicher' }
         ];
 
+        const normalizeInstrumentValues = (values) => {
+            const seen = new Set();
+            return values.filter(value => {
+                const normalizedValue = String(value || '').trim();
+                if (!normalizedValue) return false;
+                const key = normalizedValue.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            }).map(value => String(value).trim());
+        };
+
+        const parseInstrumentValue = (value) => {
+            if (!value) return [];
+
+            if (Array.isArray(value)) {
+                return normalizeInstrumentValues(value);
+            }
+
+            const rawValue = String(value).trim();
+            if (!rawValue) return [];
+
+            if (rawValue.startsWith('[')) {
+                try {
+                    const parsedValue = JSON.parse(rawValue);
+                    if (Array.isArray(parsedValue)) {
+                        return normalizeInstrumentValues(parsedValue);
+                    }
+                } catch (error) {
+                    console.warn('Instrument values could not be parsed as JSON, fallback to CSV parsing.', error);
+                }
+            }
+
+            return normalizeInstrumentValues(rawValue.split(','));
+        };
+
         // Parse initial value
-        let selectedValues = initialValue ? initialValue.split(',').map(s => s.trim()).filter(s => s) : [];
+        let selectedValues = parseInstrumentValue(initialValue);
         input.value = selectedValues.join(',');
 
         // 1. Build UI Structure
@@ -1160,7 +1314,8 @@ const App = {
                 ${instrumentOptions.map(opt => `
                     <label class="multiselect-option">
                         <input type="checkbox" value="${opt.value}">
-                        <span>${opt.label}</span>
+                        <span class="multiselect-option-indicator" aria-hidden="true"></span>
+                        <span class="multiselect-option-label">${opt.label}</span>
                     </label>
                 `).join('')}
             </div>
@@ -1170,6 +1325,50 @@ const App = {
         const badgesContainer = container.querySelector('.multiselect-badges');
         const menu = container.querySelector('.multiselect-menu');
         const checkboxes = container.querySelectorAll('input[type="checkbox"]');
+
+        const getScrollBoundary = (element) => {
+            let current = element.parentElement;
+
+            while (current && current !== document.body) {
+                const style = window.getComputedStyle(current);
+                const overflowY = style.overflowY;
+                const isScrollable = /(auto|scroll|overlay)/.test(overflowY) && current.scrollHeight > current.clientHeight + 2;
+
+                if (isScrollable) {
+                    return current;
+                }
+
+                current = current.parentElement;
+            }
+
+            return null;
+        };
+
+        const updateMenuPlacement = () => {
+            if (!menu.classList.contains('show')) return;
+
+            menu.classList.remove('show-upward');
+
+            const triggerRect = trigger.getBoundingClientRect();
+            const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+            const boundary = getScrollBoundary(trigger);
+            const boundaryRect = boundary
+                ? boundary.getBoundingClientRect()
+                : { top: 0, bottom: viewportHeight };
+            const estimatedMenuHeight = Math.min(menu.scrollHeight || 0, 320);
+            const safetyOffset = 16;
+            const spaceBelow = Math.max(0, boundaryRect.bottom - triggerRect.bottom - safetyOffset);
+            const spaceAbove = Math.max(0, triggerRect.top - boundaryRect.top - safetyOffset);
+            const shouldOpenUpward = spaceBelow < estimatedMenuHeight && spaceAbove > spaceBelow;
+            const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow;
+            const maxHeight = Math.max(180, Math.min(320, availableSpace));
+
+            if (shouldOpenUpward) {
+                menu.classList.add('show-upward');
+            }
+
+            menu.style.maxHeight = `${maxHeight}px`;
+        };
 
         // Function to update visuals based on selectedValues
         const updateVisuals = () => {
@@ -1195,6 +1394,7 @@ const App = {
             });
 
             // Update Input
+            selectedValues = normalizeInstrumentValues(selectedValues);
             input.value = selectedValues.join(',');
         };
 
@@ -1212,16 +1412,23 @@ const App = {
             document.querySelectorAll('.multiselect-menu.show').forEach(m => {
                 if (m !== menu) {
                     m.classList.remove('show');
+                    m.classList.remove('show-upward');
                     m.closest('.custom-multiselect')?.querySelector('.multiselect-trigger')?.classList.remove('active');
+                    m.closest('.custom-multiselect')?.classList.remove('is-open');
                 }
             });
 
             if (isOpen) {
                 menu.classList.remove('show');
+                menu.classList.remove('show-upward');
+                menu.style.removeProperty('max-height');
                 trigger.classList.remove('active');
+                container.classList.remove('is-open');
             } else {
                 menu.classList.add('show');
                 trigger.classList.add('active');
+                container.classList.add('is-open');
+                requestAnimationFrame(updateMenuPlacement);
             }
         });
 
@@ -1234,6 +1441,7 @@ const App = {
                 } else {
                     selectedValues = selectedValues.filter(v => v !== val);
                 }
+                selectedValues = normalizeInstrumentValues(selectedValues);
                 updateVisuals();
             });
             // Stop propagation on label click so it doesn't close menu if logic overlaps
@@ -1247,7 +1455,10 @@ const App = {
         const closeMenu = (e) => {
             if (!container.contains(e.target)) {
                 menu.classList.remove('show');
+                menu.classList.remove('show-upward');
+                menu.style.removeProperty('max-height');
                 trigger.classList.remove('active');
+                container.classList.remove('is-open');
             }
         };
 
@@ -1257,6 +1468,8 @@ const App = {
         // For simplicity, let's attach to document and rely on garbage collection if container is removed? No, that leaks.
         // Let's attach to the trigger's `blur` or focusout? No, simpler click.
         document.addEventListener('click', closeMenu);
+        window.addEventListener('resize', updateMenuPlacement);
+        window.addEventListener('scroll', updateMenuPlacement, true);
 
         // Cleanup function (optional but good practice)
         // If we re-run setup, we might pile up listeners.
@@ -1266,6 +1479,8 @@ const App = {
         if (container._cleanup) container._cleanup();
         container._cleanup = () => {
             document.removeEventListener('click', closeMenu);
+            window.removeEventListener('resize', updateMenuPlacement);
+            window.removeEventListener('scroll', updateMenuPlacement, true);
         };
     },
 
@@ -1302,6 +1517,8 @@ const App = {
                 }
             });
         }
+
+        this.initializeThemeSystem();
 
         // Initialisierung
         this.setupDashboardFeatures();
@@ -1502,14 +1719,10 @@ const App = {
             });
         }
 
-        // Donate button "coming soon" handler
-        const donateBtn = document.getElementById('donateBtn');
-        if (donateBtn) {
-            donateBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                UI.showToast('Diese Funktion ist in Kürze verfügbar. Vielen Dank für dein Interesse! 💖', 'info');
-            });
-        }
+        // Donate button is configured dynamically based on admin settings
+        this.updateDonateButton().catch(err => {
+            console.warn('[setupEventListeners] Donate button could not be initialized:', err);
+        });
         // Band löschen Button
         // (Removed duplicate deleteBandBtn handler; handled below with Bands.currentBandId)
         // Show/hide extra event fields in modal
@@ -2194,6 +2407,7 @@ const App = {
                 const copyBtn = document.getElementById('copyBandSongsBtn');
                 if (copyBtn) copyBtn.style.display = 'block';
             } else {
+                await Events.loadBandMembers('', []);
                 const copyBtn = document.getElementById('copyBandSongsBtn');
                 if (copyBtn) copyBtn.style.display = 'none';
             }
@@ -2529,15 +2743,16 @@ const App = {
             });
         });
 
-        // Musikpool refresh button
-        const refreshMusikpoolBtn = document.getElementById('refreshMusikpoolBtn');
-        if (refreshMusikpoolBtn) {
-            refreshMusikpoolBtn.addEventListener('click', () => {
+        // Musikpool refresh buttons
+        document.querySelectorAll('[data-refresh-musikpool]').forEach(button => {
+            if (button.dataset.listenerAttached) return;
+            button.dataset.listenerAttached = 'true';
+            button.addEventListener('click', () => {
                 if (typeof Musikpool !== 'undefined' && Musikpool.loadGroupData) {
-                    Musikpool.loadGroupData();
+                    Musikpool.loadGroupData(true);
                 }
             });
-        }
+        });
 
         // Add Own Member button (placeholder)
         const addOwnMemberBtn = document.getElementById('addOwnMemberBtn');
@@ -2758,6 +2973,7 @@ const App = {
                 try {
                     UI.showView(viewId);
                     this.updateHeaderSubmenu(view);
+                    this.resetMainContentScroll(viewId);
                 } catch (uiErr) {
                     console.error('[navigateTo] UI.showView error:', uiErr);
                 }
@@ -2898,14 +3114,14 @@ const App = {
                         let overlay = document.getElementById('globalLoadingOverlay');
                         let shouldShowLoading = true;
                         let finished = false;
-                        // Timeout nach 15 Sekunden
+                        // Timeout nach 5 Sekunden
                         overlayTimeout = setTimeout(() => {
                             if (!finished && overlay && shouldShowLoading) {
                                 overlay.style.opacity = '0';
                                 setTimeout(() => overlay.style.display = 'none', 400);
                                 UI.showToast('Musikerpool-Daten konnten nicht geladen werden (Timeout).', 'error');
                             }
-                        }, 15000);
+                        }, 5000);
                         try {
                             await Musikpool.loadGroupData();
                         } catch (err) {
@@ -2932,12 +3148,96 @@ const App = {
                     // Load settings view content
                     this.renderSettingsView();
                 }
+
+                this.resetMainContentScroll(viewId);
             } else {
                 // Kein View gefunden
             }
         } catch (error) {
             console.error('[navigateTo] Fehler:', error);
         }
+    },
+
+    resetMainContentScroll(viewId = null) {
+        const appMain = document.querySelector('.app-main');
+        const targetView = viewId ? document.getElementById(viewId) : document.querySelector('.view.active');
+
+        const normalizeViewLayout = () => {
+            if (!targetView) return;
+
+            const structuralElements = [
+                targetView,
+                ...targetView.querySelectorAll('.view-page-shell, .page-overview-card, .page-section-card, .view-actions-bar, .schedule-board, .schedule-panels, .split-content-grid, .calendar-submenu, .probeorte-submenu, #newsContainer, #bandsList, #musikpoolContainer, #ownMembersContainer, #personalCalendarContainer, #tonstudioCalendar, #festhalleCalendar, #ankersaalCalendar')
+            ];
+
+            const seen = new Set();
+            structuralElements.forEach(element => {
+                if (!element || seen.has(element)) return;
+                seen.add(element);
+
+                const styles = window.getComputedStyle(element);
+                const marginTop = parseFloat(styles.marginTop);
+                const paddingTop = parseFloat(styles.paddingTop);
+                const minHeight = parseFloat(styles.minHeight);
+
+                if (!Number.isNaN(marginTop) && marginTop > 120) {
+                    element.style.marginTop = '0px';
+                }
+
+                if (!Number.isNaN(paddingTop) && paddingTop > 120) {
+                    element.style.paddingTop = '0px';
+                }
+
+                if (
+                    element !== targetView &&
+                    !Number.isNaN(minHeight) &&
+                    minHeight > window.innerHeight * 1.2
+                ) {
+                    element.style.minHeight = 'auto';
+                }
+            });
+
+            Array.from(targetView.querySelectorAll('*')).slice(0, 800).forEach(element => {
+                const styles = window.getComputedStyle(element);
+                const marginTop = parseFloat(styles.marginTop);
+                const paddingTop = parseFloat(styles.paddingTop);
+
+                if (!Number.isNaN(marginTop) && marginTop > 240) {
+                    element.style.marginTop = '0px';
+                }
+
+                if (!Number.isNaN(paddingTop) && paddingTop > 240) {
+                    element.style.paddingTop = '0px';
+                }
+            });
+        };
+
+        const resetScroll = () => {
+            normalizeViewLayout();
+            window.scrollTo(0, 0);
+            document.documentElement.scrollTop = 0;
+            document.body.scrollTop = 0;
+            if (appMain) {
+                appMain.scrollTop = 0;
+                appMain.scrollLeft = 0;
+            }
+            if (targetView) {
+                targetView.scrollTop = 0;
+                targetView.scrollLeft = 0;
+                targetView.style.removeProperty('padding-top');
+                targetView.style.removeProperty('margin-top');
+            }
+        };
+
+        resetScroll();
+        requestAnimationFrame(() => {
+            resetScroll();
+        });
+        setTimeout(resetScroll, 40);
+        setTimeout(resetScroll, 140);
+        setTimeout(resetScroll, 320);
+        setTimeout(resetScroll, 700);
+        setTimeout(resetScroll, 1200);
     },
 
     // Auth tab switching
@@ -3195,7 +3495,7 @@ const App = {
             loadingTimeout = setTimeout(() => {
                 UI.hideLoading();
                 UI.showToast('Timeout beim Erstellen des Benutzers. Bitte prüfe die Verbindung.', 'error');
-            }, 15000);
+            }, 5000);
             console.log('[handleAddUser] Loading shown, checking existing users...');
 
             // Check if username or email already exists
@@ -4112,6 +4412,7 @@ const App = {
         document.getElementById('songId').value = songId || '';
         document.getElementById('songEventId').value = eventId || '';
         document.getElementById('songBandId').value = bandId || '';
+        const modalTitle = document.getElementById('songModalTitle');
 
         // Reset PDF input
         const pdfInput = document.getElementById('songPdf');
@@ -4123,6 +4424,7 @@ const App = {
             // Edit existing song
             const song = await Storage.getById('songs', songId);
             if (song) {
+                if (modalTitle) modalTitle.textContent = 'Song bearbeiten';
                 document.getElementById('songTitle').value = song.title;
                 document.getElementById('songArtist').value = song.artist;
                 document.getElementById('songBPM').value = song.bpm || '';
@@ -4148,6 +4450,8 @@ const App = {
             }
         } else {
             // New song
+            if (modalTitle) modalTitle.textContent = 'Song hinzufügen';
+            document.getElementById('songTitle').value = '';
             document.getElementById('songArtist').value = '';
             document.getElementById('songBPM').value = '';
             document.getElementById('songKey').value = '';
@@ -4408,7 +4712,7 @@ const App = {
         }
 
         if ((!Array.isArray(songs) || songs.length === 0) && (!Array.isArray(bandSongs) || bandSongs.length === 0)) {
-            container.innerHTML = '<p class="text-muted">Noch keine Songs hinzugefügt.</p>';
+            container.innerHTML = '<div class="event-setlist-empty">Noch keine Songs hinzugefügt.</div>';
             return;
         }
 
@@ -4417,64 +4721,63 @@ const App = {
         if (Array.isArray(songs) && songs.length > 0) {
 
             html += `
-
-                <!-- Bulk Actions Bar -->
-                <div id="eventSongsBulkActions" style="display: none; background: var(--color-surface); padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 1rem; align-items: center; justify-content: space-between; border: 1px solid var(--color-accent);">
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-weight: bold; color: var(--color-accent);">Ausgewählt: <span id="eventSongsSelectedCount">0</span></span>
+                <div class="event-setlist-workspace">
+                <div id="eventSongsBulkActions" class="event-setlist-bulkbar">
+                    <div class="event-setlist-bulkinfo">
+                        <span>Ausgewählt:</span>
+                        <strong><span id="eventSongsSelectedCount">0</span></strong>
                     </div>
-                    <div style="display: flex; gap: 0.5rem;">
+                    <div class="event-setlist-bulkactions">
                         <button id="eventSongsBulkDelete" class="btn btn-danger btn-sm">🗑️ Auswahl löschen</button>
                         <button id="eventSongsBulkPDF" class="btn btn-primary btn-sm">📄 Auswahl als PDF</button>
                     </div>
                 </div>
-
-                <div style="overflow-x: auto;">
-                <table class="songs-table" style="width: 100%; border-collapse: collapse; margin-top: var(--spacing-md);">
+                <div class="event-setlist-table-wrap">
+                <table class="songs-table event-setlist-table">
                     <thead>
-                        <tr style="border-bottom: 2px solid var(--color-border);">
-                            <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">Pos.</th>
-                            <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">
+                        <tr>
+                            <th style="text-align: center; width: 40px;">Pos.</th>
+                            <th style="text-align: center; width: 40px;">
                                 <input type="checkbox" id="selectAllEventSongs">
                             </th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Titel</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Interpret</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">BPM</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Time</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Tonart</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Orig.</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Lead</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Sprache</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Tracks</th>
-                            <th style="padding: var(--spacing-sm); text-align: center;">PDF</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">Infos</th>
-                            <th style="padding: var(--spacing-sm); text-align: left;">CCLI</th>
-                            <th style="padding: var(--spacing-sm); text-align: center;">Aktionen</th>
+                            <th>Titel</th>
+                            <th>Interpret</th>
+                            <th>BPM</th>
+                            <th>Time</th>
+                            <th>Tonart</th>
+                            <th>Orig.</th>
+                            <th>Lead</th>
+                            <th>Sprache</th>
+                            <th>Tracks</th>
+                            <th style="text-align: center;">PDF</th>
+                            <th>Infos</th>
+                            <th>CCLI</th>
+                            <th style="text-align: center;">Aktionen</th>
                         </tr>
                     </thead>
                     <tbody id="eventSongsTableBody">
                         ${songs.map((song, idx) => `
-                            <tr style="border-bottom: 1px solid var(--color-border);" draggable="true" data-song-id="${song.id}">
-                                <td style="padding: var(--spacing-sm); text-align: center; cursor: grab;" class="drag-handle" data-label="Pos.">☰</td>
-                                <td style="padding: var(--spacing-sm); text-align: center;" data-label="Auswählen">
+                            <tr draggable="true" data-song-id="${song.id}">
+                                <td class="drag-handle" data-label="Pos.">☰</td>
+                                <td style="text-align: center;" data-label="Auswählen">
                                     <input type="checkbox" class="event-song-checkbox-row" value="${song.id}">
                                 </td>
-                                <td style="padding: var(--spacing-sm); font-weight: bold;" data-label="Titel">${this.escapeHtml(song.title)}</td>
-                                <td style="padding: var(--spacing-sm);" data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
-                                <td style="padding: var(--spacing-sm);" data-label="BPM">${song.bpm || '-'}</td>
-                                <td style="padding: var(--spacing-sm);" data-label="Time">${song.timeSignature || '-'}</td>
-                                <td style="padding: var(--spacing-sm); color: var(--color-primary); font-weight: bold;" data-label="Tonart">${song.key || '-'}</td>
-                                <td style="padding: var(--spacing-sm);" data-label="Orig.">${song.originalKey || '-'}</td>
-                                <td style="padding: var(--spacing-sm);" data-label="Lead">${song.leadVocal || '-'}</td>
-                                <td style="padding: var(--spacing-sm);" data-label="Sprache">${song.language || '-'}</td>
-                                <td style="padding: var(--spacing-sm);" data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                                <td style="padding: var(--spacing-sm); text-align: center;" data-label="PDF">
+                                <td class="event-setlist-title-cell" data-label="Titel">${this.escapeHtml(song.title)}</td>
+                                <td data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
+                                <td data-label="BPM">${song.bpm || '-'}</td>
+                                <td data-label="Time">${song.timeSignature || '-'}</td>
+                                <td class="event-setlist-key-cell" data-label="Tonart">${song.key || '-'}</td>
+                                <td data-label="Orig.">${song.originalKey || '-'}</td>
+                                <td data-label="Lead">${song.leadVocal || '-'}</td>
+                                <td data-label="Sprache">${song.language || '-'}</td>
+                                <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
+                                <td style="text-align: center;" data-label="PDF">
                                     ${song.pdf_url ? `<button type="button" class="btn-icon" title="PDF öffnen" onclick="App.openPdfPreview('${song.pdf_url}', '${this.escapeHtml(song.title)}')">📄</button>` : '-'}
                                 </td>
-                                <td style="padding: var(--spacing-sm); font-size: 0.9em;" data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
-                                <td style="padding: var(--spacing-sm); font-family: monospace; font-size: 0.9em;" data-label="CCLI">${song.ccli || '-'}</td>
-                                <td style="padding: var(--spacing-sm); text-align: center;" data-label="Aktionen">
-                                    <div style="display: flex; gap: 8px; justify-content: center;">
+                                <td data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
+                                <td style="font-family: monospace;" data-label="CCLI">${song.ccli || '-'}</td>
+                                <td class="event-setlist-actions-cell" style="text-align: center;" data-label="Aktionen">
+                                    <div>
                                         <button type="button" class="btn-icon edit-song" data-id="${song.id}" title="Bearbeiten">✏️</button>
                                         <button type="button" class="btn-icon delete-song" data-id="${song.id}" title="Löschen">🗑️</button>
                                     </div>
@@ -4483,6 +4786,7 @@ const App = {
                         `).join('')}
                     </tbody>
                 </table>
+                </div>
                 </div>
             `;
         }
@@ -4704,7 +5008,6 @@ const App = {
     },
 
     showBandSongSelector(eventId, bandSongs) {
-        // Create a modern card-based selection UI
         const songList = bandSongs.map(song => `
             <div class="song-selection-card" onclick="const cb = this.querySelector('input'); cb.checked = !cb.checked;">
                 <input type="checkbox" value="${song.id}" class="band-song-checkbox" onclick="event.stopPropagation()">
@@ -4721,30 +5024,33 @@ const App = {
         `).join('');
 
         const modalContent = `
-            <div class="search-wrapper" style="margin-bottom: 1.5rem;">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="modalSongSearch" placeholder="Songs durchsuchen..." class="modern-search-input" style="width: 100%;">
-            </div>
-            <div class="modal-song-list-container" style="max-height: 50vh; overflow-y: auto;">
+            <div class="song-pool-modal-body">
+                <div class="song-pool-search">
+                    <input type="text" id="modalSongSearch" placeholder="Songs durchsuchen..." class="modern-search-input">
+                </div>
+                <div class="modal-song-list-container song-pool-list">
                 ${songList}
+                </div>
             </div>
-            <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+            <div class="song-pool-modal-actions">
                 <button type="button" id="cancelCopySongs" class="btn btn-secondary">Abbrechen</button>
-                <button type="button" id="confirmCopySongs" class="btn btn-primary">Ausgewählte kopieren</button>
+                <button type="button" id="confirmCopySongs" class="btn btn-primary">Ausgewählte hinzufügen</button>
             </div>
         `;
 
-        // Use a temp container or toast-like modal
         const tempModal = document.createElement('div');
         tempModal.className = 'modal active';
         tempModal.innerHTML = `
-            <div class="modal-content" style="max-width: 600px;">
-                <div class="modal-header">
-                    <h2>Songs aus Band-Pool wählen</h2>
+            <div class="modal-content song-pool-modal">
+                <div class="modal-header song-pool-modal-header">
+                    <div class="song-pool-title-group">
+                        <span class="song-pool-kicker">Band-Pool</span>
+                        <h2>Songs aus Band-Pool wählen</h2>
+                        <p>Wähle Songs aus dem Repertoire deiner Band und füge sie gesammelt zur Setlist hinzu.</p>
+                    </div>
+                    <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
                 </div>
-                <div class="modal-body">
-                    ${modalContent}
-                </div>
+                ${modalContent}
             </div>
         `;
         document.body.appendChild(tempModal);
@@ -4762,6 +5068,10 @@ const App = {
 
         // Add handlers
         tempModal.querySelector('#cancelCopySongs').addEventListener('click', () => {
+            tempModal.remove();
+        });
+
+        tempModal.querySelector('.song-pool-close').addEventListener('click', () => {
             tempModal.remove();
         });
 
@@ -4797,14 +5107,15 @@ const App = {
         `).join('');
 
         const modalContent = `
-            <div class="search-wrapper" style="margin-bottom: 1.5rem;">
-                <span class="search-icon">🔍</span>
-                <input type="text" id="modalSongSearchDraft" placeholder="Songs durchsuchen..." class="modern-search-input" style="width: 100%;">
-            </div>
-            <div class="modal-song-list-container" style="max-height: 50vh; overflow-y: auto;">
+            <div class="song-pool-modal-body">
+                <div class="song-pool-search">
+                    <input type="text" id="modalSongSearchDraft" placeholder="Songs durchsuchen..." class="modern-search-input">
+                </div>
+                <div class="modal-song-list-container song-pool-list">
                 ${songList}
+                </div>
             </div>
-            <div style="margin-top: 1.5rem; display: flex; gap: 1rem; justify-content: flex-end;">
+            <div class="song-pool-modal-actions">
                 <button type="button" id="cancelDraftSongs" class="btn btn-secondary">Abbrechen</button>
                 <button type="button" id="confirmDraftSongs" class="btn btn-primary">Ausgewählte hinzufügen</button>
             </div>
@@ -4813,13 +5124,16 @@ const App = {
         const tempModal = document.createElement('div');
         tempModal.className = 'modal active';
         tempModal.innerHTML = `
-            <div class="modal-content" style="max-width: 600px;">
-                <div class="modal-header">
-                    <h2>Songs aus Band-Pool wählen</h2>
+            <div class="modal-content song-pool-modal">
+                <div class="modal-header song-pool-modal-header">
+                    <div class="song-pool-title-group">
+                        <span class="song-pool-kicker">Band-Pool</span>
+                        <h2>Songs aus Band-Pool wählen</h2>
+                        <p>Markiere Songs aus dem Bandrepertoire und übernimm sie direkt in die neue Setlist.</p>
+                    </div>
+                    <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
                 </div>
-                <div class="modal-body">
-                    ${modalContent}
-                </div>
+                ${modalContent}
             </div>
         `;
         document.body.appendChild(tempModal);
@@ -4836,6 +5150,10 @@ const App = {
         });
 
         tempModal.querySelector('#cancelDraftSongs').addEventListener('click', () => {
+            tempModal.remove();
+        });
+
+        tempModal.querySelector('.song-pool-close').addEventListener('click', () => {
             tempModal.remove();
         });
 
@@ -5029,39 +5347,43 @@ const App = {
         };
 
         container.innerHTML = `
-        <div class="song-search-container" style="margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 1rem; flex: 1; min-width: 0;">
-                <h3 class="btn-text-mobile-hide" style="margin: 0; white-space: nowrap; font-size: 1.25rem;">Songs (${this.currentBandSongs.length})</h3>
-                <div class="search-wrapper" style="flex: 1; min-width: 150px; max-width: 600px;">
-                    <span class="search-icon">🔍</span>
-                    <input type="text" id="bandSongSearch" placeholder="Setliste durchsuchen..." class="modern-search-input" style="width: 100%;" value="${searchTerm}">
+        <div class="band-setlist-workspace">
+            <div class="band-setlist-toolbar">
+                <div class="band-setlist-toolbar-main">
+                    <div class="band-setlist-titleblock">
+                        <span class="band-setlist-kicker">Repertoire</span>
+                        <h3>Songs <span class="band-setlist-count">(${this.currentBandSongs.length})</span></h3>
+                    </div>
+                    <div class="search-wrapper band-setlist-search">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="bandSongSearch" placeholder="Setliste durchsuchen..." class="modern-search-input" value="${searchTerm}">
+                    </div>
+                </div>
+                <div class="band-setlist-toolbar-actions">
+                    <button class="btn btn-secondary btn-sm" id="bandSongsExportPDF" title="Gesamte Setliste als PDF">
+                        <img src="images/pdf-download.png" class="btn-icon-img" alt="PDF icon"><span class="btn-text-mobile-hide">Als PDF herunterladen</span>
+                    </button>
+                    <input type="file" id="csvSongUpload" accept=".csv" style="display: none;">
+                    <button class="btn btn-secondary btn-sm" onclick="UI.openModal('importSongsModal')" title="Import-Anleitung anzeigen">
+                        <img src="images/csv-import.png" class="btn-icon-img" alt="CSV icon"><span class="btn-text-mobile-hide">CSV Import</span>
+                    </button>
+                    <button id="addBandSongBtn" class="btn btn-primary btn-sm">+ Song hinzufügen</button>
                 </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
-                <button class="btn btn-secondary btn-sm" id="bandSongsExportPDF" title="Gesamte Setliste als PDF">
-                    <img src="images/pdf-download.png" class="btn-icon-img" alt="PDF icon"><span class="btn-text-mobile-hide"> Als PDF herunterladen</span>
-                </button>
-                <input type="file" id="csvSongUpload" accept=".csv" style="display: none;">
-                <button class="btn btn-secondary btn-sm" onclick="UI.openModal('importSongsModal')" title="Import-Anleitung anzeigen">
-                    <img src="images/csv-import.png" class="btn-icon-img" alt="CSV icon"><span class="btn-text-mobile-hide"> CSV Import</span>
-                </button>
-                <button id="addBandSongBtn" class="btn btn-primary btn-sm" style="white-space: nowrap;">+ Song hinzufügen</button>
-            </div>
-        </div>
 
-        <!-- Bulk Actions Bar -->
-        <div id="bandSongsBulkActions" style="display: none; background: var(--color-surface); padding: 0.5rem 1rem; border-radius: 8px; margin-bottom: 1rem; align-items: center; justify-content: space-between; border: 1px solid var(--color-accent);">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <span style="font-weight: bold; color: var(--color-accent);">Ausgewählt: <span id="bandSongsSelectedCount">0</span></span>
+            <div id="bandSongsBulkActions" class="band-setlist-bulkbar" style="display: none;">
+                <div class="band-setlist-bulkinfo">
+                    <span class="band-setlist-bulk-label">Ausgewählt</span>
+                    <strong id="bandSongsSelectedCount">0</strong>
+                </div>
+                <div class="band-setlist-bulkactions">
+                    <button id="bandSongsBulkDelete" class="btn btn-danger btn-sm">Auswahl löschen</button>
+                    <button id="bandSongsBulkPDF" class="btn btn-secondary btn-sm">Auswahl als PDF exportieren</button>
+                </div>
             </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <button id="bandSongsBulkDelete" class="btn btn-danger btn-sm">🗑️ Auswahl löschen</button>
-                <button id="bandSongsBulkPDF" class="btn btn-primary btn-sm">📄 Auswahl als PDF exportieren</button>
-            </div>
-        </div>
 
-        <div style="overflow-x: auto;">
-        <table class="songs-table" style="width: 100%; border-collapse: collapse; margin-top: var(--spacing-md);">
+            <div class="band-setlist-table-wrap">
+        <table class="songs-table band-setlist-table" style="width: 100%; border-collapse: collapse; margin-top: var(--spacing-md);">
             <thead>
                 <tr style="border-bottom: 2px solid var(--color-border);">
                     <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">
@@ -5086,6 +5408,7 @@ const App = {
                 ${tableRows}
             </tbody>
         </table>
+            </div>
         </div>
 `;
 
@@ -5253,60 +5576,62 @@ const App = {
         if (!container) return;
 
         if (!this.draftEventSongIds || this.draftEventSongIds.length === 0) {
-            container.innerHTML = '<p class="text-muted">Noch keine Songs für diesen Auftritt ausgewählt.</p>';
+            container.innerHTML = '<div class="event-setlist-empty">Noch keine Songs für diesen Auftritt ausgewählt.</div>';
             return;
         }
 
         const songs = (await Promise.all(this.draftEventSongIds.map(id => Storage.getById('songs', id)))).filter(s => s);
 
         container.innerHTML = `
-        <div style="overflow-x: auto;">
-        <table class="songs-table" style="width: 100%; border-collapse: collapse;">
+        <div class="event-setlist-workspace">
+        <div class="event-setlist-table-wrap">
+        <table class="songs-table event-setlist-table">
             <thead>
-                <tr style="border-bottom: 2px solid var(--color-border);">
-                    <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">Pos.</th>
-                    <th style="padding: var(--spacing-sm); text-align: left; width: 30px;">#</th>
-                    <th style="padding: var(--spacing-sm); text-align: left;">Titel</th>
-                    <th style="padding: var(--spacing-sm); text-align: left;">Interpret</th>
-                    <th style="padding: var(--spacing-sm); text-align: center;">BPM</th>
-                    <th style="padding: var(--spacing-sm); text-align: center;">Time</th>
-                    <th style="padding: var(--spacing-sm); text-align: center;">Key</th>
-                    <th style="padding: var(--spacing-sm); text-align: center;">Orig.</th>
-                    <th style="padding: var(--spacing-sm); text-align: left;">Lead</th>
-                    <th style="padding: var(--spacing-sm); text-align: left;">Sprache</th>
-                    <th style="padding: var(--spacing-sm); text-align: left;">Tracks</th>
-                    <th style="padding: var(--spacing-sm); text-align: center;">PDF</th>
-                    <th style="padding: var(--spacing-sm); text-align: left;">Infos</th>
-                    <th style="padding: var(--spacing-sm); text-align: left;">CCLI</th>
-                    <th style="padding: var(--spacing-sm); text-align: center;">Aktionen</th>
+                <tr>
+                    <th style="text-align: center; width: 40px;">Pos.</th>
+                    <th style="width: 30px;">#</th>
+                    <th>Titel</th>
+                    <th>Interpret</th>
+                    <th style="text-align: center;">BPM</th>
+                    <th style="text-align: center;">Time</th>
+                    <th style="text-align: center;">Key</th>
+                    <th style="text-align: center;">Orig.</th>
+                    <th>Lead</th>
+                    <th>Sprache</th>
+                    <th>Tracks</th>
+                    <th style="text-align: center;">PDF</th>
+                    <th>Infos</th>
+                    <th>CCLI</th>
+                    <th style="text-align: center;">Aktionen</th>
                 </tr>
             </thead>
             <tbody id="draftEventSongsTableBody">
                 ${songs.map((song, idx) => `
-                    <tr style="border-bottom: 1px solid var(--color-border);" draggable="true" data-song-id="${song.id}">
-                        <td style="padding: var(--spacing-sm); text-align: center; cursor: grab;" class="drag-handle" data-label="Pos.">☰</td>
-                        <td style="padding: var(--spacing-sm); color: var(--color-text-muted);" data-label="#">${idx + 1}</td>
-                        <td style="padding: var(--spacing-sm); font-weight: bold;" data-label="Titel">${this.escapeHtml(song.title)}</td>
-                        <td style="padding: var(--spacing-sm);" data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
-                        <td style="padding: var(--spacing-sm); text-align: center;" data-label="BPM">${song.bpm || '-'}</td>
-                        <td style="padding: var(--spacing-sm); text-align: center;" data-label="Time">${song.timeSignature || '-'}</td>
-                        <td style="padding: var(--spacing-sm); text-align: center; color: var(--color-primary); font-weight: bold;" data-label="Key">${song.key || '-'}</td>
-                        <td style="padding: var(--spacing-sm); text-align: center;" data-label="Orig.">${song.originalKey || '-'}</td>
-                        <td style="padding: var(--spacing-sm);" data-label="Lead">${song.leadVocal || '-'}</td>
-                        <td style="padding: var(--spacing-sm);" data-label="Sprache">${song.language || '-'}</td>
-                        <td style="padding: var(--spacing-sm);" data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                        <td style="padding: var(--spacing-sm); text-align: center;" data-label="PDF">
+                    <tr draggable="true" data-song-id="${song.id}">
+                        <td class="drag-handle" data-label="Pos.">☰</td>
+                        <td style="color: var(--color-text-muted);" data-label="#">${idx + 1}</td>
+                        <td class="event-setlist-title-cell" data-label="Titel">${this.escapeHtml(song.title)}</td>
+                        <td data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
+                        <td style="text-align: center;" data-label="BPM">${song.bpm || '-'}</td>
+                        <td style="text-align: center;" data-label="Time">${song.timeSignature || '-'}</td>
+                        <td class="event-setlist-key-cell" style="text-align: center;" data-label="Key">${song.key || '-'}</td>
+                        <td style="text-align: center;" data-label="Orig.">${song.originalKey || '-'}</td>
+                        <td data-label="Lead">${song.leadVocal || '-'}</td>
+                        <td data-label="Sprache">${song.language || '-'}</td>
+                        <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
+                        <td style="text-align: center;" data-label="PDF">
                             ${song.pdf_url ? `<button type="button" class="btn-icon" title="PDF öffnen" onclick="App.openPdfPreview('${song.pdf_url}', '${this.escapeHtml(song.title)}')">📄</button>` : '-'}
                         </td>
-                        <td style="padding: var(--spacing-sm); font-size: 0.9em;" data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
-                        <td style="padding: var(--spacing-sm); font-family: monospace; font-size: 0.9em;" data-label="CCLI">${song.ccli || '-'}</td>
-                        <td style="padding: var(--spacing-sm); text-align: center;" data-label="Aktionen">
+                        <td data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
+                        <td style="font-family: monospace;" data-label="CCLI">${song.ccli || '-'}</td>
+                        <td class="event-setlist-actions-cell" style="text-align: center;" data-label="Aktionen">
                             <button type="button" class="btn-icon remove-draft-song" data-id="${song.id}" title="Entfernen">❌</button>
                         </td>
                     </tr>
                 `).join('')}
             </tbody>
         </table>
+        </div>
         </div>
         `;
 
@@ -5508,39 +5833,8 @@ const App = {
         // Render header profile image
         this.renderProfileImageHeader(user);
 
-        // Theme toggle header initialisieren (falls noch nicht gesetzt)
-        const themeToggleHeader = document.getElementById('themeToggleHeader');
-        const themeToggleIcon = document.getElementById('themeToggleIcon');
-        if (themeToggleHeader && themeToggleIcon && !themeToggleHeader._themeInit) {
-            function updateThemeIcon() {
-                const isDark = document.documentElement.classList.contains('theme-dark');
-                themeToggleIcon.textContent = isDark ? '☀️' : '🌙';
-                themeToggleHeader.title = isDark ? 'Light Mode aktivieren' : 'Dark Mode aktivieren';
-                // Update the logout icon depending on theme
-                try {
-                    const logoutImg = document.querySelector('#logoutBtn img.icon-img') || document.querySelector('#logoutBtn img');
-                    if (logoutImg) {
-                        // Use a dark-mode specific asset when in dark theme, otherwise the white/light asset
-                        logoutImg.src = isDark ? 'images/logout darkmode.jpg' : 'images/logout whitemode.jpg';
-                        // Ensure alt text for accessibility
-                        logoutImg.alt = isDark ? 'Abmelden (dark)' : 'Abmelden (light)';
-                    }
-                } catch (e) {
-                    // ignore if element not present yet
-                }
-            }
-            const savedTheme = localStorage.getItem('theme');
-            const isDark = savedTheme === 'dark' || (savedTheme === null && window.matchMedia('(prefers-color-scheme: dark)').matches);
-            document.documentElement.classList.toggle('theme-dark', isDark);
-            updateThemeIcon();
-            themeToggleHeader.addEventListener('click', () => {
-                const dark = !document.documentElement.classList.contains('theme-dark');
-                document.documentElement.classList.toggle('theme-dark', dark);
-                localStorage.setItem('theme', dark ? 'dark' : 'light');
-                updateThemeIcon();
-            });
-            themeToggleHeader._themeInit = true;
-        }
+        this.applyThemeMode(this.getResolvedThemeMode(), false);
+        this.bindThemeControls();
 
         const isAdmin = Auth.isAdmin();
 
@@ -5603,6 +5897,17 @@ const App = {
                 console.warn('[showApp] Could not pre-load ChordPro bands:', err);
             });
         }
+    },
+
+    getDonateInfoMessage() {
+        return 'Diese Funktion ist in Kürze verfügbar. Vielen Dank für dein Interesse! 💖';
+    },
+
+    getValidatedDonateLink(rawLink) {
+        if (typeof rawLink !== 'string') return '';
+        const trimmedLink = rawLink.trim();
+        if (!trimmedLink) return '';
+        return /^https:\/\//i.test(trimmedLink) ? trimmedLink : '';
     },
 
     // Update navigation visibility based on band membership
@@ -5742,7 +6047,7 @@ const App = {
 
 
         // Account delete button (scoped to settings view)
-        const deleteAccountBtn = root.querySelector('#deleteAccountBtn');
+        const deleteAccountBtn = effectiveRoot.querySelector('#deleteAccountBtn');
         if (deleteAccountBtn) {
             // Remove existing listeners to avoid duplicates if re-initialized (cloning hack)
             const newBtn = deleteAccountBtn.cloneNode(true);
@@ -5755,8 +6060,8 @@ const App = {
         }
 
         // Donate link (scoped)
-        const donateLinkInput = root.querySelector('#donateLink');
-        const saveDonateBtn = root.querySelector('#saveDonateLink');
+        const donateLinkInput = effectiveRoot.querySelector('#donateLink');
+        const saveDonateBtn = effectiveRoot.querySelector('#saveDonateLink');
         if (donateLinkInput && saveDonateBtn) {
             // Lade gespeicherten Link aus Supabase
             const savedLink = await Storage.getSetting('donateLink');
@@ -5765,9 +6070,17 @@ const App = {
             }
             saveDonateBtn.addEventListener('click', async () => {
                 const link = donateLinkInput.value.trim();
+                const normalizedLink = this.getValidatedDonateLink(link);
+
+                if (link && !normalizedLink) {
+                    UI.showToast('Bitte hinterlege einen gültigen https-Link für den Spenden-Button.', 'error');
+                    return;
+                }
+
                 try {
-                    await Storage.setSetting('donateLink', link);
-                    if (link) {
+                    await Storage.setSetting('donateLink', normalizedLink);
+                    donateLinkInput.value = normalizedLink;
+                    if (normalizedLink) {
                         UI.showToast('Spenden-Link gespeichert!', 'success');
                     } else {
                         UI.showToast('Spenden-Link entfernt', 'info');
@@ -5781,7 +6094,7 @@ const App = {
         }
 
         // Profile form in settings view (scoped)
-        const updateProfileForm = root.querySelector('#updateProfileForm');
+        const updateProfileForm = effectiveRoot.querySelector('#updateProfileForm');
         if (updateProfileForm && !updateProfileForm.dataset.submitHandlerAttached) {
             updateProfileForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -5800,13 +6113,13 @@ const App = {
 
                 try {
 
-                    const firstName = (root.querySelector('#profileFirstName') || {}).value;
-                    const lastName = (root.querySelector('#profileLastName') || {}).value;
-                    const username = (root.querySelector('#profileUsername') || {}).value;
-                    const email = (root.querySelector('#profileEmail') || {}).value;
-                    const instrument = (root.querySelector('#profileInstrument') || {}).value;
-                    const password = (root.querySelector('#profilePassword') || {}).value;
-                    const passwordConfirm = (root.querySelector('#profilePasswordConfirm') || {}).value;
+                    const firstName = (effectiveRoot.querySelector('#profileFirstName') || {}).value;
+                    const lastName = (effectiveRoot.querySelector('#profileLastName') || {}).value;
+                    const username = (effectiveRoot.querySelector('#profileUsername') || {}).value;
+                    const email = (effectiveRoot.querySelector('#profileEmail') || {}).value;
+                    const instrument = (effectiveRoot.querySelector('#profileInstrument') || {}).value;
+                    const password = (effectiveRoot.querySelector('#profilePassword') || {}).value;
+                    const passwordConfirm = (effectiveRoot.querySelector('#profilePasswordConfirm') || {}).value;
 
                     // Validate password confirmation
                     if (password && password.trim() !== '') {
@@ -5829,7 +6142,7 @@ const App = {
                     };
 
                     // Handle Image Upload (scoped to view)
-                    const imageInput = root.querySelector('#profileImageInput');
+                    const imageInput = effectiveRoot.querySelector('#profileImageInput');
                     if (imageInput && imageInput.files && imageInput.files[0]) {
                         let file = imageInput.files[0];
                         // Compress with timeout safety
@@ -5844,9 +6157,8 @@ const App = {
                             console.warn('Compression failed or timed out, using original file', cErr);
                         }
 
-                        const fileExt = file.name.split('.').pop();
-                        const fileName = `${user.id} -${Date.now()}.${fileExt} `;
-                        const filePath = `${fileName} `;
+                        const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+                        const filePath = `${user.id}/${Date.now()}-profile.${fileExt}`;
 
                         const sb = SupabaseClient.getClient();
 
@@ -5899,7 +6211,12 @@ const App = {
 
                     // Update current session user data
                     await Auth.updateCurrentUser();
-                    const updatedUser = Auth.getCurrentUser();
+                    const updatedUser = {
+                        ...(Auth.getCurrentUser() || user),
+                        ...updates,
+                        id: user.id
+                    };
+                    Auth.currentUser = updatedUser;
                     Logger.info('Profile Updated');
 
                     // Update header
@@ -5914,21 +6231,27 @@ const App = {
                     }
 
                     // Clear password field (scoped to settings view)
-                    const pwdEl = root.querySelector('#profilePassword');
-                    const pwdConfirmEl = root.querySelector('#profilePasswordConfirm');
-                    const pwdConfirmGroupEl = root.querySelector('#profilePasswordConfirmGroup');
+                    const pwdEl = effectiveRoot.querySelector('#profilePassword');
+                    const pwdConfirmEl = effectiveRoot.querySelector('#profilePasswordConfirm');
+                    const pwdConfirmGroupEl = effectiveRoot.querySelector('#profilePasswordConfirmGroup');
                     if (pwdEl) pwdEl.value = '';
                     if (pwdConfirmEl) pwdConfirmEl.value = '';
                     if (pwdConfirmGroupEl) pwdConfirmGroupEl.style.display = 'none';
 
                     // Reload form with updated values (scoped)
-                    const usernameEl = root.querySelector('#profileUsername');
-                    const emailEl = root.querySelector('#profileEmail');
-                    const instrumentEl = root.querySelector('#profileInstrument');
+                    const usernameEl = effectiveRoot.querySelector('#profileUsername');
+                    const emailEl = effectiveRoot.querySelector('#profileEmail');
+                    const instrumentEl = effectiveRoot.querySelector('#profileInstrument');
                     if (usernameEl) usernameEl.value = updatedUser.username;
                     if (emailEl) emailEl.value = updatedUser.email;
                     if (instrumentEl) instrumentEl.value = updatedUser.instrument || '';
 
+                    const savedImageInput = effectiveRoot.querySelector('#profileImageInput');
+                    if (savedImageInput) {
+                        savedImageInput.value = '';
+                    }
+
+                    this.clearProfileImageDraft();
                     UI.showToast('Profil erfolgreich aktualisiert!', 'success');
                     window.isProfileDirty = false;
 
@@ -5951,7 +6274,9 @@ const App = {
         }
 
         if (isAdmin) {
+            this.loadAdminFeedback();
             this.renderLocationsList();
+            this.renderCalendarsList();
             this.renderAllBandsList();
             this.renderUsersList();
         }
@@ -5960,21 +6285,31 @@ const App = {
         this.renderProfileImageSettings(user);
 
         // Delete profile image button (scoped)
-        const deleteImgBtn = root.querySelector('#deleteProfileImageBtn');
+        const deleteImgBtn = effectiveRoot.querySelector('#deleteProfileImageBtn');
         if (deleteImgBtn) {
             // Clone to remove old listeners
             const newBtn = deleteImgBtn.cloneNode(true);
             deleteImgBtn.parentNode.replaceChild(newBtn, deleteImgBtn);
 
             newBtn.addEventListener('click', async () => {
+                const currentUser = Auth.getCurrentUser() || user;
+                const hasDraftPreview = Boolean(this.profileImageDraftUrl);
+
+                if (!currentUser?.profile_image_url && hasDraftPreview) {
+                    this.clearProfileImageDraft({ resetInput: true, root: effectiveRoot });
+                    this.renderProfileImageSettings(currentUser);
+                    UI.showToast('Ausgewähltes Bild entfernt', 'info');
+                    return;
+                }
+
                 if (confirm('Möchtest du dein Profilbild wirklich entfernen?')) {
                     try {
                         UI.showLoading('Profilbild wird entfernt...');
 
                         // Try to remove file from storage if URL exists
-                        if (user.profile_image_url) {
+                        if (currentUser?.profile_image_url) {
                             try {
-                                const urlPart = user.profile_image_url.split('/profile-images/')[1];
+                                const urlPart = currentUser.profile_image_url.split('/profile-images/')[1];
                                 if (urlPart) {
                                     const sb = SupabaseClient.getClient();
                                     await sb.storage.from('profile-images').remove([urlPart]);
@@ -5984,13 +6319,14 @@ const App = {
                             }
                         }
 
-                        await Storage.updateUser(user.id, { profile_image_url: null });
+                        await Storage.updateUser(currentUser.id, { profile_image_url: null });
                         await Auth.updateCurrentUser();
                         const updatedUser = Auth.getCurrentUser();
+                        this.clearProfileImageDraft({ resetInput: true, root: effectiveRoot });
                         this.renderProfileImageSettings(updatedUser);
                         this.renderProfileImageHeader(updatedUser);
 
-                        const imageInput = root.querySelector('#profileImageInput');
+                        const imageInput = effectiveRoot.querySelector('#profileImageInput');
                         if (imageInput) imageInput.value = '';
 
                         UI.hideLoading();
@@ -6014,7 +6350,7 @@ const App = {
         }
 
         // Create location form (scoped to settings view)
-        const createLocationForm = root.querySelector('#createLocationForm');
+        const createLocationForm = effectiveRoot.querySelector('#createLocationForm');
         if (createLocationForm) {
             // Clone to remove all old event listeners
             const newForm = createLocationForm.cloneNode(true);
@@ -6256,7 +6592,10 @@ const App = {
 
         // Toggle Content
         const contents = settingsModal.querySelectorAll('.settings-tab-content');
-        contents.forEach(c => c.style.display = 'none');
+        contents.forEach(content => {
+            content.style.display = 'none';
+            content.classList.remove('active');
+        });
 
         // Mappings
         let contentId = '';
@@ -6271,19 +6610,17 @@ const App = {
 
         if (content) {
             content.style.display = 'block';
+            content.classList.add('active');
 
             // Load data if switching to Admin tab
             if (tabName === 'admin') {
-                this.loadAdminFeedback();
-                this.renderLocationsList();
-                this.renderAllBandsList();
-                this.renderUsersList();
-                this.renderCalendarsList(); // Don't forget calendars!
-
-                // Open first accordion by default - DISABLED
-                /* setTimeout(() => {
-                    UI.toggleAdminAccordion('adminSectionFeedback');
-                }, 50); */
+                void this.loadAdminFeedback();
+                void this.renderLocationsList();
+                void this.renderAllBandsList();
+                void this.renderUsersList();
+                void this.renderCalendarsList();
+            } else if (tabName === 'absences') {
+                void this.renderAbsencesListSettings();
             }
         } else {
             // Handling for bands/locations if standard ID isn't matching
@@ -6478,19 +6815,11 @@ const App = {
         // Theme toggle setup
         const themeToggle = document.getElementById('themeToggle');
         if (themeToggle) {
-            const savedTheme = localStorage.getItem('theme');
-            const isDark = savedTheme === 'dark' || (savedTheme === null && document.documentElement.classList.contains('theme-dark'));
-            themeToggle.checked = isDark;
-            const applyTheme = (dark) => {
-                document.documentElement.classList.toggle('theme-dark', dark);
-                localStorage.setItem('theme', dark ? 'dark' : 'light');
-            };
-            // Ensure current theme reflects toggle
-            applyTheme(isDark);
-            // Bind change
+            themeToggle.checked = this.getResolvedThemeMode() === 'dark';
             const newToggle = themeToggle.cloneNode(true);
             themeToggle.parentNode.replaceChild(newToggle, themeToggle);
-            newToggle.addEventListener('change', (e) => applyTheme(e.target.checked));
+            newToggle.checked = this.getResolvedThemeMode() === 'dark';
+            newToggle.addEventListener('change', (e) => this.applyThemeMode(e.target.checked ? 'dark' : 'light'));
         }
 
         // Donate link setup
@@ -6508,9 +6837,17 @@ const App = {
             saveDonateBtn.parentNode.replaceChild(newSaveBtn, saveDonateBtn);
             newSaveBtn.addEventListener('click', async () => {
                 const link = donateLinkInput.value.trim();
+                const normalizedLink = this.getValidatedDonateLink(link);
+
+                if (link && !normalizedLink) {
+                    UI.showToast('Bitte hinterlege einen gültigen https-Link für den Spenden-Button.', 'error');
+                    return;
+                }
+
                 try {
-                    await Storage.setSetting('donateLink', link);
-                    if (link) {
+                    await Storage.setSetting('donateLink', normalizedLink);
+                    donateLinkInput.value = normalizedLink;
+                    if (normalizedLink) {
                         UI.showToast('Spenden-Link gespeichert!', 'success');
                     } else {
                         UI.showToast('Spenden-Link entfernt', 'info');
@@ -6538,39 +6875,108 @@ const App = {
             }
         }
 
+        const profileImageInput = effectiveRoot.querySelector('#profileImageInput');
+        if (profileImageInput && !profileImageInput.dataset.previewHandlerAttached) {
+            profileImageInput.addEventListener('change', () => {
+                const currentUser = Auth.getCurrentUser() || user;
+                const selectedFile = profileImageInput.files && profileImageInput.files[0]
+                    ? profileImageInput.files[0]
+                    : null;
+
+                if (selectedFile) {
+                    this.setProfileImageDraft(selectedFile);
+                } else {
+                    this.clearProfileImageDraft();
+                }
+
+                this.renderProfileImageSettings(currentUser);
+            });
+            profileImageInput.dataset.previewHandlerAttached = 'true';
+        }
+
         // Render profile image for all users
         this.renderProfileImageSettings(user);
     },
 
+    revokeProfileImageDraftObjectUrl() {
+        if (this.profileImageDraftObjectUrl) {
+            try {
+                URL.revokeObjectURL(this.profileImageDraftObjectUrl);
+            } catch (error) {
+                console.warn('Could not revoke profile image preview URL:', error);
+            }
+        }
+        this.profileImageDraftObjectUrl = null;
+    },
+
+    setProfileImageDraft(file) {
+        this.revokeProfileImageDraftObjectUrl();
+        this.profileImageDraftUrl = null;
+
+        if (!file) return null;
+
+        const previewUrl = URL.createObjectURL(file);
+        this.profileImageDraftObjectUrl = previewUrl;
+        this.profileImageDraftUrl = previewUrl;
+        return previewUrl;
+    },
+
+    clearProfileImageDraft({ resetInput = false, root = document } = {}) {
+        this.revokeProfileImageDraftObjectUrl();
+        this.profileImageDraftUrl = null;
+
+        if (resetInput) {
+            const imageInput = root.querySelector('#profileImageInput');
+            if (imageInput) {
+                imageInput.value = '';
+            }
+        }
+    },
+
+    createProfileImageFallback(user) {
+        const initials = UI.getUserInitials(UI.getUserDisplayName(user));
+        const placeholder = document.createElement('div');
+        placeholder.className = 'profile-avatar-preview profile-initials-placeholder';
+        placeholder.innerHTML = `<span style="font-size: 2.5rem; font-weight: 700; color: white;">${initials}</span>`;
+        placeholder.style.backgroundColor = 'var(--color-primary)';
+        placeholder.style.display = 'flex';
+        placeholder.style.alignItems = 'center';
+        placeholder.style.justifyContent = 'center';
+        return placeholder;
+    },
+
     // Render profile image in settings
-    renderProfileImageSettings(user) {
+    renderProfileImageSettings(user, options = {}) {
+        const previewUrl = Object.prototype.hasOwnProperty.call(options, 'previewUrl')
+            ? options.previewUrl
+            : this.profileImageDraftUrl;
         const containers = document.querySelectorAll('#profileImageSettingsContainer');
         containers.forEach(container => {
             container.innerHTML = '';
 
-            // Remove inline styles from container if any (cleanup)
-            container.removeAttribute('style');
-            container.className = 'profile-avatar-container'; // Add a class for hooking
+            container.className = 'profile-avatar-container';
+            container.style.width = '100%';
+            container.style.height = '100%';
+            container.style.borderRadius = '50%';
+            container.style.overflow = 'hidden';
 
-            if (user.profile_image_url) {
+            const effectiveImageUrl = previewUrl || user.profile_image_url;
+
+            if (effectiveImageUrl) {
                 const img = document.createElement('img');
-                img.src = user.profile_image_url;
+                img.src = effectiveImageUrl;
                 img.alt = 'Profilbild';
-                img.className = 'profile-avatar-preview'; // Use CSS class
+                img.className = 'profile-avatar-preview';
+                img.dataset.clickHandlerAdded = 'true';
                 img.style.cursor = 'zoom-in';
-                img.addEventListener('click', () => UI.showLightbox(user.profile_image_url));
+                img.addEventListener('click', () => UI.showLightbox(effectiveImageUrl));
+                img.addEventListener('error', () => {
+                    container.innerHTML = '';
+                    container.appendChild(this.createProfileImageFallback(user));
+                }, { once: true });
                 container.appendChild(img);
             } else {
-                // Render initials
-                const initials = UI.getUserInitials(UI.getUserDisplayName(user));
-                const placeholder = document.createElement('div');
-                placeholder.className = 'profile-avatar-preview profile-initials-placeholder'; // Use CSS classes
-                placeholder.innerHTML = `<span style="font-size: 2.5rem; font-weight: bold; color: white;">${initials}</span>`;
-                placeholder.style.backgroundColor = 'var(--color-primary)';
-                placeholder.style.display = 'flex';
-                placeholder.style.alignItems = 'center';
-                placeholder.style.justifyContent = 'center';
-                container.appendChild(placeholder);
+                container.appendChild(this.createProfileImageFallback(user));
             }
         });
     },
@@ -6582,6 +6988,12 @@ const App = {
 
         container.innerHTML = '';
         container.style.display = 'inline-block';
+        container.style.backgroundColor = '';
+        container.style.color = '';
+        container.style.lineHeight = '';
+        container.style.fontSize = '';
+        container.style.fontWeight = '';
+        container.style.textAlign = '';
 
         if (user.profile_image_url) {
             const img = document.createElement('img');
@@ -6591,6 +7003,9 @@ const App = {
             img.style.height = '100%';
             img.style.borderRadius = '50%';
             img.style.objectFit = 'cover';
+            img.addEventListener('error', () => {
+                this.renderProfileImageHeader({ ...user, profile_image_url: null });
+            }, { once: true });
             container.appendChild(img);
         } else {
             // Render initials
@@ -6945,7 +7360,14 @@ const App = {
             bands = this.allBandsCache;
         } else {
             bands = await Storage.getAllBands();
-            this.allBandsCache = bands || [];
+            if (!Array.isArray(bands)) {
+                bands = [];
+            }
+            this.allBandsCache = bands;
+        }
+
+        if (!Array.isArray(bands)) {
+            bands = [];
         }
 
         const badge = document.getElementById('adminBandCount');
@@ -6957,7 +7379,8 @@ const App = {
         }
 
         container.innerHTML = await Promise.all(bands.map(async band => {
-            const members = await Storage.getBandMembers(band.id);
+            const bandMembers = await Storage.getBandMembers(band.id);
+            const members = Array.isArray(bandMembers) ? bandMembers : [];
             const isExpanded = this.expandedBandId === band.id;
             const memberCards = await Promise.all(members.map(async member => {
                 const user = await Storage.getById('users', member.userId);
@@ -6996,12 +7419,12 @@ const App = {
                         <div class="accordion-title">
                             <h4>${Bands.escapeHtml(band.name)}</h4>
                             <p class="band-meta">
-                                <span>👥 ${members.length} Mitglieder</span>
-                                <span>🔑 <code id="joinCode_${band.id}">${band.joinCode}</code></span>
+                                <span>${members.length} Mitglieder</span>
+                                <span>Code <code id="joinCode_${band.id}">${band.joinCode}</code></span>
                             </p>
                         </div>
                         <div class="accordion-actions">
-                            <button class="btn btn-secondary btn-sm copy-code-btn" data-code="${band.joinCode}" data-id="${band.id}">📋 Code kopieren</button>
+                            <button class="btn btn-secondary btn-sm copy-code-btn" data-code="${band.joinCode}" data-id="${band.id}">Code kopieren</button>
                             <button class="btn btn-danger btn-sm delete-band-admin" data-id="${band.id}">Löschen</button>
                             <button class="accordion-toggle" aria-label="Ausklappen">
                                 <span class="toggle-icon">${isExpanded ? '▼' : '▶'}</span>
@@ -7014,13 +7437,13 @@ const App = {
                             <div class="band-details-expanded">
                                 ${band.description ? `
                                     <div class="detail-row">
-                                        <div class="detail-label">📝 Beschreibung:</div>
+                                        <div class="detail-label">Beschreibung</div>
                                         <div class="detail-value">${Bands.escapeHtml(band.description)}</div>
                                     </div>
                                 ` : ''}
                                 
                                 <div class="detail-row detail-row-members">
-                                    <div class="detail-label">👥 Mitglieder (${members.length})</div>
+                                    <div class="detail-label">Mitglieder (${members.length})</div>
                                     <div class="detail-value detail-value-members">
                                         ${members.length > 0
                                             ? `<div class="band-admin-member-list">${memberCards.join('')}</div>`
@@ -7029,7 +7452,7 @@ const App = {
                                 </div>
                                 
                                 <div class="detail-row">
-                                    <div class="detail-label">📅 Erstellt:</div>
+                                    <div class="detail-label">Erstellt</div>
                                     <div class="detail-value">${UI.formatDate(band.createdAt)}</div>
                                 </div>
                             </div>
@@ -7507,9 +7930,8 @@ const App = {
                     console.warn('Image compression failed or timed out, trying original file', cErr);
                 }
 
-                const fileExt = file.name.split('.').pop();
-                const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-                const filePath = `${fileName}`;
+                const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+                const filePath = `${user.id}/${Date.now()}-profile.${fileExt}`;
 
                 const sb = SupabaseClient.getClient();
 
@@ -7561,7 +7983,13 @@ const App = {
 
             // Update current session user data
             await Auth.updateCurrentUser();
-            const updatedUser = Auth.getCurrentUser();
+            const updatedUser = {
+                ...(Auth.getCurrentUser() || user),
+                ...updates,
+                id: user.id
+            };
+            Auth.currentUser = updatedUser;
+            this.clearProfileImageDraft();
 
             // Update header
             document.getElementById('currentUserName').textContent = updatedUser.username;
@@ -7957,25 +8385,25 @@ const App = {
 
         // Stat Cards Click Handlers
         const statCards = document.querySelectorAll('.stat-card');
-        if (statCards.length >= 4) {
-            statCards[0].onclick = () => this.navigateTo('bands', 'stats-card-bands');
-            statCards[1].onclick = () => this.navigateTo('events', 'stats-card-events');
-            statCards[2].onclick = () => this.navigateTo('rehearsals', 'stats-card-rehearsals');
-            statCards[3].onclick = () => this.navigateTo('rehearsals', 'stats-card-next-rehearsal');
-        }
+        const statTargets = ['bands', 'events', 'rehearsals'];
+        statCards.forEach((card, index) => {
+            const view = statTargets[index];
+            if (!view) return;
+            card.onclick = () => this.navigateTo(view, `stats-card-${view}`);
+        });
 
         // Quick Access (Sync) - Render Immediately
         try {
             const quickLinksDiv = document.getElementById('dashboardQuickLinks');
             if (quickLinksDiv) {
                 const quickLinks = [
-                    { key: 'kalender', label: '📆 Mein Kalender', view: 'kalender' },
-                    { key: 'news', label: '📰 News', view: 'news' },
-                    { key: 'musikpool', label: '🎵 Musikerpool', view: 'musikpool' },
-                    { key: 'bands', label: '🎸 Meine Bands', view: 'bands' },
-                    { key: 'rehearsals', label: '📅 Probetermine', view: 'rehearsals' },
-                    { key: 'events', label: '🎤 Auftritte', view: 'events' },
-                    { key: 'statistics', label: '📊 Statistiken', view: 'statistics' },
+                    { key: 'kalender', label: 'Mein Kalender', view: 'kalender' },
+                    { key: 'news', label: 'News', view: 'news' },
+                    { key: 'musikpool', label: 'Musikerpool', view: 'musikpool' },
+                    { key: 'bands', label: 'Meine Bands', view: 'bands' },
+                    { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals' },
+                    { key: 'events', label: 'Auftritte', view: 'events' },
+                    { key: 'statistics', label: 'Statistiken', view: 'statistics' },
                 ];
                 let selected = [];
                 try {
@@ -7986,12 +8414,12 @@ const App = {
                 }
                 const linksToShow = quickLinks.filter(l => selected.includes(l.key));
                 if (linksToShow.length === 0) {
-                    quickLinksDiv.innerHTML = '<span class="text-muted">Keine Schnellzugriffs-Links ausgewählt.</span>';
+                    quickLinksDiv.innerHTML = '<div class="dashboard-empty-state"><strong>Keine Schnellzugriffe aktiv</strong><p>Lege über Bearbeiten die wichtigsten Aktionen für dein Dashboard fest.</p></div>';
                 } else {
                     quickLinksDiv.innerHTML = linksToShow.map(l =>
-                        `<button class="btn btn-primary btn-quick-link" data-view="${l.view}" style="margin:0 0.5em 0.5em 0;">${l.label}</button>`
+                        `<button class="dashboard-shortcut" data-view="${l.view}"><span class="dashboard-shortcut-label">${l.label}</span><span class="dashboard-shortcut-arrow" aria-hidden="true">↗</span></button>`
                     ).join('');
-                    quickLinksDiv.querySelectorAll('.btn-quick-link').forEach(btn => {
+                    quickLinksDiv.querySelectorAll('.dashboard-shortcut').forEach(btn => {
                         btn.onclick = (e) => {
                             e.preventDefault();
                             this.navigateTo(btn.dataset.view);
@@ -8082,18 +8510,12 @@ const App = {
         // Use optimized getLatestNews instead of fetching all
         const newsPromise = Storage.getLatestNews(10).catch(e => { console.error('News fetch failed', e); return []; });
 
-        // Handle Bands
-        bandsPromise.then(bands => {
-            const bandCountEl = document.getElementById('bandCount');
-            if (bandCountEl) bandCountEl.textContent = bands.length;
-        });
-
         // Handle News
         newsPromise.then(news => {
             const newsSection = document.getElementById('dashboardNewsList');
             if (newsSection) {
                 if (news.length === 0) {
-                    newsSection.innerHTML = '<div class="empty-state"><div class="empty-icon">📰</div><p>Keine News vorhanden.</p></div>';
+                    newsSection.innerHTML = '<div class="dashboard-empty-state"><strong>Keine News vorhanden</strong><p>Sobald neue Meldungen erscheinen, findest du sie hier auf einen Blick.</p></div>';
                 } else {
                     newsSection.innerHTML = news.slice(0, 3).map(n => {
                         const dashPlainContent = RichTextEditor.getPlainText(n.content || '');
@@ -8101,11 +8523,11 @@ const App = {
 
                         return `
                             <div class="dashboard-news-item clickable" data-id="${n.id}">
-                                <div class="news-heading"><strong>📰 News</strong></div>
+                                <div class="news-heading"><span class="news-item-badge">News</span></div>
                                 <div class="news-title">${Bands.escapeHtml(n.title)}</div>
                                 <div class="news-date">${UI.formatDateShort(n.createdAt)}</div>
                                 <div class="news-content">${this.escapeHtml(dashTruncated)}</div>
-                                <div class="btn-show-more-news">Mehr anzeigen</div>
+                                <div class="btn-show-more-news">Zum Artikel</div>
                             </div>
                         `;
                     }).join('');
@@ -8126,14 +8548,22 @@ const App = {
         });
 
         // Handle Events & Rehearsals (Dependent logic: Next Event, Stats, Activities, Upcoming List)
-        Promise.all([eventsPromise, rehearsalsPromise]).then(([events, rehearsals]) => {
+        Promise.all([bandsPromise, eventsPromise, rehearsalsPromise]).then(([bands, events, rehearsals]) => {
             const now = new Date();
             const nowTs = Date.now();
+            const bandMap = new Map((bands || []).map(band => [band.id, band]));
+            const formatCountLabel = (count, singular, plural) => `${count} ${count === 1 ? singular : plural}`;
 
             // Upcoming Events Count
             const upcomingEvents = events.filter(e => new Date(e.date) >= now);
             const upcomingEventsEl = document.getElementById('upcomingEvents');
             if (upcomingEventsEl) upcomingEventsEl.textContent = upcomingEvents.length;
+            const upcomingEventsCaptionEl = document.getElementById('upcomingEventsCaption');
+            if (upcomingEventsCaptionEl) {
+                upcomingEventsCaptionEl.textContent = upcomingEvents.length === 0
+                    ? 'Aktuell stehen keine Auftritte an.'
+                    : `Es ${upcomingEvents.length === 1 ? 'steht' : 'stehen'} aktuell ${formatCountLabel(upcomingEvents.length, 'Auftritt', 'Auftritte')} an.`;
+            }
 
             // Pending Votes Count
             const pendingRehearsals = rehearsals.filter(r => r.status === 'pending');
@@ -8153,7 +8583,22 @@ const App = {
             const totalRehearsalsCount = openPollsCount + confirmedRehearsals.length;
             const totalRehearsalsEl = document.getElementById('totalRehearsals');
             if (totalRehearsalsEl) totalRehearsalsEl.textContent = totalRehearsalsCount;
+            const totalRehearsalsCaptionEl = document.getElementById('totalRehearsalsCaption');
+            if (totalRehearsalsCaptionEl) {
+                totalRehearsalsCaptionEl.textContent = totalRehearsalsCount === 0
+                    ? 'Aktuell stehen keine Proben an.'
+                    : `Es ${totalRehearsalsCount === 1 ? 'steht' : 'stehen'} aktuell ${formatCountLabel(totalRehearsalsCount, 'Probe', 'Proben')} an.`;
+            }
 
+            const bandCountEl = document.getElementById('bandCount');
+            if (bandCountEl) bandCountEl.textContent = bands.length;
+            const bandCountCaptionEl = document.getElementById('bandCountCaption');
+            if (bandCountCaptionEl) {
+                bandCountCaptionEl.textContent = bands.length === 0
+                    ? 'Du spielst aktuell in keiner Band.'
+                    : `Du spielst aktuell in ${formatCountLabel(bands.length, 'Band', 'Bands')}.`;
+            }
+            
             // Next Event Hero
             const nextEventContent = document.getElementById('nextEventContent');
             if (nextEventContent) {
@@ -8168,6 +8613,10 @@ const App = {
                     if (nextItem) {
                         const dateStr = nextItem.date.toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
                         const timeStr = nextItem.date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        const nextItemTypeLabel = nextItem.type === 'Gig' ? 'Auftritt' : 'Probe';
+                        const associatedBand = nextItem.band?.name
+                            || bandMap.get(nextItem.bandId)?.name
+                            || '';
 
                         // Handle location (Event = string, Rehearsal = object via join)
                         let locName = 'Kein Ort angegeben';
@@ -8180,18 +8629,34 @@ const App = {
                         }
 
                         nextEventContent.innerHTML = `
-                        <div class="next-event-item">
+                        <article class="next-event-item">
+                            <div class="next-event-meta-line">
+                                <span class="next-event-type">${nextItemTypeLabel}</span>
+                                ${associatedBand ? `<span class="next-event-meta-separator" aria-hidden="true">·</span><span class="next-event-band-name">${Bands.escapeHtml(associatedBand)}</span>` : ''}
+                            </div>
                             <div class="next-event-title">${Bands.escapeHtml(nextItem.title || nextItem.name || 'Ohne Titel')}</div>
-                            <div class="next-event-info">📅 ${dateStr} um ${timeStr} Uhr</div>
-                            <div class="next-event-info">📍 ${Bands.escapeHtml(locName)}</div>
-                        </div>`;
+                            <div class="next-event-detail-list">
+                                <div class="next-event-detail-item">
+                                    <span class="next-event-info-label">Datum</span>
+                                    <strong>${dateStr}</strong>
+                                </div>
+                                <div class="next-event-detail-item">
+                                    <span class="next-event-info-label">Zeit</span>
+                                    <strong>${timeStr} Uhr</strong>
+                                </div>
+                                <div class="next-event-detail-item">
+                                    <span class="next-event-info-label">Ort</span>
+                                    <strong>${Bands.escapeHtml(locName)}</strong>
+                                </div>
+                            </div>
+                        </article>`;
                         const heroCard = document.getElementById('nextEventHero');
                         if (heroCard) {
                             heroCard.style.cursor = 'pointer';
                             heroCard.onclick = () => this.navigateTo(nextItem.type === 'Gig' ? 'events' : 'rehearsals', 'dashboard-hero-card');
                         }
                     } else {
-                        nextEventContent.innerHTML = `<div class="next-event-placeholder">Keine anstehenden Termine ❤️</div>`;
+                        nextEventContent.innerHTML = `<div class="next-event-placeholder">Keine anstehenden Termine geplant.</div>`;
                     }
                 } catch (err) {
                     console.error('[updateDashboard] Error in Next Event logic', err);
@@ -8225,17 +8690,18 @@ const App = {
                 activities = activities.filter(a => a.date).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
 
                 if (activities.length === 0) {
-                    activitySection.innerHTML = '<div class="empty-state"><div class="empty-icon">✨</div><p>Keine neue Aktivität.</p></div>';
+                    activitySection.innerHTML = '<div class="dashboard-empty-state"><strong>Keine neue Aktivität</strong><p>Neue Termine, bestätigte Proben oder News erscheinen hier automatisch.</p></div>';
                 } else {
                     activitySection.innerHTML = activities.map(a => `
-                    <div class="dashboard-activity-item clickable" data-type="${a.type}" data-id="${a.id || ''}">
-                        <div style="display:flex; flex-direction:column; gap:0.2rem;">
-                            <div class="activity-heading">${a.type === 'event' ? '🎤 Auftritt' : a.type === 'rehearsal' ? '📅 Probetermin' : '📰 News'}</div>
-                            <div style="display:flex; gap:0.5rem; align-items:center;">
-                                <div class="activity-title">${Bands.escapeHtml(a.title)}</div>
+                    <div class="dashboard-activity-item upcoming-card activity-card clickable" data-type="${a.type}" data-id="${a.id || ''}">
+                        <div class="upcoming-card-content">
+                            <div class="upcoming-card-topline">
+                                <span class="upcoming-card-type">${a.type === 'event' ? 'Auftritt' : a.type === 'rehearsal' ? 'Probetermin' : 'News'}</span>
+                                <span class="upcoming-card-band">${UI.formatDateShort(a.date)}</span>
                             </div>
-                            <div class="activity-date">${UI.formatDateShort(a.date)}</div>
+                            <div class="upcoming-card-title">${Bands.escapeHtml(a.title)}</div>
                         </div>
+                        <div class="upcoming-card-action" aria-hidden="true">Öffnen</div>
                     </div>
                 `).join('');
                     const self = this;
@@ -8303,15 +8769,12 @@ const App = {
             .slice(0, 5);
 
         if (combined.length === 0) {
-            UI.showEmptyState(container, '📅', 'Keine anstehenden Termine');
+            container.innerHTML = '<div class="dashboard-empty-state"><strong>Keine anstehenden Termine</strong><p>Sobald feste Proben oder Auftritte anstehen, erscheinen sie hier.</p></div>';
             return;
         }
 
         const rows = combined.map(item => {
-            // Use joined band data if available, fallback to "Band"
-            // Note: getUserEvents/Rehearsals now returns { ..., band: { name: ... } }
             const bandName = item.band ? item.band.name : 'Band';
-            const typeIcon = item.type === 'event' ? '🎤' : '📅';
             const typeLabel = item.type === 'event' ? 'Auftritt' : 'Probetermin';
 
             let locationText = '-';
@@ -8327,20 +8790,19 @@ const App = {
             const bandColor = item.band ? (item.band.color || '#e11d48') : '#e11d48';
 
             return `
-                <div class="upcoming-card" onclick="App.navigateTo('${item.type === 'event' ? 'events' : 'rehearsals'}', 'dashboard-card-upcoming')" style="cursor: pointer; border-left: 4px solid ${bandColor}">
-                    <div class="upcoming-card-icon">${typeIcon}</div>
+                <div class="upcoming-card" onclick="App.navigateTo('${item.type === 'event' ? 'events' : 'rehearsals'}', 'dashboard-card-upcoming')" style="cursor: pointer; --upcoming-accent: ${bandColor}">
                     <div class="upcoming-card-content">
+                        <div class="upcoming-card-topline">
+                            <span class="upcoming-card-type">${typeLabel}</span>
+                            <span class="upcoming-card-band">${Bands.escapeHtml(bandName)}</span>
+                        </div>
                         <div class="upcoming-card-title">${Bands.escapeHtml(item.title)}</div>
                         <div class="upcoming-card-meta">
-                            <span style="font-weight:600; color:var(--color-primary);">${typeLabel}</span> • ${UI.formatDate(item.date)}
-                        </div>
-                        <div class="upcoming-card-meta">
-                            <span style="color: ${bandColor}">🎸 ${Bands.escapeHtml(bandName)}</span> • 📍 ${locationText}
+                            <span class="upcoming-card-meta-primary">${UI.formatDate(item.date)}</span>
+                            <span class="upcoming-card-meta-secondary">${locationText}</span>
                         </div>
                     </div>
-                    <div class="upcoming-card-action">
-                         <button class="btn btn-sm btn-secondary">➜</button>
-                    </div>
+                    <div class="upcoming-card-action" aria-hidden="true">Öffnen</div>
                 </div>`;
         });
 
@@ -9023,23 +9485,28 @@ const App = {
         if (!donateBtn) return;
 
         const savedLink = await Storage.getSetting('donateLink');
-        if (savedLink && savedLink.trim()) {
-            // Wenn Link vorhanden, öffne externe Seite
-            donateBtn.style.display = 'inline-flex';
-            donateBtn.href = savedLink;
-            donateBtn.target = '_blank';
-            donateBtn.rel = 'noopener noreferrer';
+        const donateLink = this.getValidatedDonateLink(savedLink);
+
+        const newDonateBtn = donateBtn.cloneNode(true);
+        donateBtn.parentNode.replaceChild(newDonateBtn, donateBtn);
+        newDonateBtn.style.display = 'inline-flex';
+
+        if (donateLink) {
+            // Wenn ein gueltiger https-Link vorhanden ist, oeffne externe Seite
+            newDonateBtn.href = donateLink;
+            newDonateBtn.target = '_blank';
+            newDonateBtn.rel = 'noopener noreferrer';
+            newDonateBtn.title = 'Spenden-Link öffnen';
         } else {
-            // Wenn kein Link, führe zu Settings um Link zu konfigurieren
-            donateBtn.style.display = 'inline-flex';
-            donateBtn.href = '#';
-            donateBtn.removeAttribute('target');
-            donateBtn.removeAttribute('rel');
-            donateBtn.onclick = (e) => {
+            // Wenn kein gueltiger Link vorhanden ist, bleibt die Info erhalten
+            newDonateBtn.href = '#';
+            newDonateBtn.removeAttribute('target');
+            newDonateBtn.removeAttribute('rel');
+            newDonateBtn.title = 'Spenden-Link noch nicht verfügbar';
+            newDonateBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                this.navigateTo('settings');
-                UI.showToast('Bitte konfiguriere deinen Spenden-Link in den Einstellungen', 'info');
-            };
+                UI.showToast(this.getDonateInfoMessage(), 'info');
+            });
         }
     }
 };

@@ -4,21 +4,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Band Management Tool</title>
+    <title>Bandmate</title>
 
     <!-- PWA Meta Tags -->
     <meta name="description" content="Organisiere deine Bandproben effizient">
-    <meta name="theme-color" content="#6366f1">
+    <meta name="theme-color" content="#0B1220" id="themeColorMeta">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="Band Planning">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="appleStatusBarMeta">
+    <meta name="apple-mobile-web-app-title" content="Bandmate">
+
+    <script>
+        (function () {
+            const STORAGE_KEY = 'theme';
+            const DARK_THEME_COLOR = '#0B1220';
+            const LIGHT_THEME_COLOR = '#F8FAFC';
+
+            let resolvedTheme = 'light';
+
+            try {
+                const storedTheme = localStorage.getItem(STORAGE_KEY);
+                if (storedTheme === 'light' || storedTheme === 'dark') {
+                    resolvedTheme = storedTheme;
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    resolvedTheme = 'dark';
+                }
+            } catch (error) {
+                if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    resolvedTheme = 'dark';
+                }
+            }
+
+            document.documentElement.dataset.theme = resolvedTheme;
+            document.documentElement.classList.toggle('theme-dark', resolvedTheme === 'dark');
+            document.documentElement.style.colorScheme = resolvedTheme;
+            window.__bandmateTheme = resolvedTheme;
+
+            const themeColorMeta = document.getElementById('themeColorMeta');
+            if (themeColorMeta) {
+                themeColorMeta.setAttribute('content', resolvedTheme === 'dark' ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
+            }
+
+            const appleStatusBarMeta = document.getElementById('appleStatusBarMeta');
+            if (appleStatusBarMeta) {
+                appleStatusBarMeta.setAttribute('content', resolvedTheme === 'dark' ? 'black-translucent' : 'default');
+            }
+        })();
+    </script>
 
     <!-- Manifest -->
     <link rel="manifest" href="manifest.json">
 
     <!-- Icons -->
-    <link rel="icon" type="image/png" href="images/logo-planning.png">
-    <link rel="apple-touch-icon" href="images/logo-planning.png">
+    <link rel="icon" type="image/svg+xml" href="images/branding/bandmate-logo-only.svg">
+    <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg">
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/style.css?v=1769686135">
@@ -64,7 +102,17 @@
 
     <!-- Global Loading Overlay -->
     <div class="loader-container" id="globalLoadingOverlay">
-        <span class="guitar-spinner">&#127928;</span>
+        <div class="loader-panel" role="status" aria-live="polite">
+            <div class="loader-spin-shell">
+                <span class="guitar-spinner" aria-hidden="true">
+                    <img src="images/branding/bandmate-logo-only.svg" alt="">
+                </span>
+            </div>
+            <div class="loader-panel-copy">
+                <span class="loader-panel-title">Bandmate lädt</span>
+                <span class="loader-panel-text">Einen Moment bitte</span>
+            </div>
+        </div>
     </div>
     <script>
         // Show loading overlay on first load, hide when app is ready
@@ -223,14 +271,15 @@
             <header class="landing-header">
                 <div class="landing-logo">
                     <div class="landing-logo-mark">
-                        <img src="images/logo-planning-transparent.png" alt="Band Planning">
+                        <img src="images/branding/bandmate-logo-only.svg" alt="Bandmate">
                     </div>
                     <div class="landing-brand-copy">
-                        <span class="landing-brand-title">Band Planning</span>
+                        <span class="landing-brand-title">Bandmate</span>
                         <span class="landing-brand-subtitle">Proben, Auftritte und Organisation an einem Ort</span>
                     </div>
                 </div>
                 <nav class="landing-nav" aria-label="Startaktionen">
+                    <button type="button" id="landingThemeToggle" class="landing-nav-action landing-nav-theme" title="Theme umschalten"></button>
                     <button type="button" class="landing-nav-action landing-nav-login"
                         onclick="UI.toggleAuthOverlay(true, 'login')">Login</button>
                     <button type="button" class="landing-nav-action landing-nav-register"
@@ -242,32 +291,27 @@
                 <section class="landing-hero-grid">
                     <div class="landing-copy-column">
                         <span class="landing-kicker">Bandplanung neu gedacht</span>
-                        <h1 class="hero-welcome">Welcome</h1>
+                        <h1 class="landing-hero-title">Organisiere Proben, plane Auftritte und führe deine Band an einem Ort.</h1>
                         <p class="hero-sub">
-                            Organisiere deine Bandproben, plane Auftritte und verwalte alles an einem Ort.
+                            Bandmate bringt Termine, Rückmeldungen, News, Orte und Songs in eine klare,
+                            produktive Oberfläche für Bands und Leitungsteams.
                         </p>
-                        <div class="landing-mobile-actions">
-                            <button type="button" class="landing-mobile-action landing-mobile-action-login"
+                        <div class="landing-cta-row">
+                            <button type="button" class="landing-cta landing-cta-primary"
+                                onclick="UI.toggleAuthOverlay(true, 'register')">Registrieren</button>
+                            <button type="button" class="landing-cta landing-cta-secondary"
                                 onclick="UI.toggleAuthOverlay(true, 'login')">Login</button>
+                        </div>
+                        <div class="landing-mobile-actions">
                             <button type="button" class="landing-mobile-action landing-mobile-action-register"
                                 onclick="UI.toggleAuthOverlay(true, 'register')">Registrieren</button>
+                            <button type="button" class="landing-mobile-action landing-mobile-action-login"
+                                onclick="UI.toggleAuthOverlay(true, 'login')">Login</button>
                         </div>
                     </div>
 
                     <div class="landing-showcase" aria-hidden="true">
                         <div class="landing-showcase-glow"></div>
-                        <div class="landing-mobile-stage">
-                            <div class="landing-mobile-stage-copy">
-                                <span class="landing-mobile-stage-brand">Band Planning</span>
-                            </div>
-                            <div class="landing-mobile-stage-guitar"></div>
-                            <div class="landing-mobile-stage-headphones">
-                                <span class="landing-mobile-stage-ear left"></span>
-                                <span class="landing-mobile-stage-ear right"></span>
-                                <span class="landing-mobile-stage-band"></span>
-                            </div>
-                            <div class="landing-mobile-stage-table"></div>
-                        </div>
 
                         <div class="landing-desk-device">
                             <div class="landing-device-bar">
@@ -277,32 +321,63 @@
                             </div>
                             <div class="landing-device-layout">
                                 <aside class="landing-device-sidebar">
-                                    <div class="landing-device-brand-row">Band Planning</div>
-                                    <span class="landing-device-nav active">Dashboard</span>
-                                    <span class="landing-device-nav">Termine</span>
-                                    <span class="landing-device-nav">Mitglieder</span>
-                                    <span class="landing-device-nav">Notizen</span>
+                                    <div class="landing-device-brand-row">
+                                        <span class="landing-device-brand-mark">BM</span>
+                                        <span>Bandmate</span>
+                                    </div>
+                                    <span class="landing-device-nav active">Überblick</span>
+                                    <span class="landing-device-nav">Bands</span>
+                                    <span class="landing-device-nav">Planung</span>
+                                    <span class="landing-device-nav">Auftritte</span>
+                                    <span class="landing-device-nav">Einstellungen</span>
                                 </aside>
                                 <div class="landing-device-content">
                                     <div class="landing-preview-heading">
-                                        <strong>The SoundWave</strong>
-                                        <span>Naechste Termine</span>
+                                        <strong>Willkommen zurück, Simon</strong>
+                                        <span>Übersicht für die nächsten Termine und Aktivitäten</span>
                                     </div>
-                                    <article class="landing-preview-card accent-blue">
-                                        <span class="landing-preview-date">Mittwoch, 24. Apr</span>
-                                        <strong>Bandprobe</strong>
-                                        <p>18:00 bis 20:00 Uhr · Rock'n'Roll Studio, Hamburg</p>
-                                    </article>
-                                    <article class="landing-preview-card accent-green">
-                                        <span class="landing-preview-date">Freitag, 17. Mai</span>
-                                        <strong>Konzert</strong>
-                                        <p>Music Hall, Hamburg · 20:00 Uhr</p>
-                                    </article>
-                                    <article class="landing-preview-card accent-violet">
-                                        <span class="landing-preview-date">Antworten im Blick</span>
-                                        <strong>4 von 5 Mitgliedern haben bestaetigt</strong>
-                                        <p>Abstimmungen und Rueckmeldungen in Echtzeit.</p>
-                                    </article>
+                                    <div class="landing-preview-metrics">
+                                        <article class="landing-preview-metric">
+                                            <span class="landing-preview-metric-label">Meine Bands</span>
+                                            <strong>4</strong>
+                                            <span class="landing-preview-metric-caption">Aktive Projekte</span>
+                                        </article>
+                                        <article class="landing-preview-metric">
+                                            <span class="landing-preview-metric-label">Auftritte</span>
+                                            <strong>3</strong>
+                                            <span class="landing-preview-metric-caption">Nächste 30 Tage</span>
+                                        </article>
+                                        <article class="landing-preview-metric">
+                                            <span class="landing-preview-metric-label">Proben</span>
+                                            <strong>8</strong>
+                                            <span class="landing-preview-metric-caption">Bestätigte Termine</span>
+                                        </article>
+                                    </div>
+                                    <div class="landing-preview-panels">
+                                        <article class="landing-preview-feature-card">
+                                            <span class="landing-preview-badge">Nächster Termin</span>
+                                            <strong>Coldplay Acoustic Session</strong>
+                                            <p>Donnerstag, 14. März · 19:00 Uhr · JMS Festhalle</p>
+                                        </article>
+                                        <div class="landing-preview-workspace">
+                                            <div class="landing-preview-workspace-head">
+                                                <strong>Diese Woche</strong>
+                                                <span>Agenda</span>
+                                            </div>
+                                            <article class="landing-preview-row">
+                                                <strong>Bandprobe</strong>
+                                                <span>Mittwoch · 18:30 Uhr · Tonstudio</span>
+                                            </article>
+                                            <article class="landing-preview-row">
+                                                <strong>Generalprobe</strong>
+                                                <span>Freitag · 19:00 Uhr · Ankersaal</span>
+                                            </article>
+                                            <article class="landing-preview-row">
+                                                <strong>Konzert</strong>
+                                                <span>Samstag · 20:00 Uhr · Altstadtbuehne</span>
+                                            </article>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -317,6 +392,7 @@
                                 <div class="landing-phone-tabs">
                                     <span class="active">Dashboard</span>
                                     <span>Termine</span>
+                                    <span>Mitglieder</span>
                                 </div>
                                 <article class="landing-phone-card accent-blue">
                                     <span class="landing-preview-date">Mittwoch</span>
@@ -332,6 +408,35 @@
                         </div>
                     </div>
                 </section>
+
+                <section class="landing-feature-strip" aria-label="Kernfunktionen">
+                    <article class="landing-feature-card">
+                        <span class="landing-feature-label">Band Management</span>
+                        <h2>Mitglieder, Rollen und Kommunikation in einer klaren Struktur.</h2>
+                        <p>Verwalte Bands, Verantwortlichkeiten und Abwesenheiten ohne verteilte Listen.</p>
+                    </article>
+                    <article class="landing-feature-card">
+                        <span class="landing-feature-label">Planung</span>
+                        <h2>Rückmeldungen und Terminfindung ohne Reibung.</h2>
+                        <p>Proben und Auftritte werden mit Abstimmungen, Orten und Kalender-Sync sauber geplant.</p>
+                    </article>
+                    <article class="landing-feature-card">
+                        <span class="landing-feature-label">Organisation</span>
+                        <h2>News, Songs und PDFs dort, wo dein Team sie braucht.</h2>
+                        <p>Halte Inhalte, ChordPro-Dateien und Informationen in einer gemeinsamen Arbeitsfläche bereit.</p>
+                    </article>
+                </section>
+
+                <footer class="landing-footer">
+                    <div class="landing-footer-brand">
+                        <span class="landing-footer-title">Bandmate</span>
+                        <span class="landing-footer-copy">Premium Planung für moderne Bands und Leitungsteams.</span>
+                    </div>
+                    <div class="landing-footer-links">
+                        <a href="privacy.html" target="_blank">Datenschutz</a>
+                        <a href="impressum.html" target="_blank">Impressum</a>
+                    </div>
+                </footer>
             </main>
         </div>
 
@@ -339,12 +444,12 @@
             <div class="auth-white-card auth-mode-login">
                 <div class="auth-card-head">
                     <div class="auth-card-copy">
-                        <span class="auth-card-kicker">Band Planning</span>
+                        <span class="auth-card-kicker">Bandmate</span>
                         <h2 class="auth-card-title">Dein Einstieg</h2>
-                        <p class="auth-card-subtitle">Melde dich an oder erstelle deinen Zugang fuer deine Band.</p>
+                        <p class="auth-card-subtitle">Melde dich an oder erstelle deinen Zugang für deine Band.</p>
                     </div>
                     <button type="button" onclick="UI.toggleAuthOverlay(false)" class="auth-close-btn"
-                        aria-label="Schliessen">&times;</button>
+                        aria-label="Schließen">&times;</button>
                 </div>
 
                 <div class="auth-tabs" role="tablist" aria-label="Authentifizierung">
@@ -353,7 +458,7 @@
                 </div>
 
                 <form id="loginForm" class="auth-form active">
-                    <h3 class="auth-form-title">Willkommen zurueck</h3>
+                    <h3 class="auth-form-title">Willkommen zurück</h3>
                     <p class="auth-form-subtitle">Mit deinem Konto bist du in Sekunden wieder in der Planung.</p>
 
                     <div class="form-group">
@@ -386,7 +491,7 @@
 
                 <form id="registerForm" class="auth-form">
                     <h3 class="auth-form-title">Account erstellen</h3>
-                    <p class="auth-form-subtitle">Lege in wenigen Schritten dein Profil fuer deine Band an.</p>
+                    <p class="auth-form-subtitle">Lege in wenigen Schritten dein Profil für deine Band an.</p>
 
                     <div class="auth-grid auth-grid-3">
                         <div class="form-group">
@@ -425,7 +530,7 @@
                             <input type="password" id="registerPassword" placeholder="••••••••" required>
                         </div>
                         <div class="form-group">
-                            <label for="registerPasswordConfirm">Bestaetigen</label>
+                            <label for="registerPasswordConfirm">Bestätigen</label>
                             <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required>
                         </div>
                     </div>
@@ -461,27 +566,27 @@
         <div id="onboardingModal" class="modal">
             <div class="modal-content modal-large onboarding-container">
                 <div class="onboarding-header">
-                    <h1>Willkommen an Bord! 🎸</h1>
-                    <p class="subtitle">Schön, dass du da bist! Wie möchtest du starten?</p>
+                    <h1>Willkommen bei Bandmate</h1>
+                    <p class="subtitle">Wähle den passenden Einstieg und richte deine Arbeitsfläche in wenigen Schritten ein.</p>
                 </div>
 
                 <div class="onboarding-cards">
                     <div class="onboarding-card" id="onboardingCreateBandCard">
-                        <div class="card-icon">🏗️</div>
+                        <div class="card-icon">01</div>
                         <h3>Band gründen</h3>
                         <p>Werde zum Bandleiter und lade deine Mitmusiker ein.</p>
                         <button id="onboardingCreateBandBtn" class="btn btn-primary">Starten</button>
                     </div>
 
                     <div class="onboarding-card" id="onboardingJoinBandCard">
-                        <div class="card-icon">👋</div>
+                        <div class="card-icon">02</div>
                         <h3>Band beitreten</h3>
                         <p>Nutze einen Code, um einer bestehenden Band beizutreten.</p>
                         <button id="onboardingJoinBandBtn" class="btn btn-secondary">Beitreten</button>
                     </div>
 
                     <div class="onboarding-card" id="onboardingSkipCard">
-                        <div class="card-icon">👀</div>
+                        <div class="card-icon">03</div>
                         <h3>Nur umschauen</h3>
                         <p>Wirf erst mal einen Blick auf die Funktionen im Dashboard.</p>
                         <button id="onboardingSkipBtn" class="btn btn-text">Später</button>
@@ -495,13 +600,8 @@
 
             <!-- Purple Sidebar (Desktop only) -->
             <aside class="app-sidebar">
-                <!-- Sidebar Branding -->
-                <div class="sidebar-brand" style="padding: var(--spacing-xl); text-align: center; color: white;">
-                    <div style="font-size: 2.5rem; margin-bottom: var(--spacing-xs);">🎸</div>
-                    <div style="font-weight: 800; font-size: 1.25rem; line-height: 1.2;">
-                        <div>Band</div>
-                        <div style="color: rgba(255,255,255,0.7);">Manager</div>
-                    </div>
+                <div class="sidebar-brand sidebar-brand-wordmark">
+                    <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate">
                 </div>
 
                 <!-- Profile Section Removed (now in Header) -->
@@ -512,7 +612,12 @@
                     <!-- 1. ÜBERBLICK -->
                     <div class="sidebar-group">
                         <button class="sidebar-item sidebar-main active" data-view="dashboard">
-                            <span class="sidebar-icon">🏠</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 10.5 12 3l9 7.5"></path>
+                                    <path d="M5 9.5V21h14V9.5"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Überblick</span>
                         </button>
                     </div>
@@ -520,17 +625,36 @@
                     <!-- 2. BANDS -->
                     <div class="sidebar-group has-submenu">
                         <button class="sidebar-item sidebar-main">
-                            <span class="sidebar-icon">👥</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                                    <circle cx="9" cy="7" r="4"></circle>
+                                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Bands</span>
                             <span class="submenu-arrow">▼</span>
                         </button>
                         <div class="sidebar-submenu">
                             <button class="sidebar-subitem" data-view="bands">
-                                <span class="sidebar-icon">🎸</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="m12 8-8.5 8.5a2.5 2.5 0 1 0 3.5 3.5L15.5 11"></path>
+                                        <path d="M12 8a2.5 2.5 0 1 0 3.5 3.5L24 3"></path>
+                                        <circle cx="12" cy="12" r="2.5"></circle>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">Meine Bands</span>
                             </button>
                             <button class="sidebar-subitem" data-view="musikpool">
-                                <span class="sidebar-icon">🎵</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9 18V5l12-2v13"></path>
+                                        <circle cx="6" cy="18" r="3"></circle>
+                                        <circle cx="18" cy="16" r="3"></circle>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">Musikerpool</span>
                             </button>
                         </div>
@@ -539,21 +663,43 @@
                     <!-- 3. PLANUNG -->
                     <div class="sidebar-group has-submenu">
                         <button class="sidebar-item sidebar-main">
-                            <span class="sidebar-icon">🗓️</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                    <path d="M16 2v4M8 2v4M3 10h18"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Planung</span>
                             <span class="submenu-arrow">▼</span>
                         </button>
                         <div class="sidebar-submenu">
                             <button class="sidebar-subitem" data-view="rehearsals">
-                                <span class="sidebar-icon">📅</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                        <path d="M16 2v4M8 2v4M3 10h18"></path>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">Probetermine</span>
                             </button>
                             <button class="sidebar-subitem" data-view="kalender">
-                                <span class="sidebar-icon">📆</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M8 2v4M16 2v4"></path>
+                                        <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                        <path d="M3 10h18"></path>
+                                        <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">Mein Kalender</span>
                             </button>
                             <button class="sidebar-subitem" data-view="probeorte">
-                                <span class="sidebar-icon">📍</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 22s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"></path>
+                                        <circle cx="12" cy="11" r="2.5"></circle>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">Probeorte</span>
                             </button>
                         </div>
@@ -562,7 +708,13 @@
                     <!-- 4. Auftritte -->
                     <div class="sidebar-group">
                         <button class="sidebar-item sidebar-main" data-view="events">
-                            <span class="sidebar-icon">🎤</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M12 16a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v6a4 4 0 0 0 4 4Z"></path>
+                                    <path d="M19 11a7 7 0 0 1-14 0"></path>
+                                    <path d="M12 19v3"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Auftritte</span>
                         </button>
                     </div>
@@ -570,21 +722,44 @@
                     <!-- 5. SONSTIGES -->
                     <div class="sidebar-group has-submenu">
                         <button class="sidebar-item sidebar-main">
-                            <span class="sidebar-icon">📊</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 20h16"></path>
+                                    <path d="M7 16V8"></path>
+                                    <path d="M12 16V4"></path>
+                                    <path d="M17 16v-5"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Sonstiges</span>
                             <span class="submenu-arrow">▼</span>
                         </button>
                         <div class="sidebar-submenu">
                             <button class="sidebar-subitem" data-view="statistics">
-                                <span class="sidebar-icon">📈</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 3v18h18"></path>
+                                        <path d="m7 13 4-4 3 3 5-7"></path>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">Statistiken</span>
                             </button>
                             <button class="sidebar-subitem" data-view="news">
-                                <span class="sidebar-icon">📰</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v13.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 17.5Z"></path>
+                                        <path d="M8 8h8M8 12h8M8 16h5"></path>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">News</span>
                             </button>
                             <button class="sidebar-subitem" data-view="pdftochordpro">
-                                <span class="sidebar-icon">📄</span>
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7Z"></path>
+                                        <path d="M14 2v5h5"></path>
+                                        <path d="M9 13h6M9 17h6M9 9h1"></path>
+                                    </svg>
+                                </span>
                                 <span class="sidebar-label">PDF to ChordPro</span>
                             </button>
                         </div>
@@ -593,7 +768,12 @@
                     <!-- Feedback Button -->
                     <div class="sidebar-group" style="margin-top: auto;">
                         <button class="sidebar-item sidebar-main" id="feedbackBtnSidebar">
-                            <span class="sidebar-icon">📢</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M3 11V9a2 2 0 0 1 2-2h3l5-4v18l-5-4H5a2 2 0 0 1-2-2v-2"></path>
+                                    <path d="M16 8a5 5 0 0 1 0 8"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Feedback</span>
                         </button>
                     </div>
@@ -601,7 +781,12 @@
                     <!-- 6. EINSTELLUNGEN -->
                     <div class="sidebar-group">
                         <button class="sidebar-item sidebar-main" id="openSettingsBtnSidebar">
-                            <span class="sidebar-icon">⚙️</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="3"></circle>
+                                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Einstellungen</span>
                         </button>
                     </div>
@@ -609,7 +794,13 @@
                     <!-- Logout Button moved here for consistent styling -->
                     <div class="sidebar-group logout-group" style="margin-top: auto;">
                         <button id="sidebarLogoutBtn" class="sidebar-item sidebar-main">
-                            <span class="sidebar-icon">🚪</span>
+                            <span class="sidebar-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                                    <path d="m16 17 5-5-5-5"></path>
+                                    <path d="M21 12H9"></path>
+                                </svg>
+                            </span>
                             <span class="sidebar-label">Abmelden</span>
                         </button>
                     </div>
@@ -624,32 +815,29 @@
                 <!-- Header -->
                 <header class="app-header">
                     <div class="header-content">
-                        <h1 class="logo">
-                            <span class="logo-emoji">🎸</span>
-                            <span class="logo-text">
-                                <span class="logo-part">Band</span>
-                                <span class="logo-part">Management</span>
-                                <span class="logo-part">Tool</span>
-                            </span>
-                        </h1>
+                        <div class="header-context">
+                            <div id="headerPageTitle" class="header-page-title-main"></div>
+                        </div>
 
                         <!-- Absence Indicator Badge -->
                         <div id="absenceIndicator" class="absence-indicator" style="display: none;">
-                            <span class="absence-icon">🏖️</span>
+                            <span class="absence-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M5 21h14"></path>
+                                    <path d="M7 21V8a5 5 0 0 1 10 0v13"></path>
+                                    <path d="M7 12h10"></path>
+                                </svg>
+                            </span>
                             <span class="absence-text">Abwesend bis <span id="absenceEndDate"></span></span>
                         </div>
 
-                        <div id="headerPageTitle" class="header-page-title-main"></div>
-
                         <!-- Profile Image (separate for mobile left positioning) -->
-                        <span id="headerProfileImage" class="profile-avatar"
-                            style="display:inline-block;vertical-align:middle;margin-right:0.5em;width:36px;height:36px;border-radius:50%;background:#e5e7eb;overflow:hidden;text-align:center;line-height:36px;font-weight:600;font-size:1.1em;color:#444;"></span>
+                        <span id="headerProfileImage" class="profile-avatar"></span>
 
                         <div class="header-actions">
                             <span id="currentUserName" class="user-name">User</span>
-                            <button id="themeToggleHeader" class="btn btn-icon" title="Dark Mode umschalten"
-                                style="width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; padding: 0; font-size: 1.25rem;">
-                                <span id="themeToggleIcon">🌙</span>
+                            <button id="themeToggleHeader" class="btn btn-icon" title="Theme umschalten">
+                                <span id="themeToggleIcon" aria-hidden="true"></span>
                             </button>
                             <button id="logoutBtn" class="btn btn-secondary">
                                 <img src="images/logout darkmode.jpg" alt="Abmelden" class="icon-img">
@@ -665,20 +853,42 @@
                         <!-- Home (Hauptreiter) -->
                         <div class="nav-group">
                             <button class="nav-item nav-main active" data-view="dashboard">
-                                <span class="nav-icon">🎙️</span>
+                                <span class="nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 10.5 12 3l9 7.5"></path>
+                                        <path d="M5 9.5V21h14V9.5"></path>
+                                    </svg>
+                                </span>
                                 <span class="nav-label">Home</span>
                             </button>
                             <div class="nav-submenu">
                                 <button class="nav-subitem active" data-view="dashboard">
-                                    <span class="nav-icon">🏠</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 10.5 12 3l9 7.5"></path>
+                                            <path d="M5 9.5V21h14V9.5"></path>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Dashboard</span>
                                 </button>
                                 <button class="nav-subitem" data-view="bands">
-                                    <span class="nav-icon">🎸</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="m12 8-8.5 8.5a2.5 2.5 0 1 0 3.5 3.5L15.5 11"></path>
+                                            <path d="M12 8a2.5 2.5 0 1 0 3.5 3.5L24 3"></path>
+                                            <circle cx="12" cy="12" r="2.5"></circle>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Meine Bands</span>
                                 </button>
                                 <button class="nav-subitem" data-view="musikpool">
-                                    <span class="nav-icon">🎵</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M9 18V5l12-2v13"></path>
+                                            <circle cx="6" cy="18" r="3"></circle>
+                                            <circle cx="18" cy="16" r="3"></circle>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Musikerpool</span>
                                 </button>
                             </div>
@@ -687,20 +897,42 @@
                         <!-- Planung (Hauptreiter) -->
                         <div class="nav-group">
                             <button class="nav-item nav-main" data-view="rehearsals">
-                                <span class="nav-icon">🗓️</span>
+                                <span class="nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                        <path d="M16 2v4M8 2v4M3 10h18"></path>
+                                    </svg>
+                                </span>
                                 <span class="nav-label">Planung</span>
                             </button>
                             <div class="nav-submenu">
                                 <button class="nav-subitem" data-view="rehearsals">
-                                    <span class="nav-icon">📅</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                            <path d="M16 2v4M8 2v4M3 10h18"></path>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Probetermine</span>
                                 </button>
                                 <button class="nav-subitem" data-view="probeorte">
-                                    <span class="nav-icon">🎙️</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 22s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"></path>
+                                            <circle cx="12" cy="11" r="2.5"></circle>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Probeorte</span>
                                 </button>
                                 <button class="nav-subitem" data-view="kalender">
-                                    <span class="nav-icon">📆</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M8 2v4M16 2v4"></path>
+                                            <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                            <path d="M3 10h18"></path>
+                                            <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Mein Kalender</span>
                                 </button>
                             </div>
@@ -709,7 +941,13 @@
                         <!-- Auftritte (Hauptreiter) -->
                         <div class="nav-group">
                             <button class="nav-item nav-main" data-view="events">
-                                <span class="nav-icon">🎸</span>
+                                <span class="nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M12 16a4 4 0 0 0 4-4V6a4 4 0 0 0-8 0v6a4 4 0 0 0 4 4Z"></path>
+                                        <path d="M19 11a7 7 0 0 1-14 0"></path>
+                                        <path d="M12 19v3"></path>
+                                    </svg>
+                                </span>
                                 <span class="nav-label">Auftritte</span>
                             </button>
                         </div>
@@ -717,20 +955,45 @@
                         <!-- Sonstiges (Hauptreiter) -->
                         <div class="nav-group">
                             <button class="nav-item nav-main" data-view="statistics">
-                                <span class="nav-icon">📊</span>
+                                <span class="nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 20h16"></path>
+                                        <path d="M7 16V8"></path>
+                                        <path d="M12 16V4"></path>
+                                        <path d="M17 16v-5"></path>
+                                    </svg>
+                                </span>
                                 <span class="nav-label">Sonstiges</span>
                             </button>
                             <div class="nav-submenu">
                                 <button class="nav-subitem" data-view="statistics">
-                                    <span class="nav-icon">📊</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 20h16"></path>
+                                            <path d="M7 16V8"></path>
+                                            <path d="M12 16V4"></path>
+                                            <path d="M17 16v-5"></path>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">Statistiken</span>
                                 </button>
                                 <button class="nav-subitem" data-view="news">
-                                    <span class="nav-icon">📰</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v13.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 17.5Z"></path>
+                                            <path d="M8 8h8M8 12h8M8 16h5"></path>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">News</span>
                                 </button>
                                 <button class="nav-subitem" data-view="pdftochordpro">
-                                    <span class="nav-icon">📄</span>
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M14 2H7a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7Z"></path>
+                                            <path d="M14 2v5h5"></path>
+                                            <path d="M9 13h6M9 17h6M9 9h1"></path>
+                                        </svg>
+                                    </span>
                                     <span class="nav-label">PDF to ChordPro</span>
                                 </button>
                             </div>
@@ -739,7 +1002,12 @@
                         <!-- Settings -->
                         <div class="nav-group">
                             <button class="nav-item nav-main" data-view="settings">
-                                <span class="nav-icon">⚙️</span>
+                                <span class="nav-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+                                    </svg>
+                                </span>
                                 <span class="nav-label">Settings</span>
                             </button>
                         </div>
@@ -749,7 +1017,12 @@
                 <!-- News Banner (appears when there are unread news) -->
                 <div id="newsBanner" class="news-banner" style="display: none;">
                     <div class="news-banner-content">
-                        <span class="news-banner-icon">📰</span>
+                        <span class="news-banner-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v13.5a2.5 2.5 0 0 1-2.5 2.5H6.5A2.5 2.5 0 0 1 4 17.5Z"></path>
+                                <path d="M8 8h8M8 12h8M8 16h5"></path>
+                            </svg>
+                        </span>
                         <div class="news-banner-text">
                             <strong>Neue News verfügbar!</strong>
                             <span id="newsBannerMessage">Es gibt ungelesene Updates</span>
@@ -768,12 +1041,11 @@
                 <main class="app-main">
                     <!-- Dashboard View -->
                     <div id="dashboardView" class="view active">
-                        <!-- Dashboard Hero Section -->
                         <div id="dashboardHero" class="dashboard-hero">
                             <div class="hero-welcome">
-                                <h2 class="welcome-text">Hallo <span id="welcomeUserName">Musiker</span>, Ready für den
-                                    nächsten Gig? 🎸</h2>
-                                <p class="hero-subtitle">Hier ist der Überblick für deine musikalische Woche.</p>
+                                <span class="dashboard-section-kicker">Überblick</span>
+                                <h2 class="welcome-text">Willkommen zurück, <span id="welcomeUserName">Musiker</span></h2>
+                                <p class="hero-subtitle">Hier ist dein kompakter Überblick für Termine, Aktivitäten und Bandorganisation.</p>
                             </div>
                             <div id="nextEventHero" class="next-event-hero-card">
                                 <div class="next-event-badge">Nächster Termin</div>
@@ -796,8 +1068,10 @@
                                     </svg>
                                 </div>
                                 <div class="card-content">
-                                    <h3>Meine Bands</h3>
+                                    <span class="card-eyebrow">Bestand</span>
+                                    <h3>Bands</h3>
                                     <p class="card-stat" id="bandCount">0</p>
+                                    <span class="card-caption" id="bandCountCaption">Du spielst aktuell in 0 Bands.</span>
                                 </div>
                             </div>
                             <div class="dashboard-card stat-card">
@@ -811,8 +1085,10 @@
                                     </svg>
                                 </div>
                                 <div class="card-content">
-                                    <h3>Nächste Auftritte</h3>
+                                    <span class="card-eyebrow">Agenda</span>
+                                    <h3>Auftritte</h3>
                                     <p class="card-stat" id="upcomingEvents">0</p>
+                                    <span class="card-caption" id="upcomingEventsCaption">Aktuell stehen keine Auftritte an.</span>
                                 </div>
                             </div>
                             <div class="dashboard-card stat-card">
@@ -827,17 +1103,21 @@
                                     </svg>
                                 </div>
                                 <div class="card-content">
+                                    <span class="card-eyebrow">Planung</span>
                                     <h3>Proben</h3>
                                     <p class="card-stat" id="totalRehearsals">0</p>
+                                    <span class="card-caption" id="totalRehearsalsCaption">Aktuell stehen keine Proben an.</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Dashboard Sections in Bento Layout -->
                         <div class="dashboard-bento-grid">
                             <div class="dashboard-section news-section" id="dashboardNewsSection">
                                 <div class="dashboard-section-header">
-                                    <h3>📰 Letzte News</h3>
+                                    <div>
+                                        <span class="dashboard-section-kicker">News</span>
+                                        <h3>Letzte Meldungen</h3>
+                                    </div>
                                     <div class="section-header-actions">
                                         <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
                                     </div>
@@ -847,10 +1127,13 @@
 
                             <div class="dashboard-section quick-access-section" id="dashboardQuickAccessSection">
                                 <div class="dashboard-section-header">
-                                    <h3>⚡ Schnellzugriff</h3>
+                                    <div>
+                                        <span class="dashboard-section-kicker">Aktionen</span>
+                                        <h3>Schnellzugriff</h3>
+                                    </div>
                                     <div class="section-header-actions">
                                         <button id="editQuickAccessBtn" class="btn btn-icon-sm"
-                                            title="Bearbeiten">✏️</button>
+                                            title="Bearbeiten">Anpassen</button>
                                         <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
                                     </div>
                                 </div>
@@ -859,7 +1142,10 @@
 
                             <div class="dashboard-section calendar-section" id="dashboardCalendarSection">
                                 <div class="dashboard-section-header">
-                                    <h3>📅 Kalender-Abo</h3>
+                                    <div>
+                                        <span class="dashboard-section-kicker">Sync</span>
+                                        <h3>Kalender-Abo</h3>
+                                    </div>
                                     <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
                                 </div>
                                 <div class="calendar-sync-card">
@@ -871,7 +1157,10 @@
 
                             <div class="dashboard-section activity-section" id="dashboardActivitySection">
                                 <div class="dashboard-section-header">
-                                    <h3>✨ Aktivitäten</h3>
+                                    <div>
+                                        <span class="dashboard-section-kicker">Feed</span>
+                                        <h3>Aktivitäten</h3>
+                                    </div>
                                     <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
                                 </div>
                                 <div id="dashboardActivityList" class="dashboard-activity-list"></div>
@@ -879,7 +1168,10 @@
 
                             <div class="dashboard-section upcoming-section" id="dashboardUpcomingSection">
                                 <div class="dashboard-section-header">
-                                    <h3>📅 Nächste Termine</h3>
+                                    <div>
+                                        <span class="dashboard-section-kicker">Agenda</span>
+                                        <h3>Nächste Termine</h3>
+                                    </div>
                                     <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
                                 </div>
                                 <div id="upcomingList" class="rehearsal-list"></div>
@@ -889,145 +1181,215 @@
 
                     <!-- Bands View -->
                     <div id="bandsView" class="view">
-                        <div class="view-actions-bar bands-view-actions">
-                            <button id="createBandBtnView" class="btn btn-primary">
-                                + Band erstellen
-                            </button>
-                            <button id="joinBandBtn" class="btn btn-secondary btn-bands-join-modal">
-                                Band beitreten
-                            </button>
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Bands</span>
+                                    <h2>Meine Bands</h2>
+                                    <p>Verwalte Mitgliedschaften, Rollen und den direkten Einstieg in alle Bandbereiche in einer klaren Übersicht.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Mitglieder, Setlists und Planung in einer Arbeitsfläche</span>
+                                </div>
+                            </section>
+                            <div class="view-actions-bar bands-view-actions">
+                                <div class="bands-view-action-group">
+                                    <button id="joinBandBtn" class="btn btn-secondary btn-bands-join-modal">
+                                        Band beitreten
+                                    </button>
+                                    <button id="createBandBtnView" class="btn btn-primary">
+                                        + Band erstellen
+                                    </button>
+                                </div>
+                            </div>
+                            <section class="page-section-card">
+                                <div id="bandsList" class="bands-grid"></div>
+                            </section>
                         </div>
-                        <div id="bandsList" class="bands-grid"></div>
                     </div>
 
                     <!-- Events View -->
                     <div id="eventsView" class="view">
-                        <div class="view-actions-bar">
-                            <select id="eventBandFilter" class="form-select">
-                                <option value="">Alle Bands</option>
-                            </select>
-                            <button id="createEventBtn" class="btn btn-primary">+ Neuer Auftritt</button>
-                        </div>
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Auftritte</span>
+                                    <h2>Auftritte &amp; Anfragen</h2>
+                                    <p>Behalte offene Anfragen, deine Rückmeldungen und bestätigte Termine in einer ruhigen, klaren Ansicht im Blick.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Von Anfrage bis Bestätigung in einem Workflow</span>
+                                </div>
+                            </section>
 
-                        <div class="schedule-board" id="eventsScheduleBoard">
-                            <div class="schedule-status-overview">
-                                <button type="button" class="schedule-status-card is-active" data-events-status="pending">
-                                    <span class="schedule-status-icon" aria-hidden="true">👋</span>
-                                    <span class="schedule-status-eyebrow">Offen</span>
-                                    <strong id="eventsStatusCountPending">0</strong>
-                                    <span class="schedule-status-caption">Wartet auf deine Rueckmeldung</span>
-                                </button>
-                                <button type="button" class="schedule-status-card" data-events-status="voted">
-                                    <span class="schedule-status-icon" aria-hidden="true">🗳️</span>
-                                    <span class="schedule-status-eyebrow">Abgestimmt</span>
-                                    <strong id="eventsStatusCountVoted">0</strong>
-                                    <span class="schedule-status-caption">Von dir bereits beantwortet</span>
-                                </button>
-                                <button type="button" class="schedule-status-card" data-events-status="resolved">
-                                    <span class="schedule-status-icon" aria-hidden="true">🎸</span>
-                                    <span class="schedule-status-eyebrow">Fest</span>
-                                    <strong id="eventsStatusCountResolved">0</strong>
-                                    <span class="schedule-status-caption">Bestaetigte Auftritte</span>
-                                </button>
+                            <div class="view-actions-bar">
+                                <select id="eventBandFilter" class="form-select">
+                                    <option value="">Alle Bands</option>
+                                </select>
+                                <button id="createEventBtn" class="btn btn-primary">+ Neuer Auftritt</button>
                             </div>
 
-                        </div>
-
-                        <div class="schedule-panels">
-                            <section class="schedule-panel is-active" data-events-panel="pending">
-                                <div id="eventsListPendingHeader" class="rehearsal-section-header schedule-panel-header">
-                                    <h3>👋 Offene Auftritts-Anfragen</h3>
-                                    <p>Hier siehst du alles, was noch auf Rueckmeldungen wartet.</p>
+                            <div class="page-section-card">
+                                <div class="schedule-board" id="eventsScheduleBoard">
+                                    <div class="schedule-status-overview">
+                                        <button type="button" class="schedule-status-card is-active" data-events-status="pending">
+                                            <span class="schedule-status-icon" aria-hidden="true">👋</span>
+                                            <span class="schedule-status-eyebrow">Offen</span>
+                                            <strong id="eventsStatusCountPending">0</strong>
+                                            <span class="schedule-status-caption">Wartet auf deine Rückmeldung</span>
+                                        </button>
+                                        <button type="button" class="schedule-status-card" data-events-status="voted">
+                                            <span class="schedule-status-icon" aria-hidden="true">🗳️</span>
+                                            <span class="schedule-status-eyebrow">Abgestimmt</span>
+                                            <strong id="eventsStatusCountVoted">0</strong>
+                                            <span class="schedule-status-caption">Von dir bereits beantwortet</span>
+                                        </button>
+                                        <button type="button" class="schedule-status-card" data-events-status="resolved">
+                                            <span class="schedule-status-icon" aria-hidden="true">🎸</span>
+                                            <span class="schedule-status-eyebrow">Fest</span>
+                                            <strong id="eventsStatusCountResolved">0</strong>
+                                            <span class="schedule-status-caption">Bestätigte Auftritte</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div id="eventsListPending" class="events-list"></div>
-                            </section>
 
-                            <section class="schedule-panel" data-events-panel="voted">
-                                <div id="eventsListVotedHeader" class="rehearsal-section-header schedule-panel-header">
-                                    <h3>✅ Meine Abstimmungen</h3>
-                                    <p>Deine Antworten sind drin. Diese Auftritte warten noch auf eine finale Entscheidung.</p>
-                                </div>
-                                <div id="eventsListVoted" class="events-list"></div>
-                            </section>
+                                <div class="schedule-panels">
+                                    <section class="schedule-panel is-active" data-events-panel="pending">
+                                        <div id="eventsListPendingHeader" class="rehearsal-section-header schedule-panel-header">
+                                            <h3>Offene Auftritts-Anfragen</h3>
+                                            <p>Hier siehst du alles, was noch auf Rückmeldungen wartet.</p>
+                                        </div>
+                                        <div id="eventsListPending" class="events-list"></div>
+                                    </section>
 
-                            <section class="schedule-panel" data-events-panel="resolved">
-                                <div id="eventsListResolvedHeader" class="rehearsal-section-header schedule-panel-header">
-                                    <h3>🎸 Feste Auftritte</h3>
-                                    <p>Bereits bestaetigte Termine, kompakt und schnell auffindbar.</p>
+                                    <section class="schedule-panel" data-events-panel="voted">
+                                        <div id="eventsListVotedHeader" class="rehearsal-section-header schedule-panel-header">
+                                            <h3>Meine Abstimmungen</h3>
+                                            <p>Deine Antworten sind drin. Diese Auftritte warten noch auf eine finale Entscheidung.</p>
+                                        </div>
+                                        <div id="eventsListVoted" class="events-list"></div>
+                                    </section>
+
+                                    <section class="schedule-panel" data-events-panel="resolved">
+                                        <div id="eventsListResolvedHeader" class="rehearsal-section-header schedule-panel-header">
+                                            <h3>Feste Auftritte</h3>
+                                            <p>Bereits bestätigte Termine, kompakt und schnell auffindbar.</p>
+                                        </div>
+                                        <div id="eventsList" class="events-list"></div>
+                                    </section>
                                 </div>
-                                <div id="eventsList" class="events-list"></div>
-                            </section>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Rehearsals View -->
                     <div id="rehearsalsView" class="view">
-                        <div class="view-actions-bar">
-                            <select id="bandFilter" class="form-select">
-                                <option value="">Alle Bands</option>
-                            </select>
-                            <button id="createRehearsalBtn" class="btn btn-primary">+ Neuer Probetermin</button>
-                        </div>
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Planung</span>
+                                    <h2>Probetermine</h2>
+                                    <p>Plane Abstimmungen, bestätigte Proben und laufende Rückmeldungen in einer durchgängigen Terminübersicht.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Abstimmung, Bestätigung und Bandkommunikation in einem Ablauf</span>
+                                </div>
+                            </section>
 
-                        <div class="schedule-board" id="rehearsalsScheduleBoard">
-                            <div class="schedule-status-overview">
-                                <button type="button" class="schedule-status-card is-active" data-rehearsals-status="pending">
-                                    <span class="schedule-status-icon" aria-hidden="true">👋</span>
-                                    <span class="schedule-status-eyebrow">Offen</span>
-                                    <strong id="rehearsalsStatusCountPending">0</strong>
-                                    <span class="schedule-status-caption">Wartet auf deine Rueckmeldung</span>
-                                </button>
-                                <button type="button" class="schedule-status-card" data-rehearsals-status="voted">
-                                    <span class="schedule-status-icon" aria-hidden="true">🗳️</span>
-                                    <span class="schedule-status-eyebrow">Abgestimmt</span>
-                                    <strong id="rehearsalsStatusCountVoted">0</strong>
-                                    <span class="schedule-status-caption">Von dir bereits beantwortet</span>
-                                </button>
-                                <button type="button" class="schedule-status-card" data-rehearsals-status="resolved">
-                                    <span class="schedule-status-icon" aria-hidden="true">🎼</span>
-                                    <span class="schedule-status-eyebrow">Fest</span>
-                                    <strong id="rehearsalsStatusCountResolved">0</strong>
-                                    <span class="schedule-status-caption">Bestaetigte Proben</span>
-                                </button>
+                            <div class="view-actions-bar">
+                                <select id="bandFilter" class="form-select">
+                                    <option value="">Alle Bands</option>
+                                </select>
+                                <button id="createRehearsalBtn" class="btn btn-primary">+ Neuer Probetermin</button>
                             </div>
 
-                        </div>
-
-                        <div class="schedule-panels">
-                            <section class="schedule-panel is-active" data-rehearsals-panel="pending">
-                                <div id="rehearsalsListPendingHeader" class="rehearsal-section-header schedule-panel-header">
-                                    <h3>👋 Offene Abstimmungen</h3>
-                                    <p>Diese Proben brauchen noch deine Antwort oder eine finale Bestaetigung.</p>
+                            <div class="page-section-card">
+                                <div class="schedule-board" id="rehearsalsScheduleBoard">
+                                    <div class="schedule-status-overview">
+                                        <button type="button" class="schedule-status-card is-active" data-rehearsals-status="pending">
+                                            <span class="schedule-status-icon" aria-hidden="true">👋</span>
+                                            <span class="schedule-status-eyebrow">Offen</span>
+                                            <strong id="rehearsalsStatusCountPending">0</strong>
+                                            <span class="schedule-status-caption">Wartet auf deine Rückmeldung</span>
+                                        </button>
+                                        <button type="button" class="schedule-status-card" data-rehearsals-status="voted">
+                                            <span class="schedule-status-icon" aria-hidden="true">🗳️</span>
+                                            <span class="schedule-status-eyebrow">Abgestimmt</span>
+                                            <strong id="rehearsalsStatusCountVoted">0</strong>
+                                            <span class="schedule-status-caption">Von dir bereits beantwortet</span>
+                                        </button>
+                                        <button type="button" class="schedule-status-card" data-rehearsals-status="resolved">
+                                            <span class="schedule-status-icon" aria-hidden="true">🎼</span>
+                                            <span class="schedule-status-eyebrow">Fest</span>
+                                            <strong id="rehearsalsStatusCountResolved">0</strong>
+                                            <span class="schedule-status-caption">Bestätigte Proben</span>
+                                        </button>
+                                    </div>
                                 </div>
-                                <div id="rehearsalsListPending" class="rehearsal-list"></div>
-                            </section>
 
-                            <section class="schedule-panel" data-rehearsals-panel="voted">
-                                <div id="rehearsalsListVotedHeader" class="rehearsal-section-header schedule-panel-header">
-                                    <h3>✅ Bereits abgestimmt</h3>
-                                    <p>Du hast reagiert. Diese Proben laufen noch durch den Abstimmungsprozess.</p>
-                                </div>
-                                <div id="rehearsalsListVoted" class="rehearsal-list"></div>
-                            </section>
+                                <div class="schedule-panels">
+                                    <section class="schedule-panel is-active" data-rehearsals-panel="pending">
+                                        <div id="rehearsalsListPendingHeader" class="rehearsal-section-header schedule-panel-header">
+                                            <h3>Offene Abstimmungen</h3>
+                                            <p>Diese Proben brauchen noch deine Antwort oder eine finale Bestätigung.</p>
+                                        </div>
+                                        <div id="rehearsalsListPending" class="rehearsal-list"></div>
+                                    </section>
 
-                            <section class="schedule-panel" data-rehearsals-panel="resolved">
-                                <div id="rehearsalsListResolvedHeader" class="rehearsal-section-header schedule-panel-header">
-                                    <h3>✅ Bestaetigte Proben</h3>
-                                    <p>Feste Proben, kompakt geordnet und schnell wiederzufinden.</p>
+                                    <section class="schedule-panel" data-rehearsals-panel="voted">
+                                        <div id="rehearsalsListVotedHeader" class="rehearsal-section-header schedule-panel-header">
+                                            <h3>Bereits abgestimmt</h3>
+                                            <p>Du hast reagiert. Diese Proben laufen noch durch den Abstimmungsprozess.</p>
+                                        </div>
+                                        <div id="rehearsalsListVoted" class="rehearsal-list"></div>
+                                    </section>
+
+                                    <section class="schedule-panel" data-rehearsals-panel="resolved">
+                                        <div id="rehearsalsListResolvedHeader" class="rehearsal-section-header schedule-panel-header">
+                                            <h3>Bestätigte Proben</h3>
+                                            <p>Feste Proben, kompakt geordnet und schnell wiederzufinden.</p>
+                                        </div>
+                                        <div id="rehearsalsListResolved" class="rehearsal-list resolved-list"></div>
+                                    </section>
                                 </div>
-                                <div id="rehearsalsListResolved" class="rehearsal-list resolved-list"></div>
-                            </section>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Statistics View -->
-                    <div id="statisticsView" class="view">
-                        <div class="view-actions-bar">
-                            <select id="statsBandSelect" class="form-select" style="width: 100%;">
-                                <option value="">Band auswählen</option>
-                            </select>
-                        </div>
-                        <div id="statisticsContent" class="statistics-content-modern">
+                    <div id="statisticsView" class="view statistics-view">
+                        <section class="statistics-top-shell">
+                            <div class="page-overview-card statistics-page-overview">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Analyse</span>
+                                    <h2>Statistiken</h2>
+                                    <p>Auftritte, Proben und Repertoire im Blick.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-chip">Automatisch aktuell</span>
+                                </div>
+                            </div>
+                            <div class="view-actions-bar statistics-toolbar">
+                                <div class="statistics-filter-shell">
+                                    <div class="statistics-filter-copy">
+                                        <span class="statistics-filter-kicker">Filter</span>
+                                        <strong>Band</strong>
+                                        <small>Optional eingrenzen.</small>
+                                    </div>
+                                    <select id="statsBandSelect" class="form-select statistics-band-select">
+                                        <option value="">Band auswählen</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div id="statsSummaryContainer" class="stats-summary-container">
+                                <div class="stats-summary-placeholder">
+                                    <span class="stats-panel-kicker">Überblick</span>
+                                    <h3>Auf einen Blick</h3>
+                                    <p>Wähle optional eine Band aus.</p>
+                                </div>
+                            </div>
+                        </section>
+                        <div id="statisticsContent" class="statistics-content-modern statistics-content-shell">
                             <!-- Helper container for the dashboard -->
                             <div id="statsDashboardContainer" class="stats-dashboard-container">
                                 <!-- Content will be injected via JS -->
@@ -1200,43 +1562,54 @@
                     </div>
                     <!-- Probeorte View -->
                     <div id="probeorteView" class="view probeorte-view">
-
-                        <!-- Submenu for calendar selection -->
-                        <div class="calendar-submenu probeorte-submenu">
-                            <button id="probeorteBtnTonstudio" class="calendar-tab active" data-calendar="tonstudio">
-                                <span class="calendar-tab-icon" aria-hidden="true">🎙️</span>
-                                <span class="calendar-tab-label">Tonstudio</span>
-                            </button>
-                            <button id="probeorteBtnFesthalle" class="calendar-tab" data-calendar="festhalle">
-                                <span class="calendar-tab-icon" aria-hidden="true">🏛️</span>
-                                <span class="calendar-tab-label">JMS Festhalle</span>
-                            </button>
-                            <button id="probeorteBtnAnkersaal" class="calendar-tab" data-calendar="ankersaal">
-                                <span class="calendar-tab-icon" aria-hidden="true">⚓</span>
-                                <span class="calendar-tab-label">Ankersaal</span>
-                            </button>
-                            <!-- refresh button removed per request -->
-                        </div>
-
-                        <div class="section probeorte-calendar-section">
-                            <!-- Tonstudio Calendar -->
-                            <div id="tonstudioCalendar" class="calendar-container active">
-                                <div id="tonstudioEventsContainer" style="min-height: 400px;">
-                                    <!-- Events will be rendered here -->
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Planung</span>
+                                    <h2>Probeorte</h2>
+                                    <p>Prüfe Belegungen, wechsle zwischen Räumen und behalte freie Zeiten in einer ruhigen Kalenderansicht im Blick.</p>
                                 </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Kalender, Räume und Verfügbarkeiten in einer Ansicht</span>
+                                </div>
+                            </section>
+
+                            <!-- Submenu for calendar selection -->
+                            <div class="calendar-submenu probeorte-submenu">
+                                <button id="probeorteBtnTonstudio" class="calendar-tab active" data-calendar="tonstudio">
+                                    <span class="calendar-tab-icon" aria-hidden="true">🎙️</span>
+                                    <span class="calendar-tab-label">Tonstudio</span>
+                                </button>
+                                <button id="probeorteBtnFesthalle" class="calendar-tab" data-calendar="festhalle">
+                                    <span class="calendar-tab-icon" aria-hidden="true">🏛️</span>
+                                    <span class="calendar-tab-label">JMS Festhalle</span>
+                                </button>
+                                <button id="probeorteBtnAnkersaal" class="calendar-tab" data-calendar="ankersaal">
+                                    <span class="calendar-tab-icon" aria-hidden="true">⚓</span>
+                                    <span class="calendar-tab-label">Ankersaal</span>
+                                </button>
                             </div>
 
-                            <!-- Festhalle Calendar -->
-                            <div id="festhalleCalendar" class="calendar-container">
-                                <div id="festhalleEventsContainer" style="min-height: 400px;">
-                                    <!-- Events will be rendered here -->
+                            <div class="section page-section-card probeorte-calendar-section">
+                                <!-- Tonstudio Calendar -->
+                                <div id="tonstudioCalendar" class="calendar-container active">
+                                    <div id="tonstudioEventsContainer" style="min-height: 400px;">
+                                        <!-- Events will be rendered here -->
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Ankersaal Calendar -->
-                            <div id="ankersaalCalendar" class="calendar-container">
-                                <div id="ankersaalEventsContainer" style="min-height: 400px;">
-                                    <!-- Events will be rendered here -->
+                                <!-- Festhalle Calendar -->
+                                <div id="festhalleCalendar" class="calendar-container">
+                                    <div id="festhalleEventsContainer" style="min-height: 400px;">
+                                        <!-- Events will be rendered here -->
+                                    </div>
+                                </div>
+
+                                <!-- Ankersaal Calendar -->
+                                <div id="ankersaalCalendar" class="calendar-container">
+                                    <div id="ankersaalEventsContainer" style="min-height: 400px;">
+                                        <!-- Events will be rendered here -->
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1244,70 +1617,93 @@
 
                     <!-- Kalender View -->
                     <div id="kalenderView" class="view">
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Planung</span>
+                                    <h2>Mein Kalender</h2>
+                                    <p>Sieh alle persönlichen Termine in einer Übersicht und abonniere deinen Kalender für Apple, Google oder Samsung.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Persönliche Termine, Export und Synchronisation</span>
+                                </div>
+                            </section>
 
-                        <div class="section">
-                            <div id="personalCalendarContainer">
-                                <!-- Personal calendar will be rendered here -->
-                            </div>
-                            <div>
-                                <br>
-                                <span style="font-size:0.9rem; color:var(--color-text-secondary); line-height:1.4;">
-                                    Abonniere jetzt deinen Kalender in deinem Apple- oder Samsung-Kalender, um nichts
-                                    mehr
-                                    zu verpassen!
-                                    <br></span>
-                                <button id="subscribePersonalCalendarBtn" class="btn btn-secondary"
-                                    onclick="PersonalCalendar.exportICS()"
-                                    style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                                    🔗 Kalender abonnieren
-                                </button>
+                            <div class="section page-section-card">
+                                <div id="personalCalendarContainer">
+                                    <!-- Personal calendar will be rendered here -->
+                                </div>
+                                <div class="calendar-subscription-block">
+                                    <span class="calendar-subscription-copy">
+                                        Abonniere deinen Kalender auf dem Smartphone oder Desktop und behalte neue Termine automatisch im Blick.
+                                    </span>
+                                    <button id="subscribePersonalCalendarBtn" class="btn btn-secondary"
+                                        onclick="PersonalCalendar.exportICS()"
+                                        style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                                        Kalender abonnieren
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Musikerpool View -->
                     <div id="musikpoolView" class="view">
-                        <div class="view-actions-bar">
-                            <button id="refreshMusikpoolBtn" class="btn btn-secondary"
-                                style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                                🔄 Aktualisieren
-                            </button>
-                        </div>
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Bands</span>
+                                    <h2>Musikerpool</h2>
+                                    <p>Behalte Kontakte, eigene Mitglieder und den ChurchTools-Pool in einer geordneten Arbeitsfläche im Blick.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Kontakte, Rollen und externe Musiker in einer Übersicht</span>
+                                </div>
+                            </section>
 
-                        <!-- Eigene Mitglieder Section -->
-                        <div class="section">
-                            <div class="section-header">
-                                <h3>Eigene Mitglieder</h3>
-                                <button id="addOwnMemberBtn" class="btn btn-primary"
+                            <div class="view-actions-bar">
+                                <button id="refreshMusikpoolBtn" class="btn btn-secondary" data-refresh-musikpool
                                     style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                                    ➕ Mitglied hinzufügen
+                                    Aktualisieren
                                 </button>
                             </div>
-                            <div id="ownMembersContainer">
-                                <div class="empty-state">
-                                    <div class="empty-icon">👥</div>
-                                    <p>Noch keine eigenen Mitglieder angelegt</p>
-                                    <p
-                                        style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
-                                        Hier können Sie eigene Musiker und Kontakte hinzufügen.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
 
-                        <!-- ChurchTools Pool Section -->
-                        <div id="churchToolsMusikpoolSection" class="section">
-                            <div
-                                style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: var(--spacing-lg);">
-                                <h3 style="margin-bottom: 0;">ChurchTools Musikpool</h3>
-                                <span class="admin-badge">Nur für Admins sichtbar</span>
-                            </div>
-                            <button id="refreshMusikpoolBtn" class="btn btn-secondary"
-                                style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                                🔄 Aktualisieren
-                            </button>
-                            <div id="musikpoolContainer">
-                                <!-- ChurchTools members will be rendered here -->
+                            <div class="split-content-grid">
+                                <!-- Eigene Mitglieder Section -->
+                                <div class="section page-section-card">
+                                    <div class="section-header">
+                                        <h3>Eigene Mitglieder</h3>
+                                        <button id="addOwnMemberBtn" class="btn btn-primary"
+                                            style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                                            Mitglied hinzufügen
+                                        </button>
+                                    </div>
+                                    <div id="ownMembersContainer">
+                                        <div class="empty-state">
+                                            <p>Noch keine eigenen Mitglieder angelegt</p>
+                                            <p class="empty-state-note">
+                                                Hier kannst du eigene Musiker und Kontakte ergänzen.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- ChurchTools Pool Section -->
+                                <div id="churchToolsMusikpoolSection" class="section page-section-card">
+                                    <div class="section-header section-header-stack">
+                                        <div>
+                                            <h3>ChurchTools Musikpool</h3>
+                                            <p class="section-subtext">Für Admins sichtbar und direkt aus ChurchTools aktualisierbar.</p>
+                                        </div>
+                                        <button class="btn btn-secondary" data-refresh-musikpool
+                                            style="display: inline-flex; align-items: center; gap: 0.5rem;">
+                                            Aktualisieren
+                                        </button>
+                                    </div>
+                                    <div id="musikpoolContainer">
+                                        <!-- ChurchTools members will be rendered here -->
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1838,13 +2234,17 @@
 
 
     <!-- Create Band Modal -->
-    <div id="createBandModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Neue Band erstellen</h2>
+    <div id="createBandModal" class="modal modal-band-entry">
+        <div class="modal-content band-entry-modal-content">
+            <div class="modal-header band-entry-modal-header">
+                <div class="band-entry-modal-copy">
+                    <span class="band-entry-modal-kicker">Bands</span>
+                    <h2>Neue Band erstellen</h2>
+                    <p>Lege deine Band an und ergänze Beschreibung, Songs und Mitglieder danach in Ruhe.</p>
+                </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <form id="createBandForm">
+            <form id="createBandForm" class="band-entry-form">
                 <div class="form-group">
                     <label for="bandName">Bandname</label>
                     <input type="text" id="bandName" required>
@@ -1940,19 +2340,42 @@
             <div class="modal-body band-details-modal-body">
                 <div class="tab-buttons band-details-tabs">
                     <button class="tab-btn active" data-tab="members">
-                        <span class="band-details-tab-icon" aria-hidden="true">👥</span>
+                        <span class="band-details-tab-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </span>
                         <span>Mitglieder</span>
                     </button>
                     <button class="tab-btn" data-tab="absences" id="bandAbsencesTabBtn">
-                        <span class="band-details-tab-icon" aria-hidden="true">🗓️</span>
+                        <span class="band-details-tab-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                <path d="M16 2v4M8 2v4M3 10h18"></path>
+                            </svg>
+                        </span>
                         <span>Abwesenheiten</span>
                     </button>
                     <button class="tab-btn" data-tab="setlist">
-                        <span class="band-details-tab-icon" aria-hidden="true">🎵</span>
+                        <span class="band-details-tab-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 18V5l12-2v13"></path>
+                                <circle cx="6" cy="18" r="3"></circle>
+                                <circle cx="18" cy="16" r="3"></circle>
+                            </svg>
+                        </span>
                         <span>Setlist</span>
                     </button>
                     <button class="tab-btn" data-tab="settings">
-                        <span class="band-details-tab-icon" aria-hidden="true">⚙️</span>
+                        <span class="band-details-tab-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+                            </svg>
+                        </span>
                         <span>Einstellungen</span>
                     </button>
                 </div>
@@ -2002,7 +2425,7 @@
                             <div>
                                 <span class="band-details-section-eyebrow">Sicherheit</span>
                                 <h3>Band-Einstellungen</h3>
-                                <p class="band-details-section-note">Kritische Aktionen fuer diese Band an einem Ort.</p>
+                                <p class="band-details-section-note">Kritische Aktionen für diese Band an einem Ort.</p>
                             </div>
                         </div>
                         <div class="settings-actions">
@@ -2151,78 +2574,121 @@
 
     <!-- Create Rehearsal Modal -->
     <div id="createRehearsalModal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
-                <h2 id="rehearsalModalTitle">Neuen Probetermin vorschlagen</h2>
+        <div class="modal-content modal-large scheduler-modal scheduler-modal-rehearsal">
+            <div class="modal-header scheduler-modal-header">
+                <div class="scheduler-modal-title-group">
+                    <span class="scheduler-modal-kicker">Planung</span>
+                    <h2 id="rehearsalModalTitle">Neuen Probetermin vorschlagen</h2>
+                    <p class="scheduler-modal-subtitle">Erstelle eine saubere Abstimmung mit Band, Ort und möglichen Terminen.</p>
+                </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <form id="createRehearsalForm">
+            <form id="createRehearsalForm" class="scheduler-form">
                 <input type="hidden" id="editRehearsalId">
-                <div class="form-group">
-                    <label for="rehearsalBand">Band <span style="color:red;" title="Pflichtfeld">*</span></label>
-                    <select id="rehearsalBand" required>
-                        <option value="">Band auswählen</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="rehearsalTitle">Titel <span style="color:red;" title="Pflichtfeld">*</span></label>
-                    <input type="text" id="rehearsalTitle" required>
-                </div>
-                <div class="form-group">
-                    <label for="rehearsalLocation">Ort (Optional)</label>
-                    <select id="rehearsalLocation">
-                        <option value="">Kein Ort ausgewählt</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="rehearsalDescription">Beschreibung</label>
-                    <textarea id="rehearsalDescription" rows="3"></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="rehearsalEvent">Zugewiesener Auftritt (Optional)</label>
-                    <select id="rehearsalEvent">
-                        <option value="">Kein Auftritt ausgewählt</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Terminvorschläge</label>
-                    <div id="dateProposals" class="date-proposals">
-                        <div class="date-proposal-item" data-confirmed="false">
-                            <div class="date-time-range">
-                                <input type="date" class="date-input-date" id="dateInputDate">
-                                <input type="time" class="date-input-start" id="dateInputStart">
-                                <span class="time-separator">bis</span>
-                                <input type="time" class="date-input-end" id="dateInputEnd">
+                <div class="scheduler-form-scroll">
+                    <section class="scheduler-panel">
+                        <div class="scheduler-panel-head">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Grunddaten</span>
+                                <h3>Rahmen der Probe</h3>
                             </div>
-                            <span class="date-availability" style="margin-left:8px"></span>
-                            <button type="button" class="btn btn-sm confirm-proposal-btn">✓
-                                Bestätigen</button>
-                            <button type="button" class="btn-icon remove-date" disabled>🗑️</button>
+                            <p>Lege Titel, Band, Ort und optionale Verknüpfungen in einer klaren Reihenfolge fest.</p>
                         </div>
-                    </div>
-                    <button type="button" id="addDateBtn" class="btn btn-secondary btn-sm">+ Weiteren
-                        Termin
-                        hinzufügen</button>
-                </div>
-                <div class="form-group checkbox-group" id="notifyMembersGroup" style="display: none;">
-                    <div class="checkbox-item">
-                        <input type="checkbox" id="notifyMembersOnUpdate">
-                        <label for="notifyMembersOnUpdate">Update-E-Mail an alle Beteiligten
-                            senden</label>
-                    </div>
-                </div>
+                        <div class="form-grid-2 scheduler-grid scheduler-grid-basics">
+                            <div class="form-group scheduler-span-2">
+                                <label for="rehearsalTitle">Titel <span class="required-indicator" title="Pflichtfeld">*</span></label>
+                                <input type="text" id="rehearsalTitle" placeholder="z. B. Bandprobe März, Akustikprobe oder Generalprobe" required>
+                                <small class="scheduler-field-note">Wähle einen klaren Titel, damit die Abstimmung später sofort verständlich ist.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="rehearsalBand">Band <span class="required-indicator" title="Pflichtfeld">*</span></label>
+                                <select id="rehearsalBand" required>
+                                    <option value="">Band auswählen</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="rehearsalLocation">Ort (optional)</label>
+                                <select id="rehearsalLocation">
+                                    <option value="">Kein Ort ausgewählt</option>
+                                </select>
+                                <small class="scheduler-field-note">Wenn ein Ort gewählt ist, prüfen wir die Vorschläge automatisch auf Konflikte.</small>
+                            </div>
+                            <div class="form-group scheduler-span-2">
+                                <label for="rehearsalEvent">Zugewiesener Auftritt (optional)</label>
+                                <select id="rehearsalEvent">
+                                    <option value="">Kein Auftritt ausgewählt</option>
+                                </select>
+                                <small class="scheduler-field-note">Hilfreich, wenn die Probe direkt zu einem bevorstehenden Auftritt gehört.</small>
+                            </div>
+                            <div class="form-group scheduler-span-2">
+                                <label for="rehearsalDescription">Beschreibung</label>
+                                <textarea id="rehearsalDescription" rows="3" placeholder="Optional: kurzer Kontext, Ziele oder Hinweise für die Band."></textarea>
+                            </div>
+                        </div>
+                    </section>
 
-                <!-- Update Email Section (only for confirmed rehearsals when editing) -->
-                <div id="updateEmailSection"
-                    style="display: none; margin-top: 1rem; padding: 1rem; background: var(--color-bg-secondary); border-radius: var(--radius-md); border-left: 3px solid var(--color-warning);">
-                    <h3 style="margin: 0 0 0.5rem 0; font-size: 1rem;">📧 Update-Email versenden</h3>
-                    <div class="checkbox-item" style="display: flex; align-items: center; gap: 0.5rem;">
-                        <input type="checkbox" id="sendUpdateEmail" />
-                        <label for="sendUpdateEmail" style="cursor: pointer; margin: 0;">Bandmitglieder
-                            über Änderungen informieren</label>
-                    </div>
-                </div>
+                    <section class="scheduler-panel scheduler-panel-highlight">
+                        <div class="scheduler-panel-head">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Terminvorschläge</span>
+                                <h3>Abstimmung vorbereiten</h3>
+                            </div>
+                            <p>Bestätige mindestens einen Vorschlag, damit die Probe erstellt werden kann.</p>
+                        </div>
+                        <div id="dateProposals" class="date-proposals">
+                            <div class="date-proposal-item" data-confirmed="false">
+                                <div class="date-time-range">
+                                    <input type="date" class="date-input-date" id="dateInputDate">
+                                    <input type="time" class="date-input-start" id="dateInputStart">
+                                    <span class="time-separator">bis</span>
+                                    <input type="time" class="date-input-end" id="dateInputEnd">
+                                </div>
+                                <span class="date-availability" style="margin-left:8px"></span>
+                                <button type="button" class="btn btn-sm confirm-proposal-btn">✓ Bestätigen</button>
+                                <button type="button" class="btn-icon remove-date" disabled>🗑️</button>
+                            </div>
+                        </div>
+                        <div class="scheduler-inline-actions">
+                            <button type="button" id="addDateBtn" class="btn btn-secondary btn-sm">+ Weiteren Termin hinzufügen</button>
+                        </div>
+                    </section>
 
+                    <section class="scheduler-panel scheduler-panel-muted">
+                        <div class="scheduler-panel-head scheduler-panel-head-compact">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Bandmitglieder</span>
+                                <h3>Abstimmung & Information</h3>
+                            </div>
+                            <p>Alle Mitglieder der gewählten Band werden automatisch in die Terminabstimmung einbezogen.</p>
+                        </div>
+                    </section>
+
+                    <section class="scheduler-panel scheduler-panel-soft" id="notifyMembersGroup" style="display: none;">
+                        <div class="scheduler-panel-head scheduler-panel-head-compact">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Benachrichtigung</span>
+                                <h3>Änderungen mitteilen</h3>
+                            </div>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="notifyMembersOnUpdate">
+                            <label for="notifyMembersOnUpdate">Update-E-Mail an alle Beteiligten senden</label>
+                        </div>
+                    </section>
+
+                    <section id="updateEmailSection" class="scheduler-panel scheduler-panel-warning" style="display: none;">
+                        <div class="scheduler-panel-head scheduler-panel-head-compact">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Update</span>
+                                <h3>Update-Email versenden</h3>
+                            </div>
+                        </div>
+                        <div class="checkbox-item">
+                            <input type="checkbox" id="sendUpdateEmail" />
+                            <label for="sendUpdateEmail">Bandmitglieder über Änderungen informieren</label>
+                        </div>
+                    </section>
+                </div>
                 <div class="modal-actions">
                     <button type="button" class="btn cancel">Abbrechen</button>
                     <button type="button" class="btn btn-danger" id="deleteRehearsalBtn"
@@ -2290,7 +2756,7 @@
 
                 <div id="confirmAdditionalDatesInfo" class="section" style="display: none;">
                     <h3>Weitere Einzelproben</h3>
-                    <p class="help-text">Diese zusaetzlich angehakten Termine werden ebenfalls als einzelne bestaetigte Proben angelegt.</p>
+                    <p class="help-text">Diese zusätzlich angehakten Termine werden ebenfalls als einzelne bestätigte Proben angelegt.</p>
                     <div id="confirmAdditionalDatesList"></div>
                 </div>
 
@@ -2359,19 +2825,23 @@
 
     <!-- Location Conflict Warning Modal -->
     <div id="locationConflictModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>⚠️ Probeort belegt</h2>
+        <div class="modal-content conflict-modal-content">
+            <div class="modal-header conflict-modal-header">
+                <div class="conflict-modal-copy">
+                    <span class="conflict-modal-kicker">Ortskonflikt</span>
+                    <h2>Probeort belegt</h2>
+                    <p>Prüfe die Überschneidungen und entscheide dann, ob du trotzdem fortfahren möchtest.</p>
+                </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body conflict-modal-body">
                 <div id="conflictDetails" class="conflict-details"></div>
 
-                <p style="margin-top: 1rem; color: var(--color-text-secondary);">
+                <p class="conflict-modal-question">
                     Möchtest du trotzdem fortfahren?
                 </p>
 
-                <div class="modal-actions">
+                <div class="modal-actions conflict-modal-actions">
                     <button type="button" class="btn cancel" id="abortConfirmationBtn">Abbrechen</button>
                     <button type="button" class="btn btn-primary" id="proceedAnywayBtn">Trotzdem
                         fortfahren</button>
@@ -2451,120 +2921,147 @@
 
     <!-- Create Event Modal -->
     <div id="createEventModal" class="modal">
-        <div class="modal-content modal-xl">
-            <div class="modal-header">
-                <h2 id="eventModalTitle">Neuen Auftritt erstellen</h2>
+        <div class="modal-content modal-xl scheduler-modal scheduler-modal-event">
+            <div class="modal-header scheduler-modal-header">
+                <div class="scheduler-modal-title-group">
+                    <span class="scheduler-modal-kicker">Auftrittsplanung</span>
+                    <h2 id="eventModalTitle">Neuen Auftritt erstellen</h2>
+                    <p class="scheduler-modal-subtitle">Plane Termin, Beteiligte und Setlist in einer klaren Arbeitsfläche.</p>
+                </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <form id="createEventForm">
+            <form id="createEventForm" class="scheduler-form">
                 <input type="hidden" id="editEventId">
-
-                <div class="form-grid-2">
-                    <div class="form-group">
-                        <label for="eventBand">Band <span style="color:red;" title="Pflichtfeld">*</span></label>
-                        <select id="eventBand" required>
-                            <option value="">Band auswählen</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="eventTitle">Titel / Anlass <span style="color:red;"
-                                title="Pflichtfeld">*</span></label>
-                        <input type="text" id="eventTitle" placeholder="z.B. Hochzeit, Firmenfeier..." required>
-                    </div>
-                    <div class="form-group">
-                        <label for="eventDate">Datum und Uhrzeit (Fixer Termin)</label>
-                        <input type="datetime-local" id="eventDate">
-                        <small class="help-text">Nur ausfüllen, wenn der Termin bereits feststeht.</small>
-                    </div>
-                    <div class="form-group">
-                        <label for="eventLocation">📍 Ort / Adresse</label>
-                        <input type="text" id="eventLocation" placeholder="Musterstadt, Hauptstr 1">
-                    </div>
-                </div>
-
-                <div class="form-group" id="eventDateProposalsSection">
-                    <label>Terminvorschläge (Abstimmung)</label>
-                    <div id="eventDateProposals" class="date-proposals">
-                        <div class="date-proposal-item" data-confirmed="false">
-                            <div class="date-time-range">
-                                <input type="date" class="event-date-input-date">
-                                <input type="time" class="event-date-input-start">
+                <div class="scheduler-form-scroll">
+                    <section class="scheduler-panel">
+                        <div class="scheduler-panel-head">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Grunddaten</span>
+                                <h3>Rahmen des Auftritts</h3>
                             </div>
-                            <button type="button" class="btn-icon remove-event-date" disabled>🗑️</button>
+                            <p>Hier legst du Band, Anlass, festen Termin und Ort fest.</p>
                         </div>
-                    </div>
-                    <button type="button" id="addEventDateBtn" class="btn btn-secondary btn-sm">+ Weiteren Termin
-                        hinzufügen</button>
-                </div>
-
-                <div class="form-section-divider"></div>
-
-                <div class="form-group toggle-group">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="eventShowExtras">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <label for="eventShowExtras" class="toggle-label">Weitere Infos (Soundcheck,
-                        Technik,
-                        Event-Infos)</label>
-                </div>
-
-                <div id="eventExtrasFields" class="form-optional-section" style="display:none;">
-                    <div class="form-group">
-                        <label for="eventSoundcheckLocation">🎚️ Soundcheck Infos</label>
-                        <input type="text" id="eventSoundcheckLocation"
-                            placeholder="Uhrzeit, konkreter Ort im Gebäude...">
-                    </div>
-                    <div class="form-grid-2">
-                        <div class="form-group">
-                            <label for="eventInfo">ℹ️ Event-Infos</label>
-                            <textarea id="eventInfo" rows="3" placeholder="Ablauf, Ansprechpartner..."></textarea>
+                        <div class="form-grid-2 scheduler-grid">
+                            <div class="form-group">
+                                <label for="eventBand">Band <span style="color:red;" title="Pflichtfeld">*</span></label>
+                                <select id="eventBand" required>
+                                    <option value="">Band auswählen</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="eventTitle">Titel / Anlass <span style="color:red;"
+                                        title="Pflichtfeld">*</span></label>
+                                <input type="text" id="eventTitle" placeholder="z.B. Hochzeit, Firmenfeier..." required>
+                            </div>
+                            <div class="form-group">
+                                <label for="eventDate">Datum und Uhrzeit (fixer Termin)</label>
+                                <input type="datetime-local" id="eventDate">
+                                <small class="help-text">Nur ausfüllen, wenn der Termin bereits feststeht.</small>
+                            </div>
+                            <div class="form-group">
+                                <label for="eventLocation">📍 Ort / Adresse</label>
+                                <input type="text" id="eventLocation" placeholder="Musterstadt, Hauptstr 1">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="eventTechInfo">🔧 Technik / PA</label>
-                            <textarea id="eventTechInfo" rows="3"
-                                placeholder="Was wird benötigt? Monitoring?"></textarea>
+                    </section>
+
+                    <section class="scheduler-panel scheduler-panel-highlight" id="eventDateProposalsSection">
+                        <div class="scheduler-panel-head">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Terminfindung</span>
+                                <h3>Terminvorschläge</h3>
+                            </div>
+                            <p>Falls der Auftritt noch nicht fix ist, kannst du hier mögliche Termine sammeln.</p>
                         </div>
-                    </div>
-                </div>
-
-                <div class="form-section-divider"></div>
-
-                <div class="form-group">
-                    <label class="section-title">👥 Beteiligte Bandmitglieder</label>
-                    <div id="eventBandMembers" class="checkbox-list members-grid"></div>
-                </div>
-
-                <div class="form-group toggle-group">
-                    <label class="toggle-switch">
-                        <input type="checkbox" id="eventShowGuests">
-                        <span class="toggle-slider"></span>
-                    </label>
-                    <label for="eventShowGuests" class="toggle-label">Gäste / Aushilfen dabei?</label>
-                </div>
-
-                <div id="eventGuestsField" class="form-optional-section" style="display:none;">
-                    <div class="form-group">
-                        <label for="eventGuests">🎭 Gästeliste</label>
-                        <textarea id="eventGuests" rows="3" placeholder="Name (Instrument/Rolle)"></textarea>
-                    </div>
-                </div>
-
-                <div class="form-section-divider"></div>
-
-                <div class="form-group setlist-section">
-                    <div class="section-header-row">
-                        <label class="section-title">🎵 Setlist</label>
-                        <div class="section-actions">
-                            <button type="button" id="copyBandSongsBtn" class="btn btn-secondary btn-sm">
-                                📋 Band-Pool
-                            </button>
-                            <button type="button" id="addEventSongBtn" class="btn btn-secondary btn-sm">
-                                + Neuer Song
-                            </button>
+                        <div id="eventDateProposals" class="date-proposals">
+                            <div class="date-proposal-item" data-confirmed="false">
+                                <div class="date-time-range">
+                                    <input type="date" class="event-date-input-date">
+                                    <input type="time" class="event-date-input-start">
+                                </div>
+                                <button type="button" class="btn-icon remove-event-date" disabled>🗑️</button>
+                            </div>
                         </div>
-                    </div>
-                    <div id="eventSongsList" class="compact-song-list"></div>
+                        <div class="scheduler-inline-actions">
+                            <button type="button" id="addEventDateBtn" class="btn btn-secondary btn-sm">+ Weiteren Termin hinzufügen</button>
+                        </div>
+                    </section>
+
+                    <section class="scheduler-panel scheduler-panel-soft">
+                        <div class="form-group toggle-group scheduler-toggle-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="eventShowExtras">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <label for="eventShowExtras" class="toggle-label">Weitere Infos zu Soundcheck, Technik und Ablauf hinzufügen</label>
+                        </div>
+
+                        <div id="eventExtrasFields" class="form-optional-section scheduler-optional-section" style="display:none;">
+                            <div class="form-group">
+                                <label for="eventSoundcheckLocation">🎚️ Soundcheck Infos</label>
+                                <input type="text" id="eventSoundcheckLocation"
+                                    placeholder="Uhrzeit, konkreter Ort im Gebäude...">
+                            </div>
+                            <div class="form-grid-2 scheduler-grid">
+                                <div class="form-group">
+                                    <label for="eventInfo">ℹ️ Event-Infos</label>
+                                    <textarea id="eventInfo" rows="3" placeholder="Ablauf, Ansprechpartner..."></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label for="eventTechInfo">🔧 Technik / PA</label>
+                                    <textarea id="eventTechInfo" rows="3"
+                                        placeholder="Was wird benötigt? Monitoring?"></textarea>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="scheduler-panel scheduler-panel-members">
+                        <div class="scheduler-panel-head">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Bandmitglieder</span>
+                                <h3>Beteiligte auswählen</h3>
+                            </div>
+                            <p>Wähle die Musiker aus, die an diesem Auftritt beteiligt sind.</p>
+                        </div>
+                        <div id="eventBandMembers" class="checkbox-list members-grid member-selection-grid">
+                            <div class="member-selection-empty">Bitte zuerst eine Band auswählen.</div>
+                        </div>
+                    </section>
+
+                    <section class="scheduler-panel scheduler-panel-soft">
+                        <div class="form-group toggle-group scheduler-toggle-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="eventShowGuests">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <label for="eventShowGuests" class="toggle-label">Gäste / Aushilfen eintragen</label>
+                        </div>
+                        <div id="eventGuestsField" class="form-optional-section scheduler-optional-section" style="display:none;">
+                            <div class="form-group">
+                                <label for="eventGuests">🎭 Gästeliste</label>
+                                <textarea id="eventGuests" rows="3" placeholder="Name (Instrument/Rolle)"></textarea>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="scheduler-panel setlist-section event-setlist-panel">
+                        <div class="section-header-row">
+                            <div>
+                                <span class="scheduler-panel-eyebrow">Musik</span>
+                                <label class="section-title">🎵 Setlist</label>
+                            </div>
+                            <div class="section-actions">
+                                <button type="button" id="copyBandSongsBtn" class="btn btn-secondary btn-sm">
+                                    📋 Band-Pool
+                                </button>
+                                <button type="button" id="addEventSongBtn" class="btn btn-secondary btn-sm">
+                                    + Neuer Song
+                                </button>
+                            </div>
+                        </div>
+                        <div id="eventSongsList" class="compact-song-list event-setlist-shell"></div>
+                    </section>
                 </div>
 
                 <div class="modal-actions">
@@ -2578,131 +3075,169 @@
 
     <!-- Song Management Modal -->
     <div id="songModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2 id="song ModalTitle">Song hinzufügen</h2>
+        <div class="modal-content song-editor-modal">
+            <div class="modal-header song-editor-modal-header">
+                <div class="song-editor-title-group">
+                    <span class="song-editor-kicker">Repertoire</span>
+                    <h2 id="songModalTitle">Song hinzufügen</h2>
+                    <p class="song-editor-subtitle">Pflege die wichtigsten Songdaten, Metainformationen und optional ein PDF in einer kompakten Arbeitsfläche.</p>
+                </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <form id="songForm">
+            <form id="songForm" class="song-editor-form">
                 <input type="hidden" id="songId">
                 <input type="hidden" id="songEventId">
                 <input type="hidden" id="songBandId">
-                <div class="form-group">
-                    <label for="songTitle">Titel</label>
-                    <input type="text" id="songTitle" required>
+                <div class="song-editor-scroll">
+                    <section class="song-editor-panel">
+                        <div class="song-editor-panel-head">
+                            <div>
+                                <span class="song-editor-panel-kicker">Grunddaten</span>
+                                <h3>Songrahmen</h3>
+                            </div>
+                            <p>Lege Titel, Interpret und musikalische Kerndaten in einem Schritt an.</p>
+                        </div>
+                        <div class="song-editor-grid song-editor-grid-primary">
+                            <div class="form-group">
+                                <label for="songTitle">Titel</label>
+                                <input type="text" id="songTitle" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="songArtist">Interpret</label>
+                                <input type="text" id="songArtist" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="songBPM">BPM</label>
+                                <input type="number" id="songBPM" min="1" placeholder="z.B. 120">
+                            </div>
+                            <div class="form-group">
+                                <label for="songTimeSignature">Time (optional)</label>
+                                <input type="text" id="songTimeSignature" placeholder="z.B. 4/4">
+                            </div>
+                            <div class="form-group">
+                                <label for="songKey">Tonart</label>
+                                <select id="songKey">
+                                    <option value="">— Auswahl —</option>
+                                    <option value="C">C</option>
+                                    <option value="C#">C# / Db</option>
+                                    <option value="D">D</option>
+                                    <option value="D#">D# / Eb</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                    <option value="F#">F# / Gb</option>
+                                    <option value="G">G</option>
+                                    <option value="G#">G# / Ab</option>
+                                    <option value="A">A</option>
+                                    <option value="A#">A# / Bb</option>
+                                    <option value="B">B</option>
+                                    <option value="Cm">Cm</option>
+                                    <option value="C#m">C#m / Dbm</option>
+                                    <option value="Dm">Dm</option>
+                                    <option value="D#m">D#m / Ebm</option>
+                                    <option value="Em">Em</option>
+                                    <option value="Fm">Fm</option>
+                                    <option value="F#m">F#m / Gbm</option>
+                                    <option value="Gm">Gm</option>
+                                    <option value="G#m">G#m / Abm</option>
+                                    <option value="Am">Am</option>
+                                    <option value="A#m">A#m / Bbm</option>
+                                    <option value="Bm">Bm</option>
+                                    <option value="Bm">Bm</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="songOriginalKey">Tonart Original (optional)</label>
+                                <select id="songOriginalKey">
+                                    <option value="">— Auswahl —</option>
+                                    <option value="C">C</option>
+                                    <option value="C#">C# / Db</option>
+                                    <option value="D">D</option>
+                                    <option value="D#">D# / Eb</option>
+                                    <option value="E">E</option>
+                                    <option value="F">F</option>
+                                    <option value="F#">F# / Gb</option>
+                                    <option value="G">G</option>
+                                    <option value="G#">G# / Ab</option>
+                                    <option value="A">A</option>
+                                    <option value="A#">A# / Bb</option>
+                                    <option value="B">B</option>
+                                    <option value="Cm">Cm</option>
+                                    <option value="C#m">C#m / Dbm</option>
+                                    <option value="Dm">Dm</option>
+                                    <option value="D#m">D#m / Ebm</option>
+                                    <option value="Em">Em</option>
+                                    <option value="Fm">Fm</option>
+                                    <option value="F#m">F#m / Gbm</option>
+                                    <option value="Gm">Gm</option>
+                                    <option value="G#m">G#m / Abm</option>
+                                    <option value="Am">Am</option>
+                                    <option value="A#m">A#m / Bbm</option>
+                                    <option value="Bm">Bm</option>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="song-editor-panel song-editor-panel-soft">
+                        <div class="song-editor-panel-head">
+                            <div>
+                                <span class="song-editor-panel-kicker">Details</span>
+                                <h3>Zusätzliche Angaben</h3>
+                            </div>
+                            <p>Sprache, Lead Vocal, Tracks und weitere Metadaten bleiben kompakt gebündelt.</p>
+                        </div>
+                        <div class="song-editor-grid song-editor-grid-secondary">
+                            <div class="form-group">
+                                <label for="songLanguage">Sprache (optional)</label>
+                                <input type="text" id="songLanguage" placeholder="z.B. Deutsch">
+                            </div>
+                            <div class="form-group">
+                                <label for="songTracks">Tracks (optional)</label>
+                                <select id="songTracks">
+                                    <option value="">— Auswahl —</option>
+                                    <option value="yes">Ja</option>
+                                    <option value="no">Nein</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="songLeadVocal">Lead Vocal</label>
+                                <input type="text" id="songLeadVocal" placeholder="Name des Lead-Sängers">
+                            </div>
+                            <div class="form-group">
+                                <label for="songCcli">Songselect CCLI Nummer (optional)</label>
+                                <input type="text" id="songCcli" placeholder="CCLI Nummer">
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="song-editor-panel">
+                        <div class="song-editor-panel-head">
+                            <div>
+                                <span class="song-editor-panel-kicker">Material</span>
+                                <h3>Notizen und PDF</h3>
+                            </div>
+                            <p>Ergänze Hinweise zum Song oder hinterlege ein PDF für Noten und Texte.</p>
+                        </div>
+                        <div class="song-editor-grid song-editor-grid-material">
+                            <div class="form-group">
+                                <label for="songInfo">Songinfos (optional)</label>
+                                <textarea id="songInfo" rows="5" placeholder="Zusätzliche Infos zum Song..."></textarea>
+                            </div>
+                            <div class="form-group song-editor-file-group">
+                                <label for="songPdf">PDF Upload (Noten/Text)</label>
+                                <input type="file" id="songPdf" accept=".pdf">
+                                <div id="songCurrentPdf" class="song-editor-file-state" style="display: none;">
+                                    <div class="song-editor-file-meta">
+                                        <span class="song-editor-file-icon">PDF</span>
+                                        <span id="songPdfName">Keine Datei ausgewählt</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-danger" id="deleteSongPdfBtn">Löschen</button>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
                 </div>
-                <div class="form-group">
-                    <label for="songArtist">Interpret</label>
-                    <input type="text" id="songArtist" required>
-                </div>
-                <div class="form-group">
-                    <label for="songBPM">BPM</label>
-                    <input type="number" id="songBPM" min="1" placeholder="z.B. 120">
-                </div>
-                <div class="form-group">
-                    <label for="songKey">Tonart</label>
-                    <select id="songKey">
-                        <option value="">— Auswahl —</option>
-                        <!-- Major keys -->
-                        <option value="C">C</option>
-                        <option value="C#">C# / Db</option>
-                        <option value="D">D</option>
-                        <option value="D#">D# / Eb</option>
-                        <option value="E">E</option>
-                        <option value="F">F</option>
-                        <option value="F#">F# / Gb</option>
-                        <option value="G">G</option>
-                        <option value="G#">G# / Ab</option>
-                        <option value="A">A</option>
-                        <option value="A#">A# / Bb</option>
-                        <option value="B">B</option>
-                        <!-- Minor keys -->
-                        <option value="Cm">Cm</option>
-                        <option value="C#m">C#m / Dbm</option>
-                        <option value="Dm">Dm</option>
-                        <option value="D#m">D#m / Ebm</option>
-                        <option value="Em">Em</option>
-                        <option value="Fm">Fm</option>
-                        <option value="F#m">F#m / Gbm</option>
-                        <option value="Gm">Gm</option>
-                        <option value="G#m">G#m / Abm</option>
-                        <option value="Am">Am</option>
-                        <option value="A#m">A#m / Bbm</option>
-                        <option value="Bm">Bm</option>
-                        <option value="Bm">Bm</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="songOriginalKey">Tonart Original (optional)</label>
-                    <select id="songOriginalKey">
-                        <option value="">— Auswahl —</option>
-                        <!-- Major keys -->
-                        <option value="C">C</option>
-                        <option value="C#">C# / Db</option>
-                        <option value="D">D</option>
-                        <option value="D#">D# / Eb</option>
-                        <option value="E">E</option>
-                        <option value="F">F</option>
-                        <option value="F#">F# / Gb</option>
-                        <option value="G">G</option>
-                        <option value="G#">G# / Ab</option>
-                        <option value="A">A</option>
-                        <option value="A#">A# / Bb</option>
-                        <option value="B">B</option>
-                        <!-- Minor keys -->
-                        <option value="Cm">Cm</option>
-                        <option value="C#m">C#m / Dbm</option>
-                        <option value="Dm">Dm</option>
-                        <option value="D#m">D#m / Ebm</option>
-                        <option value="Em">Em</option>
-                        <option value="Fm">Fm</option>
-                        <option value="F#m">F#m / Gbm</option>
-                        <option value="Gm">Gm</option>
-                        <option value="G#m">G#m / Abm</option>
-                        <option value="Am">Am</option>
-                        <option value="A#m">A#m / Bbm</option>
-                        <option value="Bm">Bm</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="songTimeSignature">Time (optional)</label>
-                    <input type="text" id="songTimeSignature" placeholder="z.B. 4/4">
-                </div>
-                <div class="form-group">
-                    <label for="songLanguage">Sprache (optional)</label>
-                    <input type="text" id="songLanguage" placeholder="z.B. Deutsch">
-                </div>
-                <div class="form-group">
-                    <label for="songTracks">Tracks (optional)</label>
-                    <select id="songTracks">
-                        <option value="">— Auswahl —</option>
-                        <option value="yes">Ja</option>
-                        <option value="no">Nein</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="songInfo">Songsinfos (optional)</label>
-                    <textarea id="songInfo" rows="3" placeholder="Zusätzliche Infos zum Song..."></textarea>
-                </div>
-                <div class="form-group">
-                    <label for="songCcli">Songselect CCLI Nummer (optional)</label>
-                    <input type="text" id="songCcli" placeholder="CCLI Nummer">
-                </div>
-                <div class="form-group">
-                    <label for="songLeadVocal">Lead Vocal</label>
-                    <input type="text" id="songLeadVocal" placeholder="Name des Lead-Sängers">
-                </div>
-                <div class="form-group">
-                    <label for="songPdf">PDF Upload (Noten/Text)</label>
-                    <input type="file" id="songPdf" accept=".pdf"
-                        style="display: block; width: 100%; margin-bottom: 0.5rem;">
-                    <div id="songCurrentPdf" style="display: none; font-size: 0.85rem; color: var(--color-primary);">
-                        <span class="icon">📄</span> <span id="songPdfName">Keine Datei ausgewählt</span>
-                        <button type="button" class="btn btn-sm btn-danger" id="deleteSongPdfBtn"
-                            style="margin-left: 10px; padding: 2px 8px;">Löschen</button>
-                    </div>
-                </div>
-                <div class="modal-actions">
+                <div class="modal-actions song-editor-actions">
                     <button type="button" class="btn cancel">Abbrechen</button>
                     <button type="submit" class="btn btn-primary">Speichern</button>
                 </div>
@@ -2724,13 +3259,17 @@
     </div>
 
     <!-- Join Band Modal -->
-    <div id="joinBandModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Band beitreten</h2>
+    <div id="joinBandModal" class="modal modal-band-entry">
+        <div class="modal-content band-entry-modal-content">
+            <div class="modal-header band-entry-modal-header">
+                <div class="band-entry-modal-copy">
+                    <span class="band-entry-modal-kicker">Bands</span>
+                    <h2>Band beitreten</h2>
+                    <p>Nutze den Code deiner Band und trete direkt dem gemeinsamen Arbeitsbereich bei.</p>
+                </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <form id="joinBandForm">
+            <form id="joinBandForm" class="band-entry-form">
                 <div class="form-group">
                     <label for="joinBandCode">Band-Beitrittscode</label>
                     <input type="text" id="joinBandCode" maxlength="6" pattern="[A-Za-z0-9]{6}" placeholder="XXXXXX"
@@ -3073,49 +3612,83 @@
 
     <!-- Feedback Modal -->
     <div id="feedbackModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Feedback & Bugs</h2>
+        <div class="modal-content feedback-modal-shell">
+            <div class="modal-header feedback-modal-header">
+                <div class="feedback-modal-title-group">
+                    <span class="feedback-modal-kicker">Support</span>
+                    <h2>Feedback & Bugs</h2>
+                    <p class="feedback-modal-subtitle">Teile Ideen, Wünsche oder Fehler direkt an einer Stelle. Kurz, klar und ohne Umwege.</p>
+                </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <div class="modal-body">
-                <div class="settings-tabs">
-                    <button class="settings-tab-btn active" data-tab="feedback">Feedback</button>
-                    <button class="settings-tab-btn" data-tab="bug">Fehler melden</button>
+            <div class="modal-body feedback-modal-body">
+                <div class="settings-tabs feedback-modal-tabs">
+                    <button class="settings-tab-btn active" data-tab="feedback">
+                        <span class="feedback-tab-icon" aria-hidden="true">💬</span>
+                        <span>Feedback</span>
+                    </button>
+                    <button class="settings-tab-btn" data-tab="bug">
+                        <span class="feedback-tab-icon" aria-hidden="true">🐞</span>
+                        <span>Fehler melden</span>
+                    </button>
                 </div>
 
                 <!-- Feedback Tab -->
-                <div id="feedbackTabContent" class="feedback-tab-content active" style="padding: 1rem 0;">
-                    <p style="margin-bottom: 1rem;">Ich freue mich über dein Feedback zur App!</p>
-                    <form id="feedbackForm">
-                        <div class="form-group">
-                            <label for="feedbackMessage" style="font-weight: 600;">Deine Nachricht</label>
-                            <textarea id="feedbackMessage" rows="5" required
-                                placeholder="Was gefällt dir, was kann ich besser machen?"
-                                style="width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text);"></textarea>
+                <div id="feedbackTabContent" class="feedback-tab-content active feedback-tab-panel">
+                    <div class="feedback-tab-grid">
+                        <div class="feedback-info-card">
+                            <span class="feedback-info-icon" aria-hidden="true">💡</span>
+                            <h3>Was können wir verbessern?</h3>
+                            <p>Schreib kurz, was dir auffaellt, was dir fehlt oder was sich noch runder anfuehlen sollte.</p>
+                            <div class="feedback-info-tags">
+                                <span class="feedback-info-tag">Idee</span>
+                                <span class="feedback-info-tag">Wunsch</span>
+                                <span class="feedback-info-tag">Usability</span>
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-primary" style="margin-top: 1rem;">Feedback senden</button>
-                    </form>
+                        <form id="feedbackForm" class="feedback-form-card">
+                        <div class="form-group">
+                                <label for="feedbackMessage">Deine Nachricht</label>
+                            <textarea id="feedbackMessage" rows="5" required
+                                    placeholder="Was gefällt dir, was können wir besser machen oder was wünschst du dir noch?"></textarea>
+                        </div>
+                            <div class="feedback-form-footer">
+                                <span class="feedback-form-hint">Je konkreter dein Hinweis, desto gezielter können wir ihn verbessern.</span>
+                                <button type="submit" class="btn btn-primary">Feedback senden</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
                 <!-- Bug Tab -->
-                <div id="bugTabContent" class="feedback-tab-content" style="display: none; padding: 1rem 0;">
-                    <p style="margin-bottom: 1rem;">Hast du einen Fehler gefunden? Bitte beschreibe ihn hier.</p>
-                    <form id="bugReportForm">
+                <div id="bugTabContent" class="feedback-tab-content feedback-tab-panel" style="display: none;">
+                    <div class="feedback-tab-grid">
+                        <div class="feedback-info-card feedback-info-card-danger">
+                            <span class="feedback-info-icon" aria-hidden="true">🛠️</span>
+                            <h3>Fehler strukturiert melden</h3>
+                            <p>Beschreibe kurz, was passiert ist und welche Schritte davor ausgeführt wurden. So können wir den Fehler schneller nachstellen.</p>
+                            <div class="feedback-info-tags">
+                                <span class="feedback-info-tag">Titel</span>
+                                <span class="feedback-info-tag">Schritte</span>
+                                <span class="feedback-info-tag">Erwartung</span>
+                            </div>
+                        </div>
+                        <form id="bugReportForm" class="feedback-form-card">
                         <div class="form-group">
-                            <label for="bugTitle" style="font-weight: 600;">Kurze Beschreibung (Titel)</label>
-                            <input type="text" id="bugTitle" required placeholder="z.B. Kalender lädt nicht"
-                                style="width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text); margin-bottom: 1rem;">
+                                <label for="bugTitle">Kurze Beschreibung</label>
+                                    <input type="text" id="bugTitle" required placeholder="z.B. Kalender lädt nicht">
                         </div>
                         <div class="form-group">
-                            <label for="bugDescription" style="font-weight: 600;">Details & Schritte zur
-                                Reproduktion</label>
+                                <label for="bugDescription">Details & Schritte zur Reproduktion</label>
                             <textarea id="bugDescription" rows="5" required
-                                placeholder="Was hast du gemacht, bevor der Fehler auftrat?"
-                                style="width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--color-border); background: var(--color-background); color: var(--color-text);"></textarea>
+                                    placeholder="Was hast du gemacht, was ist passiert und was hättest du erwartet?"></textarea>
                         </div>
-                        <button type="submit" class="btn btn-warning" style="margin-top: 1rem;">Fehler melden</button>
-                    </form>
+                            <div class="feedback-form-footer">
+                                <span class="feedback-form-hint">Wenn du Uhrzeit, Bereich oder konkrete Klickfolge kennst, gerne direkt mit angeben.</span>
+                                <button type="submit" class="btn btn-warning">Fehler melden</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </div>

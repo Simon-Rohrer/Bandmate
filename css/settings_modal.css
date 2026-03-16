@@ -1535,6 +1535,9 @@
     background: var(--settings-surface-muted);
     padding: 0.55rem;
     max-height: 430px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    overscroll-behavior: contain;
 }
 
 #settingsModal #allBandsList {
@@ -1629,11 +1632,18 @@
 }
 
 #settingsModal .band-management-card .accordion-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0.9rem;
     margin: 0;
     padding: 0.9rem;
-    align-items: center;
+    align-items: start;
     border-radius: 14px;
     background: transparent;
+}
+
+#settingsModal .band-management-card .accordion-title {
+    min-width: 0;
 }
 
 #settingsModal .band-management-card .accordion-content {
@@ -1670,6 +1680,9 @@
 }
 
 #settingsModal .band-management-card .accordion-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
     gap: 0.55rem;
 }
@@ -1833,6 +1846,7 @@
     }
 
     #settingsModal .band-management-card .accordion-header {
+        grid-template-columns: 1fr;
         align-items: flex-start;
     }
 
@@ -1843,6 +1857,15 @@
 
     #settingsModal #allBandsList {
         overflow: visible;
+    }
+
+    #settingsModal .band-admin-member-card {
+        grid-template-columns: auto minmax(0, 1fr);
+    }
+
+    #settingsModal .band-admin-member-card .role-badge {
+        grid-column: 2;
+        justify-self: flex-start;
     }
 }
 
@@ -1999,7 +2022,95 @@
         max-height: none;
     }
 
-    #settingsModal #allBandsList {
+#settingsModal #allBandsList {
         padding: 0.15rem 0;
+    }
+}
+
+/* =========================================
+   SETTINGS INSTRUMENT SELECTOR
+   ========================================= */
+
+#settingsModal .profile-main-column,
+#settingsModal .profile-section,
+#settingsModal .profile-form-grid,
+#settingsModal .form-group,
+#settingsModal .instrument-selector {
+    overflow: visible;
+}
+
+#settingsModal .profile-main-column,
+#settingsModal .profile-section,
+#settingsModal .form-group {
+    position: relative;
+}
+
+#settingsModal .custom-multiselect {
+    position: relative;
+}
+
+#settingsModal .custom-multiselect.is-open {
+    z-index: 6000;
+}
+
+#settingsModal .multiselect-trigger {
+    min-height: 54px;
+    border-color: var(--settings-border-soft);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+        var(--settings-input-bg);
+}
+
+#settingsModal .multiselect-trigger:hover {
+    border-color: var(--settings-border);
+}
+
+#settingsModal .multiselect-trigger.active {
+    border-color: rgba(136, 104, 255, 0.72);
+    box-shadow: 0 0 0 4px rgba(108, 84, 210, 0.12);
+}
+
+#settingsModal .multiselect-badge {
+    background: rgba(136, 104, 255, 0.12);
+    border-color: rgba(136, 104, 255, 0.22);
+    color: var(--color-text);
+}
+
+#settingsModal .multiselect-placeholder,
+#settingsModal .multiselect-arrow {
+    color: var(--settings-muted);
+}
+
+#settingsModal .multiselect-menu {
+    z-index: 6001;
+    border-color: var(--settings-border);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+        var(--settings-surface);
+    box-shadow: 0 22px 42px rgba(6, 14, 31, 0.24);
+    max-height: min(280px, calc(100vh - 220px));
+}
+
+#settingsModal .multiselect-option {
+    min-height: 50px;
+}
+
+#settingsModal .multiselect-option:hover {
+    background: var(--settings-surface-strong);
+    border-color: var(--settings-border-soft);
+}
+
+#settingsModal .multiselect-option-label {
+    color: var(--color-text);
+}
+
+#settingsModal .settings-form-actions {
+    position: relative;
+    z-index: 1;
+}
+
+@media (max-width: 980px) {
+    #settingsModal .multiselect-menu {
+        max-height: min(250px, calc(100vh - 240px));
     }
 }

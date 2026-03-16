@@ -1,6 +1,6 @@
 {
-  "name": "Band Management Tool",
-  "short_name": "BandMgmt",
+  "name": "Bandmate",
+  "short_name": "Bandmate",
   "description": "Manage your band's rehearsals, events, and schedules",
   "start_url": "/",
   "display": "standalone",
@@ -10,15 +10,9 @@
   "scope": "/",
   "icons": [
     {
-      "src": "images/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "images/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
+      "src": "images/branding/bandmate-logo-only.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ],
@@ -34,8 +28,9 @@
       "url": "/?view=dashboard",
       "icons": [
         {
-          "src": "images/icon-192.png",
-          "sizes": "192x192"
+          "src": "images/branding/bandmate-logo-only.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     },
@@ -46,8 +41,9 @@
       "url": "/?view=rehearsals",
       "icons": [
         {
-          "src": "images/icon-192.png",
-          "sizes": "192x192"
+          "src": "images/branding/bandmate-logo-only.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
         }
       ]
     }

@@ -11,9 +11,14 @@ const Musikpool = {
         await this.loadGroupData();
     },
 
-    async loadGroupData() {
+    async loadGroupData(forceRefresh = false) {
+        if (forceRefresh) {
+            this.members = [];
+            this.groupInfo = null;
+        }
+
         // Nur laden, wenn noch keine Mitglieder im Speicher
-        if (this.members && Array.isArray(this.members) && this.members.length > 0) {
+        if (!forceRefresh && this.members && Array.isArray(this.members) && this.members.length > 0) {
             this.renderMembers();
             return;
         }
@@ -36,7 +41,6 @@ const Musikpool = {
             console.error('Error loading Musikerpool:', error);
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">⚠️</div>
                     <p>Musikerpool-Daten konnten nicht geladen werden.</p>
                     <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">
                         ${this.escapeHtml(error.message)}
@@ -45,11 +49,11 @@ const Musikpool = {
                         Dies kann an fehlenden Berechtigungen oder Netzwerkproblemen liegen.
                     </p>
                     <div style="margin-top: 1rem; display: flex; gap: 0.5rem; justify-content: center;">
-                        <button onclick="Musikpool.loadGroupData()" class="btn btn-primary">
-                            🔄 Erneut versuchen
+                        <button onclick="Musikpool.loadGroupData(true)" class="btn btn-primary">
+                            Erneut versuchen
                         </button>
                         <a href="https://jms-altensteig.church.tools/publicgroup/${this.groupId}" target="_blank" class="btn btn-secondary">
-                            🔗 ChurchTools öffnen
+                            ChurchTools öffnen
                         </a>
                     </div>
                 </div>
@@ -64,10 +68,9 @@ const Musikpool = {
         if (this.members.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">👥</div>
                     <p>Keine Mitglieder gefunden</p>
                     <a href="https://jms-altensteig.church.tools/publicgroup/${this.groupId}" target="_blank" class="btn btn-secondary" style="margin-top: 1rem;">
-                        🔗 Gruppe auf ChurchTools ansehen
+                        Gruppe auf ChurchTools ansehen
                     </a>
                 </div>
             `;
@@ -80,13 +83,14 @@ const Musikpool = {
         if (this.groupInfo) {
             html += `
                 <div class="musikpool-header" style="margin-bottom: var(--spacing-xl);">
+                    <span class="musikpool-header-kicker">ChurchTools</span>
                     <h3>${this.escapeHtml(this.groupInfo.name || 'Musikpool')}</h3>
                     ${this.groupInfo.information ? `
-                        <p style="color: var(--color-text-secondary); margin-top: var(--spacing-sm);">
+                        <p class="musikpool-header-copy">
                             ${this.escapeHtml(this.groupInfo.information)}
                         </p>
                     ` : ''}
-                    <p style="color: var(--color-text-secondary); font-size: 0.875rem; margin-top: var(--spacing-xs);">
+                    <p class="musikpool-header-meta">
                         ${this.members.length} Mitglied${this.members.length !== 1 ? 'er' : ''}
                     </p>
                 </div>
@@ -114,11 +118,13 @@ const Musikpool = {
                         `}
                     </div>
                     <div class="member-info">
-                        <h4 class="member-name">${this.escapeHtml(name)}</h4>
-                        ${role ? `<p class="member-role">${this.escapeHtml(role)}</p>` : ''}
+                        <div class="member-info-top">
+                            <h4 class="member-name">${this.escapeHtml(name)}</h4>
+                            ${role ? `<span class="member-role">${this.escapeHtml(role)}</span>` : ''}
+                        </div>
                         ${person.email ? `
                             <a href="mailto:${this.escapeHtml(person.email)}" class="member-email" title="E-Mail senden">
-                                📧 ${this.escapeHtml(person.email)}
+                                ${this.escapeHtml(person.email)}
                             </a>
                         ` : ''}
                     </div>

@@ -1,6 +1,6 @@
 {
-  "appId": "com.bandplanning.app",
-  "appName": "Band Planning",
+  "appId": "com.bandmate.app",
+  "appName": "Bandmate",
   "webDir": "www",
   "server": {
     "hostname": "localhost"

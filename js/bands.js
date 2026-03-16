@@ -30,15 +30,61 @@ const Bands = {
     getInstrumentName(instrument) {
         const names = {
             'drums': 'Schlagzeug',
+            'Drums': 'Schlagzeug',
             'bass': 'Bass',
+            'Bass': 'Bass',
             'acoustic_guitar': 'Akustische Gitarre',
             'electric_guitar': 'Elektrische Gitarre',
+            'Guitar': 'Gitarre',
             'keyboard': 'Keyboard',
             'synth': 'Synth',
+            'Keys': 'Keys / Piano',
             'violin': 'Geige',
-            'vocals': 'Gesang'
+            'vocals': 'Gesang',
+            'Vocals': 'Gesang',
+            'Brass': 'Bläser',
+            'Strings': 'Streicher'
         };
         return names[instrument] || '';
+    },
+
+    getInstrumentLabels(instrumentValue) {
+        if (!instrumentValue) return [];
+
+        let values = [];
+
+        if (Array.isArray(instrumentValue)) {
+            values = instrumentValue;
+        } else if (typeof instrumentValue === 'string') {
+            const trimmed = instrumentValue.trim();
+
+            if (!trimmed) return [];
+
+            if (trimmed.startsWith('[')) {
+                try {
+                    const parsed = JSON.parse(trimmed);
+                    if (Array.isArray(parsed)) values = parsed;
+                } catch (error) {
+                    values = trimmed.split(',').map(value => value.trim()).filter(Boolean);
+                }
+            } else {
+                values = trimmed.split(',').map(value => value.trim()).filter(Boolean);
+            }
+        } else {
+            values = [instrumentValue];
+        }
+
+        const seen = new Set();
+        return values
+            .map(value => this.getInstrumentName(value) || String(value).trim())
+            .map(value => value.trim())
+            .filter(value => {
+                if (!value) return false;
+                const key = value.toLowerCase();
+                if (seen.has(key)) return false;
+                seen.add(key);
+                return true;
+            });
     },
 
     // Render all user's bands
@@ -71,7 +117,16 @@ const Bands = {
         }
 
         Logger.time('Bands Load');
-        UI.showLoading();
+        let bandsLoadTimedOut = false;
+        UI.showLoading('Bands werden geladen...', 0, {
+            timeoutMs: 5000,
+            timeoutTitle: 'Zeitüberschreitung',
+            timeoutMessage: 'Die Bands konnten nicht rechtzeitig geladen werden.',
+            onTimeout: () => {
+                bandsLoadTimedOut = true;
+                container.innerHTML = '<p class="error-text">Die Bands konnten nicht rechtzeitig geladen werden. Bitte versuche es erneut.</p>';
+            }
+        });
 
         try {
             const user = Auth.getCurrentUser();
@@ -91,6 +146,10 @@ const Bands = {
                     memberCount: members.length
                 };
             }));
+
+            if (bandsLoadTimedOut) {
+                return;
+            }
 
             this.bandsCache = bandsWithCounts;
 
@@ -180,7 +239,7 @@ const Bands = {
                 : '';
 
             return `
-                <div class="band-card animated-fade-in" data-band-id="${band.id}" tabindex="0" role="button" aria-label="Band ${this.escapeHtml(band.name)} oeffnen" style="--band-accent: ${band.color || '#6366f1'}; border-left: 4px solid ${band.color || '#6366f1'}; animation-delay: ${index * 0.06}s;">
+                <div class="band-card animated-fade-in" data-band-id="${band.id}" tabindex="0" role="button" aria-label="Band ${this.escapeHtml(band.name)} öffnen" style="--band-accent: ${band.color || '#6366f1'}; animation-delay: ${index * 0.06}s;">
                     <div class="band-card-header">
                         <div class="band-card-identity">
                             <div class="band-card-avatar-shell">
@@ -202,13 +261,9 @@ const Bands = {
                     ${descriptionHtml}
 
                     <div class="band-card-facts">
-                        <span class="band-card-chip">👥 ${memberCount} Mitglied${memberCount !== 1 ? 'er' : ''}</span>
+                        <span class="band-card-chip">${memberCount} Mitglied${memberCount !== 1 ? 'er' : ''}</span>
                     </div>
 
-                    <div class="band-card-footer">
-                        <span class="band-card-open-label">Band oeffnen</span>
-                        <span class="band-card-hint">Mitglieder, Setlist, Planung</span>
-                    </div>
                 </div>
             `;
         }).join('');
@@ -278,7 +333,14 @@ const Bands = {
             }
             metaItems.push(`
                 <span class="band-details-meta-chip">
-                    <span>👥</span>
+                    <span class="band-details-meta-chip-icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="9" cy="7" r="4"></circle>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                        </svg>
+                    </span>
                     ${membersCount} Mitglied${membersCount !== 1 ? 'er' : ''}
                 </span>
             `);
@@ -390,7 +452,7 @@ const Bands = {
                             <div class="band-settings-media-frame">
                                 ${band.image_url
                         ? `<img src="${band.image_url}" alt="Profilbild" class="band-settings-media-image">`
-                        : `<div class="band-settings-media-fallback" aria-hidden="true">🎸</div>`
+                        : `<div class="band-settings-media-fallback" aria-hidden="true">${this.escapeHtml(UI.getUserInitials(band.name || 'Band'))}</div>`
                     }
                             </div>
                         </div>
@@ -482,7 +544,7 @@ const Bands = {
                     <div class="band-settings-code-row">
                         <b><code class="join-code" id="bandJoinCode">${band.joinCode || 'Kein Code'}</code></b>
                         <button class="btn btn-sm btn-secondary band-settings-code-copy" id="copyJoinCodeBtn" title="Code kopieren">
-                            📋 Kopieren
+                            Code kopieren
                         </button>
                     </div>
                     <p class="band-details-section-note">Teile diesen Code mit neuen Mitgliedern, damit sie der Band direkt beitreten koennen.</p>
@@ -496,15 +558,15 @@ const Bands = {
             copyBtn.addEventListener('click', () => {
                 const code = band.joinCode;
                 if (navigator.clipboard && navigator.clipboard.writeText) {
-                    navigator.clipboard.writeText(code).then(() => {
-                        UI.showToast('Beitrittscode in die Zwischenablage kopiert', 'success');
-                        copyBtn.textContent = '✓ Kopiert!';
-                        setTimeout(() => {
-                            copyBtn.textContent = '📋 Kopieren';
-                        }, 2000);
-                    }).catch(() => {
-                        UI.showToast('Konnte Code nicht kopieren', 'error');
-                    });
+                        navigator.clipboard.writeText(code).then(() => {
+                            UI.showToast('Beitrittscode in die Zwischenablage kopiert', 'success');
+                            copyBtn.textContent = 'Kopiert';
+                            setTimeout(() => {
+                                copyBtn.textContent = 'Code kopieren';
+                            }, 2000);
+                        }).catch(() => {
+                            UI.showToast('Konnte Code nicht kopieren', 'error');
+                        });
                 } else {
                     // Fallback: select the code element text
                     const codeEl = document.getElementById('bandJoinCode');
@@ -517,9 +579,9 @@ const Bands = {
                         try {
                             document.execCommand('copy');
                             UI.showToast('Beitrittscode in die Zwischenablage kopiert', 'success');
-                            copyBtn.textContent = '✓ Kopiert!';
+                            copyBtn.textContent = 'Kopiert';
                             setTimeout(() => {
-                                copyBtn.textContent = '📋 Kopieren';
+                                copyBtn.textContent = 'Code kopieren';
                             }, 2000);
                         } catch (err) {
                             UI.showToast('Konnte Code nicht kopieren', 'error');
@@ -715,10 +777,10 @@ const Bands = {
             }
 
             // Instrument display
-            const instrumentIcon = user.instrument ? (this.instrumentIcons[user.instrument] || '') : '';
-            const instrumentLabel = user.instrument
-                ? `${instrumentIcon} ${this.getInstrumentName(user.instrument)}`
-                : 'Kein Instrument hinterlegt';
+            const instrumentLabels = this.getInstrumentLabels(user.instrument);
+            const instrumentHtml = instrumentLabels.length > 0
+                ? instrumentLabels.map(label => `<span class="member-instrument-pill">${this.escapeHtml(label)}</span>`).join('')
+                : '<span class="member-instrument-pill is-muted">Kein Instrument hinterlegt</span>';
 
             return `
                 <div class="member-row animated-fade-in" style="animation-delay: ${index * 0.1}s">
@@ -737,7 +799,7 @@ const Bands = {
                             ${isCurrentUser ? '<span class="self-status-badge">DU</span>' : ''}
                         </div>
                         <div class="member-meta-row">
-                            <span class="member-instrument-pill ${user.instrument ? '' : 'is-muted'}">${instrumentLabel}</span>
+                            ${instrumentHtml}
                         </div>
                     </div>
 

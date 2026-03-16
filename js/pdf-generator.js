@@ -151,7 +151,7 @@ const PDFGenerator = {
                     ${additionalInfoHTML}
 
                     <div style="${styles.footer}">
-                        <div>Erstellt mit <b>Band Manager</b></div>
+                        <div>Erstellt mit <b>Bandmate</b></div>
                         <div>Stand: ${new Date().toLocaleString('de-DE')}</div>
                     </div>
                 </div>

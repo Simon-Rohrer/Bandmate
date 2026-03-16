@@ -54,7 +54,7 @@ const EmailService = {
                 user: toEmail,
                 title: subject,
                 content: htmlMessage, // Now sending HTML!
-                name: 'Band Planning Tool',
+                name: 'Bandmate',
                 email: 'noreply@bandplanning.local',
                 to_name: toName
             };
@@ -130,7 +130,7 @@ const EmailService = {
                         <div style="background-color: ${primaryColor}; width: 64px; height: 64px; margin: 0 auto 16px auto; border-radius: 16px; display: table;">
                             <span style="display: table-cell; vertical-align: middle; font-size: 32px;">🎸</span>
                         </div>
-                        <h1 style="margin: 0; color: ${textColor}; font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">Band Planning Tool</h1>
+                        <h1 style="margin: 0; color: ${textColor}; font-size: 22px; font-weight: 800; letter-spacing: -0.02em;">Bandmate</h1>
                     </div>
 
                     <!-- Main Content -->
@@ -158,7 +158,7 @@ const EmailService = {
                 <!-- Extra Footer -->
                 <div style="text-align: center; margin-top: 24px; padding-bottom: 20px;">
                     <p style="margin: 0; color: ${secondaryTextColor}; font-size: 12px; letter-spacing: 0.02em;">
-                        &copy; ${new Date().getFullYear()} Band Planning Tool &bull; Organisiere deine Band wie ein Profi
+                        &copy; ${new Date().getFullYear()} Bandmate &bull; Organisiere deine Band wie ein Profi
                     </p>
                 </div>
             </div>
