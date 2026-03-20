@@ -1979,6 +1979,49 @@ const App = {
             await this.handleLogin(undefined, undefined, rememberMe);
         });
 
+        // Forgot Password form
+        const forgotForm = document.getElementById('forgotPasswordForm');
+        if (forgotForm) {
+            forgotForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const emailInput = document.getElementById('forgotPasswordEmail');
+                const email = emailInput?.value.trim();
+                const submitBtn = forgotForm.querySelector('button[type="submit"]');
+
+                if (!email) return;
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Wird gesendet...';
+                }
+
+                try {
+                    // 1. Trigger Supabase Password Reset (which sends an email)
+                    await Auth.requestPasswordReset(email);
+                    
+                    UI.showToast('Reset-Link wurde an deine E-Mail gesendet!', 'success');
+                    
+                    // Switch back to login after success
+                    setTimeout(() => {
+                        UI.switchAuthTab('login');
+                        if (emailInput) emailInput.value = '';
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.textContent = 'Link anfordern';
+                        }
+                    }, 3000);
+
+                } catch (err) {
+                    console.error('Password reset request failed:', err);
+                    UI.showToast('Fehler: ' + (err.message || 'Anfrage fehlgeschlagen'), 'error');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Link anfordern';
+                    }
+                }
+            });
+        }
+
         // Live Username Check
         const regUserInput = document.getElementById('registerUsername');
         if (regUserInput) {
@@ -2128,105 +2171,6 @@ const App = {
                 UI.openModal('resetPasswordModal');
             }
         });
-
-        // Forgot Password Button
-        const forgotBtn = document.querySelector('.forgot-password');
-        if (forgotBtn) {
-            forgotBtn.addEventListener('click', () => {
-                UI.openModal('forgotPwdModalNew');
-            });
-        }
-
-        // Forgot Password Form Submit
-        const forgotForm = document.getElementById('forgotPasswordForm');
-        if (forgotForm) {
-            forgotForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const identifier = document.getElementById('forgotIdentifier').value.trim();
-                if (!identifier) return;
-
-                const submitBtn = forgotForm.querySelector('button[type="submit"]');
-                const originalText = submitBtn.textContent;
-                submitBtn.textContent = 'Sende...';
-                submitBtn.disabled = true;
-
-                try {
-                    let email = identifier;
-                    // If not email, lookup username
-                    if (!identifier.includes('@')) {
-                        const user = await Storage.getUserByUsername(identifier);
-                        if (!user) throw new Error('Benutzer nicht gefunden');
-                        email = user.email;
-                    }
-
-                    await Auth.requestPasswordReset(email);
-                    UI.showToast('E-Mail gesendet! Bitte prüfe deinen Posteingang.', 'success', 5000);
-                    UI.closeModal('forgotPwdModalNew');
-                } catch (error) {
-                    console.error('Reset request failed:', error);
-                    UI.showToast(error.message || 'Fehler beim Anfordern des Links', 'error');
-                } finally {
-                    submitBtn.textContent = originalText;
-                    submitBtn.disabled = false;
-                }
-            });
-        }
-
-        // Reset Password Form Submit
-        const resetForm = document.getElementById('resetPasswordForm');
-        if (resetForm) {
-            resetForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const newPass = document.getElementById('newPassword').value;
-                const confirmPass = document.getElementById('newPasswordConfirm').value;
-
-                if (newPass !== confirmPass) {
-                    UI.showToast('Passwörter stimmen nicht überein', 'error');
-                    return;
-                }
-
-                if (newPass.length < 6) {
-                    UI.showToast('Mindestens 6 Zeichen', 'error');
-                    return;
-                }
-
-                const submitBtn = resetForm.querySelector('button[type="submit"]');
-                submitBtn.textContent = 'Speichere...';
-                submitBtn.disabled = true;
-
-                try {
-                    await Auth.updatePassword(newPass);
-
-                    // Special flow for Recovery Mode
-                    if (this.isPasswordRecoveryMode) {
-                        UI.showToast('Passwort geändert!', 'success');
-                        setTimeout(async () => {
-                            alert('Dein Passwort wurde erfolgreich geändert. Du kannst diese Seite jetzt schließen und dich neu anmelden.');
-
-                            await Auth.logout();
-                            this.isPasswordRecoveryMode = false;
-                            // Reload to clean URL and state
-                            window.location.href = window.location.origin;
-                        }, 500);
-                        return;
-                    }
-
-                    UI.showToast('Passwort erfolgreich geändert! Du bist jetzt eingeloggt.', 'success');
-                    UI.closeModal('resetPasswordModal');
-                    // Check location hash
-                    if (window.location.hash.includes('reset-password')) {
-                        window.history.replaceState(null, null, ' ');
-                    }
-                    this.showMainView();
-                } catch (error) {
-                    console.error('Password update failed:', error);
-                    UI.showToast('Fehler beim Speichern: ' + (error.message || 'Unbekannt'), 'error');
-                } finally {
-                    submitBtn.textContent = 'Passwort speichern';
-                    submitBtn.disabled = false;
-                }
-            });
-        }
 
         // Register form
         const registerPasswordInput = document.getElementById('registerPassword');
@@ -3552,13 +3496,32 @@ const App = {
 
         try {
             const instrument = document.getElementById('registerInstrument').value;
-            await Auth.register(registrationCode, firstName, lastName, email, username, password, instrument);
+            const user = await Auth.register(registrationCode, firstName, lastName, email, username, password, instrument);
 
-            // Supabase Auth automatically signs in after registration
+            // Check if confirmation is pending (session is null if not auto-confirmed)
+            const sb = SupabaseClient.getClient();
+            const { data: { session } } = await sb.auth.getSession();
+
+            if (!session) {
+                // User is registered but not confirmed/logged in
+                if (overlay) {
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.style.display = 'none', 400);
+                }
+                UI.showToast('✅ Registrierung fast fertig! Bitte bestätige deine E-Mail über den Link, den wir dir gerade geschickt haben.', 'info', 10000);
+                UI.clearForm('registerForm');
+                
+                // Close modal after delay
+                setTimeout(() => {
+                    UI.closeAllModals();
+                }, 3000);
+                return; // Stop here, no login yet
+            }
+
+            // Supabase Auth automatically signed in (auto-confirm is ON)
             // Now handle image upload if present
             if (imageInput && imageInput.files && imageInput.files[0]) {
                 try {
-                    const user = Auth.getCurrentUser();
                     if (user) {
                         let file = imageInput.files[0];
 

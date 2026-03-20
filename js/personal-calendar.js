@@ -980,7 +980,7 @@ const PersonalCalendar = {
         let icsContent =
             'BEGIN:VCALENDAR\r\n' +
             'VERSION:2.0\r\n' +
-            'PRODID:-//BandManager//PersonalCalendar v1.0//DE\r\n' +
+            'PRODID:-//Bandmate//PersonalCalendar v1.0//DE\r\n' +
             'CALSCALE:GREGORIAN\r\n' +
             'METHOD:PUBLISH\r\n' +
             'X-WR-CALNAME:Mein Band-Kalender\r\n' +
@@ -1031,7 +1031,7 @@ const PersonalCalendar = {
             const bandName = band ? band.name : (event.band ? event.band.name : 'Band');
 
             addEvent(
-                `event_${event.id}@bandmanager`,
+                `event_${event.id}@bandmate`,
                 startDate,
                 endDate,
                 `🎤 ${event.title} (${bandName})`,
@@ -1058,7 +1058,7 @@ const PersonalCalendar = {
             // For now, leave empty to avoid complexity in sync
 
             addEvent(
-                `rehearsal_${rehearsal.id}@bandmanager`,
+                `rehearsal_${rehearsal.id}@bandmate`,
                 startDate,
                 endDate,
                 `📅 Probe: ${bandName}`,

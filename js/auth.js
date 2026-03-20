@@ -517,10 +517,15 @@ const Auth = {
         const sb = SupabaseClient.getClient();
         if (!sb) throw new Error('Supabase client missing');
 
-        // CRITICAL FIX: Do NOT append #hash here. Supabase appends #access_token=...
-        // If we append #reset-password, we get #reset-password#access_token=... which breaks parsing.
-        // We rely on the PASSWORD_RECOVERY event to detect the state.
-        const redirectTo = window.location.origin + window.location.pathname;
+        // Redirect to the dedicated reset-password.html page
+        let baseUrl = window.location.origin + window.location.pathname;
+        if (baseUrl.endsWith('index.html')) {
+            baseUrl = baseUrl.replace('index.html', 'reset-password.html');
+        } else {
+            // If it ends with / or something else, ensure it points to reset-password.html
+            baseUrl = baseUrl.endsWith('/') ? baseUrl + 'reset-password.html' : baseUrl + '/reset-password.html';
+        }
+        const redirectTo = baseUrl;
 
         const { data, error } = await sb.auth.resetPasswordForEmail(email, {
             redirectTo: redirectTo

@@ -123,10 +123,37 @@ const UI = {
         document.querySelectorAll('#authOverlay .auth-form').forEach(form => {
             if (form.id === `${tabName}Form`) {
                 form.classList.add('active');
+                form.style.display = 'block'; // Ensure visibility
                 form.scrollTop = 0;
             } else {
                 form.classList.remove('active');
+                form.style.display = 'none'; // Ensure hidden
             }
+        });
+    },
+
+    showForgotPassword() {
+        const title = document.getElementById('authCardTitle');
+        const subtitle = document.getElementById('authCardSubtitle');
+        
+        if (title) title.textContent = 'Passwort vergessen';
+        if (subtitle) subtitle.textContent = 'Kein Problem! Wir senden dir einen Link zum Zurücksetzen.';
+
+        // Hide all forms, show forgotPasswordForm
+        document.querySelectorAll('#authOverlay .auth-form').forEach(form => {
+            if (form.id === 'forgotPasswordForm') {
+                form.classList.add('active');
+                form.style.display = 'block';
+                form.scrollTop = 0;
+            } else {
+                form.classList.remove('active');
+                form.style.display = 'none';
+            }
+        });
+
+        // Deactivate all tabs
+        document.querySelectorAll('#authOverlay .auth-tab').forEach(tab => {
+            tab.classList.remove('active');
         });
     },
 

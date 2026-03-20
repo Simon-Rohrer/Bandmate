@@ -29356,3 +29356,22 @@ html[data-theme="light"] #landingPage .auth-white-card .profile-image-upload-zon
     border: 1px dashed #cbd5e1 !important;
     color: #475569 !important;
 }
+
+/* Fix for visibility of checkbox labels and footer text in light mode */
+html[data-theme="light"] #landingPage .auth-checkbox-label span,
+:root:not(.theme-dark) #landingPage .auth-checkbox-label span {
+    color: #475569 !important;
+}
+
+html[data-theme="light"] #landingPage .auth-form-footer,
+html[data-theme="light"] #landingPage .auth-form-footer span,
+:root:not(.theme-dark) #landingPage .auth-form-footer,
+:root:not(.theme-dark) #landingPage .auth-form-footer span {
+    color: #64748b !important;
+}
+
+html[data-theme="light"] #landingPage .auth-forgot-password-link,
+:root:not(.theme-dark) #landingPage .auth-forgot-password-link {
+    color: #0f172a !important;
+    font-weight: 500 !important;
+}

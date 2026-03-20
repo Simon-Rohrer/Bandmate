@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Bandmate | Mein Bandmanager</title>
+    <title>Bandmate | Organisiere deine Band wie ein Profi</title>
 
     <!-- PWA Meta Tags -->
     <meta name="description" content="Organisiere deine Bandproben effizient">
@@ -394,6 +394,7 @@
                             <input type="checkbox" id="loginRememberMe">
                             <span>Angemeldet bleiben</span>
                         </label>
+                        <a href="#" onclick="UI.showForgotPassword(); return false;" class="auth-forgot-password-link">Passwort vergessen?</a>
                     </div>
 
                     <button type="submit" class="btn-submit">Anmelden</button>
@@ -403,6 +404,27 @@
                         <span>Noch keinen Account?
                             <a href="#" onclick="UI.switchAuthTab('register'); return false;"
                                 class="auth-inline-link strong">Jetzt registrieren</a>
+                        </span>
+                    </div>
+                </form>
+
+                <form id="forgotPasswordForm" class="auth-form" style="display: none;">
+                    <div class="auth-form-header">
+                        <h3>Passwort vergessen</h3>
+                        <p>Gib deine E-Mail-Adresse ein, um einen Link zum Zurücksetzen deines Passworts zu erhalten.</p>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="forgotPasswordEmail">E-Mail Adresse</label>
+                        <input type="email" id="forgotPasswordEmail" placeholder="dein@name.de" required>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Link anfordern</button>
+
+                    <div class="auth-form-footer">
+                        <span>Zurück zum
+                            <a href="#" onclick="UI.switchAuthTab('login'); return false;"
+                                class="auth-inline-link strong">Anmelden</a>
                         </span>
                     </div>
                 </form>
