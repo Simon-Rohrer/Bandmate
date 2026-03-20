@@ -1497,7 +1497,9 @@ const App = {
             const availableSpace = shouldOpenUpward ? spaceAbove : spaceBelow;
             const maxHeight = Math.max(180, Math.min(320, availableSpace));
 
-            if (isSettingsSelector) {
+            const isAuthSelector = !!container.closest('.auth-white-card') || !!container.closest('.landing-auth-overlay');
+
+            if (isSettingsSelector || isAuthSelector) {
                 menu.style.position = 'absolute';
                 menu.style.left = '0';
                 menu.style.width = '100%';

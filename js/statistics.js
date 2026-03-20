@@ -270,11 +270,6 @@ const Statistics = {
         if (summaryContainer) {
             summaryContainer.innerHTML = `
                 <section class="stats-overview-panel">
-                    <div class="stats-overview-copy">
-                        <span class="stats-panel-kicker">Überblick</span>
-                        <h3>Auf einen Blick</h3>
-                        <p>${this.escapeHtml(summarySentence)}</p>
-                    </div>
                     <div class="stats-overview-meta">
                         <span class="stats-scope-chip">${bandLabel}</span>
                         <span class="stats-year-chip">${year}</span>
@@ -325,10 +320,6 @@ const Statistics = {
                     </article>
                 </div>
 
-                <article class="stats-note-card">
-                    <span class="stats-panel-kicker">Hinweis</span>
-                    <p>Aktualisiert sich automatisch bei neuen Daten.</p>
-                </article>
             </div>
         `;
     },

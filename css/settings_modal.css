@@ -353,33 +353,34 @@
    ABSENCES SETTINGS LAYOUT
 ========================================= */
 
-.absences-settings-grid {
+.absences-unified-layout {
     display: grid;
-    grid-template-columns: 1fr 350px;
-    /* List takes more space, Form is side sidebar */
-    gap: 2rem;
+    grid-template-columns: 1fr 340px;
+    gap: 3rem;
+    margin-top: 1.5rem;
     align-items: start;
-    height: 100%;
-    /* Ensure it fills available space if needed */
 }
 
-/* Swap order visually if needed, but here: Left=List, Right=Form is requested */
-
-.absences-list-column {
+.absences-list-section {
+    min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    /* optional: min-width for grid */
+    gap: 1.25rem;
 }
 
-.absences-form-column {
-    background: var(--color-surface);
-    padding: 1.5rem;
+.absences-form-section {
+    background: color-mix(in srgb, var(--color-surface) 40%, var(--color-bg-secondary));
+    padding: 1.75rem;
     border-radius: 16px;
     border: 1px solid var(--color-border);
-    position: sticky;
-    top: 1rem;
-    /* Sticky form when scrolling long list */
+    box-shadow: var(--shadow-sm);
+}
+
+.form-group-row {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
 }
 
 /* Absence Card Styling */
@@ -422,23 +423,13 @@
 
 /* Responsive Absences */
 @media (max-width: 900px) {
-    .absences-settings-grid {
+    .absences-unified-layout {
         grid-template-columns: 1fr;
-        display: flex;
-        flex-direction: column-reverse;
-        /* Form on top (handled by HTML order or flex-direction) */
+        gap: 2rem;
     }
 
-    .absences-form-column {
-        position: static;
-        width: 100%;
-        margin-bottom: 2rem;
-    }
-
-    /* We want Form FIRST on mobile */
-    .absences-settings-grid {
-        flex-direction: column-reverse;
-        /* List bottom, Form top */
+    .absences-form-section {
+        order: -1; /* Form on top on mobile */
     }
 }
 

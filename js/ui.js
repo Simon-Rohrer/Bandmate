@@ -8,7 +8,8 @@ const UI = {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add('active');
-            document.body.classList.add('modal-open'); // Lock scroll
+            document.body.classList.add('modal-open');
+            document.documentElement.classList.add('modal-open'); // Robust lock
 
             // Add click outside to close (only if not already added)
             if (!modal.dataset.hasClickOutside) {
@@ -44,6 +45,7 @@ const UI = {
                 overlay.setAttribute('aria-hidden', 'false');
                 overlay.classList.add('active');
                 document.body.classList.add('modal-open');
+                document.documentElement.classList.add('modal-open');
                 // Auto-switch to requested tab
                 this.switchAuthTab(tabName);
 
@@ -68,6 +70,7 @@ const UI = {
                 overlay.setAttribute('aria-hidden', 'true');
                 overlay.hidden = true;
                 document.body.classList.remove('modal-open');
+                document.documentElement.classList.remove('modal-open');
 
                 // FORCE RESET SCROLL POSITION - Fix for iOS keyboard layout issues
                 window.scrollTo(0, 0);
@@ -165,6 +168,7 @@ const UI = {
             const activeModals = document.querySelectorAll('.modal.active');
             if (activeModals.length === 0) {
                 document.body.classList.remove('modal-open');
+                document.documentElement.classList.remove('modal-open');
             }
 
             // Remove ESC listener if exists
@@ -209,6 +213,7 @@ const UI = {
         const activeModals = document.querySelectorAll('.modal.active');
         if (activeModals.length === 0) {
             document.body.classList.remove('modal-open');
+            document.documentElement.classList.remove('modal-open');
         }
     },
 

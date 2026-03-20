@@ -290,18 +290,20 @@
             <main class="landing-main">
                 <section class="landing-hero-grid">
                     <div class="landing-copy-column">
-                        <span class="landing-kicker">Bandplanung ohne Chaos</span>
+                        <div class="landing-hero-eyebrow">Bandplanung ohne Chaos</div>
                         <h1 class="landing-hero-title">Plane Proben und Auftritte, organisiere deine Band an einem Ort.</h1>
                         <p class="hero-sub">
                             Bandmate bündelt Termine, Abstimmungen, Songs, Orte und News in einer klaren
                             Arbeitsfläche für Bands und Leitungsteams.
                         </p>
-                        <div class="landing-copy-points" aria-label="Kernvorteile">
-                            <span class="landing-copy-point">Abstimmungen</span>
-                            <span class="landing-copy-point">Kalender</span>
-                            <span class="landing-copy-point">Songs &amp; PDFs</span>
+                        <div class="landing-hero-features" aria-label="Kernvorteile">
+                            <span>Abstimmungen</span>
+                            <span class="dot"></span>
+                            <span>Kalender</span>
+                            <span class="dot"></span>
+                            <span>Songs &amp; PDFs</span>
                         </div>
-                        <p class="landing-copy-note">Für Bands, Leitungen und Teams, die ihre Planung klar, ruhig und verlässlich organisieren wollen.</p>
+                        <p class="landing-hero-tagline">Für Bands, Leitungen und Teams, die ihre Planung verlässlich organisieren wollen.</p>
                     </div>
 
                     <div class="landing-showcase landing-showcase-visual" aria-hidden="true">
@@ -314,29 +316,34 @@
 
                 <section class="landing-feature-strip" aria-label="Kernfunktionen">
                     <article class="landing-feature-card">
-                        <span class="landing-feature-label">Bands</span>
-                        <h2>Mitglieder, Rollen und Zuständigkeiten an einem Ort.</h2>
-                        <p>Halte Bands, Verantwortlichkeiten und Zugänge sauber organisiert.</p>
+                        <div class="feature-content">
+                            <span class="landing-feature-label">Bands</span>
+                            <h2>Mitglieder, Rollen und Zuständigkeiten</h2>
+                            <p>Halte Bands, Verantwortlichkeiten und Zugänge sauber organisiert.</p>
+                        </div>
                     </article>
                     <article class="landing-feature-card">
-                        <span class="landing-feature-label">Planung</span>
-                        <h2>Proben und Auftritte mit klaren Rückmeldungen koordinieren.</h2>
-                        <p>Plane Termine, prüfe Orte und sammle Zusagen ohne Listenchaos.</p>
+                        <div class="feature-content">
+                            <span class="landing-feature-label">Planung</span>
+                            <h2>Proben und Auftritte koordinieren</h2>
+                            <p>Plane Termine, prüfe Orte und sammle Zusagen ohne Listenchaos.</p>
+                        </div>
                     </article>
                     <article class="landing-feature-card">
-                        <span class="landing-feature-label">Organisation</span>
-                        <h2>Songs, PDFs, News und Orte immer griffbereit halten.</h2>
-                        <p>Alle Inhalte bleiben dort, wo dein Team sie für den Alltag wirklich braucht.</p>
+                        <div class="feature-content">
+                            <span class="landing-feature-label">Organisation</span>
+                            <h2>Songs, PDFs und News griffbereit</h2>
+                            <p>Alle Inhalte bleiben dort, wo dein Team sie für den Alltag wirklich braucht.</p>
+                        </div>
                     </article>
                 </section>
 
                 <footer class="landing-footer">
                     <div class="landing-footer-brand">
                         <div class="landing-footer-brandline">
-                            <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="landing-footer-logo">
-                            <span class="landing-footer-title">Bandmate</span>
+                            <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="landing-footer-logo logo-light">
+                            <img src="images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="landing-footer-logo logo-dark">
                         </div>
-                        <span class="landing-footer-copy">Klare Planung für moderne Bands und Leitungsteams.</span>
                     </div>
                     <div class="landing-footer-links">
                         <div class="landing-footer-link-group">
@@ -425,7 +432,7 @@
                             <label for="registerEmail">E-Mail</label>
                             <input type="email" id="registerEmail" placeholder="max@mustermann.de" required>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group instrument-group">
                             <label>Instrumente</label>
                             <div class="instrument-selector" id="registerInstrumentSelector"></div>
                             <input type="hidden" id="registerInstrument" value="">
@@ -699,7 +706,8 @@
                         </button>
                     </div>
 
-                    <!-- Logout Button moved here for consistent styling -->
+                    </nav>
+                    <!-- Logout Button moved here for consistent styling and fixed positioning -->
                     <div class="sidebar-group logout-group">
                         <button id="sidebarLogoutBtn" class="sidebar-item sidebar-main">
                             <span class="sidebar-icon" aria-hidden="true">
@@ -712,10 +720,7 @@
                             <span class="sidebar-label">Abmelden</span>
                         </button>
                     </div>
-                </nav>
-
-
-            </aside>
+                </aside>
 
             <!-- Main Content Wrapper (right of sidebar on desktop) -->
             <div class="app-main-wrapper">
@@ -1270,22 +1275,13 @@
                                 <div class="page-overview-copy">
                                     <span class="page-overview-kicker">Analyse</span>
                                     <h2>Statistiken</h2>
-                                    <p>Auftritte, Proben und Repertoire im Blick.</p>
                                 </div>
                                 <div class="page-overview-meta">
-                                    <span class="page-overview-chip">Automatisch aktuell</span>
-                                </div>
-                            </div>
-                            <div class="view-actions-bar statistics-toolbar">
-                                <div class="statistics-filter-shell">
-                                    <div class="statistics-filter-copy">
-                                        <span class="statistics-filter-kicker">Filter</span>
-                                        <strong>Band</strong>
-                                        <small>Optional eingrenzen.</small>
+                                    <div class="statistics-filter-shell">
+                                        <select id="statsBandSelect" class="form-select statistics-band-select">
+                                            <option value="">Band auswählen</option>
+                                        </select>
                                     </div>
-                                    <select id="statsBandSelect" class="form-select statistics-band-select">
-                                        <option value="">Band auswählen</option>
-                                    </select>
                                 </div>
                             </div>
                             <div id="statsSummaryContainer" class="stats-summary-container">
@@ -1844,7 +1840,6 @@
                                                 >Datenschutzerklärung</a>
                                         </div>
                                     </div>
-
                                 </div>
                             </form>
                             <!-- (Tutorial and Donate moved to Admin tab) -->
@@ -1855,73 +1850,47 @@
                     <!-- Absences Tab -->
                     <div id="absencesSettingsTab" class="settings-tab-content">
                         <div class="settings-pane">
-                            <div class="settings-pane-intro">
-                                <div>
-                                    <span class="settings-pane-kicker">Abwesenheiten</span>
-                                    <h3>Meine Verfügbarkeiten</h3>
-                                    <p>Trage Urlaub, Krankheit oder andere Ausfälle ein, damit Abstimmungen sauber bleiben.</p>
-                                </div>
-                            </div>
-                        <div class="absences-settings-grid">
-
-                            <!-- Left Column: List of Absences -->
-                            <div class="absences-list-column settings-surface-card">
+                            <div class="settings-surface-card">
                                 <div class="settings-column-head">
                                     <div>
-                                        <span class="settings-column-kicker">Übersicht</span>
-                                        <h3>Meine Abwesenheiten</h3>
-                                        <p>Hier siehst du alle deine eingetragenen Urlaube und Fehlzeiten.</p>
+                                        <span class="settings-column-kicker">Abwesenheiten</span>
+                                        <h3>Verfügbarkeiten verwalten</h3>
+                                        <p>Verwalte hier deine geplanten Abwesenheiten.</p>
                                     </div>
                                 </div>
-                                <div id="absencesListSettings">
-                                    <!-- Populated by JS -->
-                                    <div class="empty-state">Lade Abwesenheiten...</div>
+                                
+                                <div class="absences-unified-layout">
+                                    <div class="absences-list-section">
+                                        <div id="absencesListSettings">
+                                            <div class="empty-state">Lade Abwesenheiten...</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="absences-form-section">
+                                        <form id="createAbsenceFormSettings">
+                                            <input type="hidden" id="editAbsenceIdSettings">
+                                            <div class="form-group-row">
+                                                <div class="form-group">
+                                                    <label for="absenceStartSettings">Von</label>
+                                                    <input type="date" id="absenceStartSettings" class="profile-form-input" required>
+                                                </div>
+                                                <div class="form-group">
+                                                    <label for="absenceEndSettings">Bis</label>
+                                                    <input type="date" id="absenceEndSettings" class="profile-form-input" required>
+                                                </div>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="absenceReasonSettings">Grund (optional)</label>
+                                                <input type="text" id="absenceReasonSettings" class="profile-form-input" placeholder="Urlaub, Krankheit, ...">
+                                            </div>
+                                            <div class="settings-form-actions absence-form-actions">
+                                                <button type="submit" id="saveAbsenceBtnSettings" class="btn btn-primary">Speichern</button>
+                                                <button type="button" id="cancelEditAbsenceBtnSettings" class="btn btn-secondary" style="display:none;">Abbrechen</button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </div>
                             </div>
-
-                            <!-- Right Column: Create/Edit Form -->
-                            <div class="absences-form-column">
-                                <div class="settings-column-head settings-column-head-compact">
-                                    <div>
-                                        <span class="settings-column-kicker">Eintrag</span>
-                                        <h3>Neue Abwesenheit</h3>
-                                        <p>Lege einen Zeitraum an oder bearbeite einen bestehenden Eintrag.</p>
-                                    </div>
-                                </div>
-
-                                <form id="createAbsenceFormSettings">
-                                    <input type="hidden" id="editAbsenceIdSettings">
-
-                                    <div class="form-group">
-                                        <label for="absenceStartSettings">Von</label>
-                                        <input type="date" id="absenceStartSettings" class="profile-form-input"
-                                            required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="absenceEndSettings">Bis</label>
-                                        <input type="date" id="absenceEndSettings" class="profile-form-input" required>
-                                    </div>
-
-                                    <div class="form-group">
-                                        <label for="absenceReasonSettings">Grund (optional)</label>
-                                        <input type="text" id="absenceReasonSettings" class="profile-form-input"
-                                            placeholder="Urlaub, Krankheit, ...">
-                                    </div>
-
-                                    <div class="settings-form-actions absence-form-actions">
-                                        <button type="submit" id="saveAbsenceBtnSettings" class="btn btn-primary">
-                                            Speichern
-                                        </button>
-                                        <button type="button" id="cancelEditAbsenceBtnSettings"
-                                            class="btn btn-secondary" style="display:none;">
-                                            Abbrechen
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-
-                        </div>
                         </div>
                     </div>
 

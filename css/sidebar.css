@@ -231,8 +231,10 @@ html.theme-dark .sidebar-subitem.active {
 }
 
 /* Logout Button Styling */
-.sidebar-nav .sidebar-group.logout-group {
-    margin-top: 3rem;
+.app-sidebar .logout-group {
+    margin-top: auto;
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--sidebar-separator);
 }
 
 #sidebarLogoutBtn.sidebar-item.sidebar-main {

@@ -10016,9 +10016,11 @@ html[data-theme="light"] .loader-overlay,
 }
 
 /* ===== Scroll Locking ===== */
+html.modal-open,
 body.modal-open {
     overflow: hidden !important;
-    height: 100vh;
+    height: 100vh !important;
+    position: relative !important;
     /* Prevent scrolling on iOS */
 }
 
@@ -19723,28 +19725,55 @@ html[data-theme="light"] #landingPage .landing-phone-device,
     gap: 15px;
 }
 
-#landingPage .landing-kicker {
-    padding: 0.38rem 0.72rem;
-    font-size: 0.68rem;
-    background: var(--surface-secondary);
-    color: var(--text-muted);
+#landingPage .landing-hero-eyebrow {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--accent-secondary);
+    margin-bottom: 0.5rem;
 }
 
 #landingPage .landing-hero-title {
     margin: 0;
-    max-width: 8.2ch;
-    font-size: clamp(3rem, 4.4vw, 4.55rem);
-    line-height: 0.96;
-    letter-spacing: -0.075em;
-    font-weight: 600;
+    max-width: 22ch;
+    font-size: clamp(1.8rem, 4.2vw, 2.3rem);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    font-weight: 750;
     color: var(--text-primary);
 }
 
 #landingPage .hero-sub {
-    max-width: 28rem;
-    font-size: 0.98rem;
-    line-height: 1.68;
+    max-width: 34rem;
+    font-size: 1.05rem;
+    line-height: 1.6;
     color: var(--text-secondary);
+    margin: 0.5rem 0 1.5rem;
+}
+
+#landingPage .landing-hero-features {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+#landingPage .landing-hero-features .dot {
+    width: 4px;
+    height: 4px;
+    background: var(--accent-secondary);
+    border-radius: 50%;
+    opacity: 0.5;
+}
+
+#landingPage .landing-hero-tagline {
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    opacity: 0.8;
 }
 
 #landingPage .landing-cta-row {
@@ -19848,14 +19877,14 @@ html[data-theme="light"] #landingPage,
         linear-gradient(180deg, #F8FAFC 0%, #EEF4FB 54%, #F8FAFC 100%);
 }
 
-html[data-theme="light"] #landingPage .landing-kicker,
+html[data-theme="light"] #landingPage .landing-hero-eyebrow,
 html[data-theme="light"] #landingPage .landing-nav-login,
 html[data-theme="light"] #landingPage .landing-cta-secondary,
-:root:not(.theme-dark) #landingPage .landing-kicker,
+:root:not(.theme-dark) #landingPage .landing-hero-eyebrow,
 :root:not(.theme-dark) #landingPage .landing-nav-login,
 :root:not(.theme-dark) #landingPage .landing-cta-secondary {
     background: rgba(255, 255, 255, 0.86);
-    border-color: rgba(148, 163, 184, 0.34);
+    border: 1px solid rgba(148, 163, 184, 0.34);
 }
 
 html[data-theme="light"] #landingPage .landing-showcase-glow,
@@ -19870,9 +19899,14 @@ html[data-theme="light"] #landingPage .landing-feature-card,
 :root:not(.theme-dark) #landingPage .landing-desk-device,
 :root:not(.theme-dark) #landingPage .landing-phone-device,
 :root:not(.theme-dark) #landingPage .landing-feature-card {
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.96));
-    border-color: rgba(148, 163, 184, 0.26);
-    box-shadow: 0 22px 60px rgba(15, 23, 42, 0.12);
+    background: #ffffff !important;
+    border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06) !important;
+}
+
+html[data-theme="light"] #landingPage .landing-hero-features,
+:root:not(.theme-dark) #landingPage .landing-hero-features {
+    color: #64748b !important;
 }
 
 html[data-theme="light"] #landingPage .landing-device-bar,
@@ -19922,15 +19956,16 @@ html[data-theme="light"] #landingPage .landing-phone-card,
     }
 
     #landingPage .landing-copy-column {
-        align-items: center;
-        text-align: center;
-        margin: 0 auto;
+        align-items: flex-start;
+        text-align: left;
+        margin: 0;
     }
 
     #landingPage .landing-hero-title {
-        max-width: 10ch;
-        font-size: clamp(2.45rem, 9.2vw, 3.5rem);
-        text-align: center;
+        max-width: none;
+        font-size: clamp(1.65rem, 8vw, 2.15rem);
+        text-align: left;
+        line-height: 1.12;
     }
 
     #landingPage .hero-sub {
@@ -19950,7 +19985,9 @@ html[data-theme="light"] #landingPage .landing-phone-card,
 
     #landingPage .landing-mobile-action {
         flex: 1 1 0;
-        min-height: 46px;
+        min-height: 42px;
+        font-size: 0.82rem;
+        padding: 0.6rem 0.8rem;
     }
 
     #landingPage .landing-showcase {
@@ -19998,9 +20035,9 @@ html[data-theme="light"] #landingPage .landing-phone-card,
     }
 
     #landingPage .landing-nav-register {
-        min-height: 42px;
-        padding: 0.7rem 0.9rem;
-        font-size: 0.84rem;
+        min-height: 38px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.78rem;
     }
 
     #landingPage .landing-copy-column {
@@ -20013,10 +20050,9 @@ html[data-theme="light"] #landingPage .landing-phone-card,
     }
 
     #landingPage .landing-hero-title {
-        max-width: 8.8ch;
-        font-size: clamp(2.15rem, 12vw, 3rem);
-        line-height: 0.98;
-        letter-spacing: -0.065em;
+        max-width: none;
+        font-size: clamp(1.5rem, 10vw, 2rem);
+        line-height: 1.1;
     }
 
     #landingPage .hero-sub {
@@ -20135,12 +20171,12 @@ html[data-theme="light"] #landingPage .landing-phone-card,
 
 #landingPage .landing-scene {
     max-width: min(1320px, calc(100vw - 40px));
-    padding-top: 20px;
-    padding-bottom: 28px;
+    padding-top: 10px;
+    padding-bottom: 24px;
 }
 
 #landingPage .landing-header {
-    padding-bottom: 16px;
+    padding-bottom: 12px;
 }
 
 #landingPage .landing-logo {
@@ -20207,11 +20243,11 @@ html[data-theme="light"] #landingPage .landing-phone-card,
 
 #landingPage .landing-hero-title {
     margin: 0;
-    max-width: 11ch;
-    font-size: clamp(2.3rem, 4vw, 3.45rem);
-    line-height: 1.02;
-    letter-spacing: -0.062em;
-    font-weight: 700;
+    max-width: 22ch;
+    font-size: clamp(1.8rem, 4vw, 2.3rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 750;
     color: var(--text-primary);
 }
 
@@ -20483,18 +20519,18 @@ html[data-theme="light"] #landingPage .landing-showcase-glow,
     }
 
     #landingPage .landing-copy-column {
-        align-items: center;
-        text-align: center;
-        margin: 0 auto;
+        align-items: flex-start;
+        text-align: left;
+        margin: 0;
     }
 
     #landingPage .landing-copy-points {
-        justify-content: center;
+        justify-content: flex-start;
     }
 
     #landingPage .landing-copy-note {
-        max-width: 24rem;
-        text-align: center;
+        max-width: none;
+        text-align: left;
     }
 
     #landingPage .landing-cta-row {
@@ -20540,15 +20576,15 @@ html[data-theme="light"] #landingPage .landing-showcase-glow,
     }
 
     #landingPage .landing-nav-action {
-        min-height: 42px;
-        padding: 0.68rem 0.88rem;
-        font-size: 0.82rem;
+        min-height: 38px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.78rem;
     }
 
     #landingPage .landing-hero-title {
-        max-width: 10.5ch;
-        font-size: clamp(1.9rem, 8.3vw, 2.55rem);
-        line-height: 1.04;
+        max-width: none;
+        font-size: clamp(1.4rem, 7vw, 1.85rem);
+        line-height: 1.1;
     }
 
     #landingPage .hero-sub {
@@ -28234,23 +28270,55 @@ html[data-theme="light"] #landingPage .landing-footer,
 }
 
 #landingPage .landing-feature-strip {
-    margin-top: 2px;
-    gap: 16px;
+    margin-top: 3rem;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
 }
 
 #landingPage .landing-feature-card {
-    padding: 20px 20px 18px;
+    display: flex;
+    gap: 1.2rem;
+    padding: 24px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     border-radius: 20px;
+    transition: all 0.3s ease;
+}
+
+#landingPage .landing-feature-card:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-4px);
+}
+
+#landingPage .feature-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+#landingPage .landing-feature-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent-secondary);
 }
 
 #landingPage .landing-feature-card h2 {
-    font-size: 1.02rem;
-    line-height: 1.42;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--text-primary);
+    margin: 0;
 }
 
 #landingPage .landing-feature-card p {
-    font-size: 0.9rem;
-    line-height: 1.62;
+    font-size: 0.92rem;
+    line-height: 1.5;
+    color: var(--text-secondary);
+    margin: 0;
 }
 
 #landingPage .landing-footer {
@@ -28284,14 +28352,29 @@ html[data-theme="light"] #landingPage .landing-footer,
     width: fit-content;
 }
 
-html[data-theme="light"] #landingPage .landing-footer,
-:root:not(.theme-dark) #landingPage .landing-footer {
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.98));
-    border-top-color: rgba(148, 163, 184, 0.34);
-    box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.9),
-        0 -10px 24px rgba(148, 163, 184, 0.14);
+#landingPage .landing-footer-logo {
+    height: 75px;
+    width: auto;
+    margin-bottom: 0.8rem;
+    display: block;
+}
+
+#landingPage .logo-dark {
+    display: none;
+}
+
+#landingPage .logo-light {
+    display: block;
+}
+
+html[data-theme="dark"] #landingPage .logo-dark,
+:root.theme-dark #landingPage .logo-dark {
+    display: block;
+}
+
+html[data-theme="dark"] #landingPage .logo-light,
+:root.theme-dark #landingPage .logo-light {
+    display: none;
 }
 
 @media (max-width: 1240px) {
@@ -28306,8 +28389,8 @@ html[data-theme="light"] #landingPage .landing-footer,
     }
 
     #landingPage .landing-hero-title {
-        max-width: 12.5ch;
-        font-size: clamp(2.4rem, 5.6vw, 3.45rem);
+        max-width: none;
+        font-size: clamp(1.6rem, 5vw, 2rem);
     }
 
     #landingPage .landing-hero-image-frame {
@@ -28326,8 +28409,8 @@ html[data-theme="light"] #landingPage .landing-footer,
     }
 
     #landingPage .landing-hero-title {
-        max-width: 11.2ch;
-        font-size: clamp(2.15rem, 8vw, 3rem);
+        max-width: none;
+        font-size: clamp(1.4rem, 6vw, 1.8rem);
     }
 
     #landingPage .hero-sub,
@@ -28336,7 +28419,8 @@ html[data-theme="light"] #landingPage .landing-footer,
     }
 
     #landingPage .landing-feature-strip {
-        gap: 14px;
+        grid-template-columns: 1fr;
+        gap: 16px;
     }
 
     #landingPage .landing-footer {
@@ -28351,9 +28435,9 @@ html[data-theme="light"] #landingPage .landing-footer,
     }
 
     #landingPage .landing-hero-title {
-        max-width: 9.9ch;
-        font-size: clamp(1.95rem, 9.4vw, 2.55rem);
-        line-height: 0.98;
+        max-width: none;
+        font-size: clamp(1.8rem, 8.5vw, 2.4rem);
+        line-height: 1.1;
     }
 
     #landingPage .hero-sub {
@@ -28368,10 +28452,9 @@ html[data-theme="light"] #landingPage .landing-footer,
         line-height: 1.55;
     }
 
-    #landingPage .landing-copy-point {
-        min-height: 28px;
-        padding: 0.35rem 0.6rem;
-        font-size: 0.75rem;
+    #landingPage .landing-hero-features {
+        gap: 0.6rem;
+        font-size: 0.8rem;
     }
 
     #landingPage .landing-hero-image-frame {
@@ -28447,7 +28530,7 @@ body:has(#landingPage.active):not(.modal-open) {
         align-items: flex-start;
     }
 
-    #landingPage .landing-kicker {
+    #landingPage .landing-hero-eyebrow {
         margin-inline: 0;
     }
 
@@ -28458,7 +28541,7 @@ body:has(#landingPage.active):not(.modal-open) {
         text-align: left;
     }
 
-    #landingPage .landing-copy-points {
+    #landingPage .landing-hero-features {
         justify-content: flex-start;
     }
 
@@ -28684,12 +28767,7 @@ body:has(#landingPage.active):not(.modal-open) {
     gap: 12px;
 }
 
-#landingPage .landing-footer-logo {
-    width: 30px;
-    height: 30px;
-    object-fit: contain;
-    flex: 0 0 30px;
-}
+/* Logo size controlled above at line 28355 */
 
 #landingPage .landing-footer-title {
     font-size: 1.08rem;
@@ -28978,4 +29056,275 @@ html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .mult
 html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .multiselect-option:hover,
 :root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect .multiselect-option:hover {
     background: rgba(191, 219, 254, 0.28);
+}
+
+/* ===== Compact Band Settings Refinement ===== */
+.band-settings-compact-panel {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.band-settings-compact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--sidebar-separator);
+    padding-bottom: var(--spacing-md);
+}
+
+.band-settings-date-badge {
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-secondary);
+    padding: 0.25rem 0.6rem;
+    border-radius: var(--radius-pill);
+    font-weight: 500;
+}
+
+.band-settings-compact-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--spacing-xl);
+    margin-bottom: var(--spacing-xl);
+}
+
+.compact-setting-label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: var(--spacing-sm);
+}
+
+.band-settings-media-compact {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.band-settings-media-frame-sm {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--color-border);
+}
+
+.band-settings-media-fallback-sm {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+}
+
+.band-settings-status-sm {
+    font-size: 0.75rem;
+    display: block;
+    margin-top: 4px;
+}
+
+.join-code-row-compact {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    background: var(--color-bg-secondary);
+    padding: 0.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+}
+
+.join-code-sm {
+    font-family: var(--font-mono, monospace);
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    flex: 1;
+}
+
+.compact-setting-note {
+    font-size: 0.8rem;
+    color: var(--color-text-light);
+    margin-top: 0.5rem;
+}
+
+.band-settings-compact-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+    border-top: 1px solid var(--sidebar-separator);
+    padding-top: var(--spacing-lg);
+    margin-top: var(--spacing-md);
+}
+
+.btn-text-danger {
+    background: transparent;
+    border: none;
+    color: var(--color-danger);
+    font-weight: 600;
+}
+
+.btn-text-danger:hover {
+    text-decoration: underline;
+}
+
+/* ===== Auth Window CSS Fixes (Light Mode & Sizing) ===== */
+html[data-theme="light"] #landingPage .auth-white-card,
+:root:not(.theme-dark) #landingPage .auth-white-card {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] #landingPage .auth-card-title,
+:root:not(.theme-dark) #landingPage .auth-card-title {
+    color: #000000 !important;
+    font-size: 1.6rem !important; /* Smaller text as requested */
+    font-weight: 700 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+html[data-theme="light"] #landingPage .auth-tabs,
+:root:not(.theme-dark) #landingPage .auth-tabs {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+html[data-theme="light"] #landingPage .auth-tab,
+:root:not(.theme-dark) #landingPage .auth-tab {
+    color: #475569 !important;
+    font-size: 0.82rem !important; /* Smaller text */
+    background: transparent !important;
+}
+
+html[data-theme="light"] #landingPage .auth-tab:hover,
+:root:not(.theme-dark) #landingPage .auth-tab:hover {
+    color: #0f172a !important;
+    background: #ffffff !important;
+}
+
+html[data-theme="light"] #landingPage .auth-tab.active,
+:root:not(.theme-dark) #landingPage .auth-tab.active {
+    color: #0f172a !important;
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card .auth-form,
+:root:not(.theme-dark) #landingPage .auth-white-card .auth-form {
+    background: #ffffff !important;
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card label,
+:root:not(.theme-dark) #landingPage .auth-white-card label {
+    color: #475569 !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card input:not([type="checkbox"]),
+html[data-theme="light"] #landingPage .auth-white-card select,
+:root:not(.theme-dark) #landingPage .auth-white-card input:not([type="checkbox"]),
+:root:not(.theme-dark) #landingPage .auth-white-card select {
+    background-color: #ffffff !important;
+    color: #0f172a !important;
+    border: 1px solid #cbd5e1 !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card input::placeholder,
+:root:not(.theme-dark) #landingPage .auth-white-card input::placeholder {
+    color: #94a3b8 !important;
+}
+
+html[data-theme="light"] #landingPage .auth-card-subtitle,
+html[data-theme="light"] #landingPage .auth-form-subtitle,
+:root:not(.theme-dark) #landingPage .auth-card-subtitle,
+:root:not(.theme-dark) #landingPage .auth-form-subtitle {
+    color: #64748b !important;
+    font-size: 0.9rem !important;
+}
+
+/* Comprehensive fix for instrument multiselect in light mode */
+html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect,
+:root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect {
+    position: relative !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .multiselect-trigger,
+:root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect .multiselect-trigger {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    color: #0f172a !important;
+    min-height: 58px !important;
+    border-radius: 18px !important;
+    padding: 0 1rem !important;
+    display: flex;
+    align-items: center;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .multiselect-menu,
+:root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect .multiselect-menu {
+    background: #ffffff !important;
+    border: 1px solid #cbd5e1 !important;
+    box-shadow: 0 10px 25px rgba(15, 23, 42, 0.12) !important;
+    border-radius: 16px !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .multiselect-option,
+:root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect .multiselect-option {
+    color: #0f172a !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .multiselect-badge,
+:root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect .multiselect-badge {
+    background: #f1f5f9 !important;
+    color: #0f172a !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .multiselect-placeholder,
+:root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect .multiselect-placeholder {
+    color: #94a3b8 !important;
+}
+
+html[data-theme="light"] #landingPage .auth-white-card .custom-multiselect .multiselect-arrow,
+:root:not(.theme-dark) #landingPage .auth-white-card .custom-multiselect .multiselect-arrow {
+    color: #94a3b8 !important;
+}
+
+/* Align and move up slightly */
+#landingPage .auth-white-card .instrument-group {
+    margin-top: -3px;
+    z-index: 10;
+}
+
+/* Fix for close button (x) in light mode */
+html[data-theme="light"] #landingPage .auth-close-btn,
+:root:not(.theme-dark) #landingPage .auth-close-btn {
+    color: #0f172a !important;
+    background: transparent !important;
+}
+
+html[data-theme="light"] #landingPage .auth-form-title,
+:root:not(.theme-dark) #landingPage .auth-form-title {
+    color: #0f172a !important;
+    font-size: 1.1rem !important;
+}
+
+/* File input area in register form */
+html[data-theme="light"] #landingPage .auth-white-card .profile-image-upload-zone,
+:root:not(.theme-dark) #landingPage .auth-white-card .profile-image-upload-zone {
+    background: #f8fafc !important;
+    border: 1px dashed #cbd5e1 !important;
+    color: #475569 !important;
 }
