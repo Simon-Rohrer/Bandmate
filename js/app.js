@@ -8985,13 +8985,13 @@ const App = {
             const quickLinksDiv = document.getElementById('dashboardQuickLinks');
             if (quickLinksDiv) {
                 const quickLinks = [
-                    { key: 'kalender', label: 'Mein Kalender', view: 'kalender' },
-                    { key: 'news', label: 'News', view: 'news' },
-                    { key: 'musikpool', label: 'Musikerpool', view: 'musikpool' },
-                    { key: 'bands', label: 'Meine Bands', view: 'bands' },
-                    { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals' },
-                    { key: 'events', label: 'Auftritte', view: 'events' },
-                    { key: 'statistics', label: 'Statistiken', view: 'statistics' },
+                    { key: 'kalender', label: 'Mein Kalender', view: 'kalender', meta: 'Persönliche Termine und Abo', accent: '#38bdf8' },
+                    { key: 'news', label: 'News', view: 'news', meta: 'Updates und Ankündigungen', accent: '#5b8cff' },
+                    { key: 'musikpool', label: 'Musikerpool', view: 'musikpool', meta: 'Kontakte und Musiker', accent: '#f59e0b' },
+                    { key: 'bands', label: 'Meine Bands', view: 'bands', meta: 'Bands, Rollen und Mitglieder', accent: '#8b5cf6' },
+                    { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals', meta: 'Abstimmungen und feste Proben', accent: '#14b8a6' },
+                    { key: 'events', label: 'Auftritte', view: 'events', meta: 'Anfragen und feste Gigs', accent: '#ec4899' },
+                    { key: 'statistics', label: 'Statistiken', view: 'statistics', meta: 'Auswertungen im Überblick', accent: '#22c55e' },
                 ];
                 let selected = [];
                 try {
@@ -9005,7 +9005,13 @@ const App = {
                     quickLinksDiv.innerHTML = '<div class="dashboard-empty-state"><strong>Keine Schnellzugriffe aktiv</strong><p>Lege über Bearbeiten die wichtigsten Aktionen für dein Dashboard fest.</p></div>';
                 } else {
                     quickLinksDiv.innerHTML = linksToShow.map(l =>
-                        `<button class="dashboard-shortcut" data-view="${l.view}"><span class="dashboard-shortcut-label">${l.label}</span><span class="dashboard-shortcut-arrow" aria-hidden="true">↗</span></button>`
+                        `<button class="dashboard-shortcut" data-view="${l.view}" style="--dashboard-shortcut-accent: ${l.accent}">
+                            <span class="dashboard-shortcut-copy">
+                                <span class="dashboard-shortcut-label">${l.label}</span>
+                                <span class="dashboard-shortcut-meta">${l.meta}</span>
+                            </span>
+                            <span class="dashboard-shortcut-arrow" aria-hidden="true">↗</span>
+                        </button>`
                     ).join('');
                     quickLinksDiv.querySelectorAll('.dashboard-shortcut').forEach(btn => {
                         btn.onclick = (e) => {
@@ -9023,7 +9029,7 @@ const App = {
         try {
             const dashboardSectionsContainer = document.querySelector('.dashboard-bento-grid');
             if (dashboardSectionsContainer) {
-                const sectionIds = ['dashboardNewsSection', 'dashboardQuickAccessSection', 'dashboardCalendarSection', 'dashboardActivitySection', 'dashboardUpcomingSection'];
+                const sectionIds = ['dashboardUpcomingSection', 'dashboardActivitySection', 'dashboardNewsSection', 'dashboardCalendarSection', 'dashboardQuickAccessSection'];
                 let order = [];
                 try { order = JSON.parse(localStorage.getItem('dashboardSectionOrder') || 'null'); } catch { }
                 if (!Array.isArray(order) || order.length !== sectionIds.length) order = sectionIds;
@@ -9111,11 +9117,15 @@ const App = {
 
                         return `
                             <div class="dashboard-news-item clickable" data-id="${n.id}">
-                                <div class="news-heading"><span class="news-item-badge">News</span></div>
+                                <div class="dashboard-entry-topline">
+                                    <span class="news-item-badge">News</span>
+                                    <span class="news-date">${UI.formatDateShort(n.createdAt)}</span>
+                                </div>
                                 <div class="news-title">${Bands.escapeHtml(n.title)}</div>
-                                <div class="news-date">${UI.formatDateShort(n.createdAt)}</div>
                                 <div class="news-content">${this.escapeHtml(dashTruncated)}</div>
-                                <div class="btn-show-more-news">Zum Artikel</div>
+                                <div class="dashboard-entry-footer">
+                                    <div class="btn-show-more-news">Zum Artikel</div>
+                                </div>
                             </div>
                         `;
                     }).join('');

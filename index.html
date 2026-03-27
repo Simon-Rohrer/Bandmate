@@ -1013,88 +1013,97 @@
                 <main class="app-main">
                     <!-- Dashboard View -->
                     <div id="dashboardView" class="view active">
-                        <div id="dashboardHero" class="dashboard-hero">
-                            <div class="hero-welcome">
-                                <span class="dashboard-section-kicker">Überblick</span>
-                                <h2 class="welcome-text">Willkommen zurück, <span id="welcomeUserName">Musiker</>!</h2>
-                                <p class="hero-subtitle">Hier ist dein kompakter Überblick für Termine, Aktivitäten und Bandorganisation.</p>
-                            </div>
-                            <div id="nextEventHero" class="next-event-hero-card">
-                                <div class="next-event-badge">Nächster Termin</div>
-                                <div id="nextEventContent" class="next-event-content">
-                                    <div class="next-event-placeholder">Lade nächsten Termin...</div>
+                        <div class="view-page-shell dashboard-view-shell">
+                            <div id="dashboardHero" class="dashboard-hero">
+                                <div class="dashboard-panel hero-welcome">
+                                    <span class="dashboard-section-kicker">Überblick</span>
+                                    <h2 class="welcome-text">Willkommen zurück, <span id="welcomeUserName">Musiker</span>!</h2>
+                                    <p class="hero-subtitle">Hier ist dein kompakter Überblick für Termine, Aktivitäten und Bandorganisation.</p>
+                                </div>
+                                <div id="nextEventHero" class="dashboard-panel next-event-hero-card">
+                                    <div class="next-event-badge">Nächster Termin</div>
+                                    <div id="nextEventContent" class="next-event-content">
+                                        <div class="next-event-placeholder">Lade nächsten Termin...</div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div class="dashboard-grid">
-                            <div class="dashboard-card stat-card">
-                                <div class="card-icon icon-bands">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                                        <circle cx="9" cy="7" r="4"></circle>
-                                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-                                    </svg>
+                            <div class="dashboard-grid">
+                                <div class="dashboard-panel dashboard-card stat-card stat-card-bands">
+                                    <div class="card-icon icon-bands">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="9" cy="7" r="4"></circle>
+                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                        </svg>
+                                    </div>
+                                    <div class="card-content">
+                                        <span class="card-eyebrow">Bands</span>
+                                        <p class="card-stat" id="bandCount">0</p>
+                                        <span class="card-caption" id="bandCountCaption">Du spielst aktuell in 0 Bands.</span>
+                                    </div>
                                 </div>
-                                <div class="card-content">
-                                    <span class="card-eyebrow">Bands</span>
-                                    <p class="card-stat" id="bandCount">0</p>
-                                    <span class="card-caption" id="bandCountCaption">Du spielst aktuell in 0 Bands.</span>
+                                <div class="dashboard-panel dashboard-card stat-card stat-card-events">
+                                    <div class="card-icon icon-events">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <path d="m12 8-9.04 9.06a2.82 2.82 0 1 0 3.98 3.98l9.06-9.06"></path>
+                                            <path d="M12 8a2.82 2.82 0 1 0 3.98 3.98l9.06-9.06"></path>
+                                            <circle cx="12" cy="12" r="3"></circle>
+                                        </svg>
+                                    </div>
+                                    <div class="card-content">
+                                        <span class="card-eyebrow">Auftritte</span>
+                                        <p class="card-stat" id="upcomingEvents">0</p>
+                                        <span class="card-caption" id="upcomingEventsCaption">Aktuell stehen keine Auftritte an.</span>
+                                    </div>
+                                </div>
+                                <div class="dashboard-panel dashboard-card stat-card stat-card-rehearsals">
+                                    <div class="card-icon icon-rehearsals">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
+                                            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                                            stroke-linejoin="round">
+                                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                                            <line x1="16" y1="2" x2="16" y2="6"></line>
+                                            <line x1="8" y1="2" x2="8" y2="6"></line>
+                                            <line x1="3" y1="10" x2="21" y2="10"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="card-content">
+                                        <span class="card-eyebrow">Proben</span>
+                                        <p class="card-stat" id="totalRehearsals">0</p>
+                                        <span class="card-caption" id="totalRehearsalsCaption">Aktuell stehen keine Proben an.</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="dashboard-card stat-card">
-                                <div class="card-icon icon-events">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <path d="m12 8-9.04 9.06a2.82 2.82 0 1 0 3.98 3.98l9.06-9.06"></path>
-                                        <path d="M12 8a2.82 2.82 0 1 0 3.98 3.98l9.06-9.06"></path>
-                                        <circle cx="12" cy="12" r="3"></circle>
-                                    </svg>
-                                </div>
-                                <div class="card-content">
-                                    <span class="card-eyebrow">Auftritte</span>
-                                    <p class="card-stat" id="upcomingEvents">0</p>
-                                    <span class="card-caption" id="upcomingEventsCaption">Aktuell stehen keine Auftritte an.</span>
-                                </div>
-                            </div>
-                            <div class="dashboard-card stat-card">
-                                <div class="card-icon icon-rehearsals">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"
-                                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                                        stroke-linejoin="round">
-                                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-                                        <line x1="16" y1="2" x2="16" y2="6"></line>
-                                        <line x1="8" y1="2" x2="8" y2="6"></line>
-                                        <line x1="3" y1="10" x2="21" y2="10"></line>
-                                    </svg>
-                                </div>
-                                <div class="card-content">
-                                    <span class="card-eyebrow">Proben</span>
-                                    <p class="card-stat" id="totalRehearsals">0</p>
-                                    <span class="card-caption" id="totalRehearsalsCaption">Aktuell stehen keine Proben an.</span>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div class="dashboard-bento-grid">
-                            <div class="dashboard-section news-section" id="dashboardNewsSection">
+                            <div class="dashboard-reorder-hint">
+                                <span class="dashboard-reorder-icon" aria-hidden="true">↕</span>
+                                <span>Die Bereiche unten kannst du per Drag & Drop neu anordnen.</span>
+                            </div>
+
+                            <div class="dashboard-bento-grid">
+                                <div class="dashboard-panel dashboard-section news-section" id="dashboardNewsSection">
                                 <div class="dashboard-section-header">
                                     <div>
                                         <span class="dashboard-section-kicker">News</span>
                                         <h3>Letzte Meldungen</h3>
                                     </div>
                                     <div class="section-header-actions">
-                                        <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
+                                        <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
+                                            <span class="dashboard-drag-handle">≡</span>
+                                            <span class="dashboard-drag-label">Verschieben</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div id="dashboardNewsList" class="dashboard-news-list"></div>
                             </div>
 
-                            <div class="dashboard-section quick-access-section" id="dashboardQuickAccessSection">
+                            <div class="dashboard-panel dashboard-section quick-access-section" id="dashboardQuickAccessSection">
                                 <div class="dashboard-section-header">
                                     <div>
                                         <span class="dashboard-section-kicker">Aktionen</span>
@@ -1114,48 +1123,70 @@
                                             </svg>
                                             <span>Anpassen</span>
                                         </button>
-                                        <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
+                                        <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
+                                            <span class="dashboard-drag-handle">≡</span>
+                                            <span class="dashboard-drag-label">Verschieben</span>
+                                        </div>
                                     </div>
                                 </div>
                                 <div class="dashboard-quick-links" id="dashboardQuickLinks"></div>
                             </div>
 
-                            <div class="dashboard-section calendar-section" id="dashboardCalendarSection">
+                            <div class="dashboard-panel dashboard-section calendar-section" id="dashboardCalendarSection">
                                 <div class="dashboard-section-header">
                                     <div>
                                         <span class="dashboard-section-kicker">Sync</span>
                                         <h3>Kalender-Abo</h3>
                                     </div>
-                                    <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
+                                    <div class="section-header-actions">
+                                        <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
+                                            <span class="dashboard-drag-handle">≡</span>
+                                            <span class="dashboard-drag-label">Verschieben</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="calendar-sync-card">
-                                    <p>Verpasse keinen Termin mehr durch die Kalender-Synchronisation.</p>
+                                    <div class="calendar-sync-copy">
+                                        <p>Verpasse keinen Termin mehr durch die Kalender-Synchronisation.</p>
+                                        <span class="calendar-sync-note">Abonniere deinen Kalender für Smartphone oder Desktop und halte neue Termine automatisch aktuell.</span>
+                                    </div>
                                     <button class="btn btn-primary btn-sm" onclick="App.navigateTo('kalender')">Sync
                                         einrichten</button>
                                 </div>
                             </div>
 
-                            <div class="dashboard-section activity-section" id="dashboardActivitySection">
+                            <div class="dashboard-panel dashboard-section activity-section" id="dashboardActivitySection">
                                 <div class="dashboard-section-header">
                                     <div>
                                         <span class="dashboard-section-kicker">Feed</span>
                                         <h3>Aktivitäten</h3>
                                     </div>
-                                    <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
+                                    <div class="section-header-actions">
+                                        <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
+                                            <span class="dashboard-drag-handle">≡</span>
+                                            <span class="dashboard-drag-label">Verschieben</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div id="dashboardActivityList" class="dashboard-activity-list"></div>
                             </div>
 
-                            <div class="dashboard-section upcoming-section" id="dashboardUpcomingSection">
+                            <div class="dashboard-panel dashboard-section upcoming-section" id="dashboardUpcomingSection">
                                 <div class="dashboard-section-header">
                                     <div>
                                         <span class="dashboard-section-kicker">Agenda</span>
                                         <h3>Nächste Termine</h3>
                                     </div>
-                                    <span class="dashboard-drag-handle" title="Zum Verschieben ziehen">≡</span>
+                                    <div class="section-header-actions">
+                                        <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
+                                            <span class="dashboard-drag-handle">≡</span>
+                                            <span class="dashboard-drag-label">Verschieben</span>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div id="upcomingList" class="rehearsal-list"></div>
                             </div>
+                        </div>
                         </div>
                     </div>
 
