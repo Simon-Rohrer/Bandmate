@@ -859,6 +859,18 @@ const Storage = {
         return data || [];
     },
 
+    async getAbsencesForUsers(userIds) {
+        if (!userIds || userIds.length === 0) return [];
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('absences')
+            .select('id, userId, startDate, endDate, reason')
+            .in('userId', userIds);
+        if (error) { console.error('Supabase getAbsencesForUsers error', error); return []; }
+        return data || [];
+    },
+
+
     async deleteAbsence(absenceId) {
         return await this.delete('absences', absenceId);
     },

@@ -41,6 +41,159 @@ const Rehearsals = {
         return Number.isFinite(parsed) ? parsed : value;
     },
 
+    formatCountLabel(count, singular, plural) {
+        return `${count} ${count === 1 ? singular : plural}`;
+    },
+
+    getLocationConflictLabel(conflicts = []) {
+        const conflictCount = conflicts.length || 1;
+        const overlapLabel = this.formatCountLabel(conflictCount, 'Überschneidung', 'Überschneidungen');
+        return `Ort bereits belegt (${overlapLabel})`;
+    },
+
+    getMemberConflictSummaryLabel(memberConflicts = []) {
+        const memberConflictCount = memberConflicts.length || 1;
+        return memberConflictCount === 1
+            ? '1 ausgewähltes Mitglied ist nicht verfügbar'
+            : `${memberConflictCount} ausgewählte Mitglieder sind nicht verfügbar`;
+    },
+
+    buildAvailabilityStatusLabel({ locationId = '', locationConflicts = [], memberConflicts = [] } = {}) {
+        const parts = [];
+
+        if (locationId) {
+            parts.push(locationConflicts.length > 0 ? this.getLocationConflictLabel(locationConflicts) : 'Ort ist frei');
+        }
+
+        if (memberConflicts.length > 0) {
+            parts.push(this.getMemberConflictSummaryLabel(memberConflicts));
+        } else if (locationConflicts.length === 0) {
+            parts.push(locationId ? 'alle ausgewählten Mitglieder sind verfügbar' : 'Alle ausgewählten Mitglieder sind verfügbar');
+        }
+
+        return parts.join(' · ') || 'Kein Ort gewählt';
+    },
+
+    getLocationStatusMeta({ locationId = '', locationConflicts = [] } = {}) {
+        if (!locationId) {
+            return { tone: 'neutral', text: 'Ort: kein Ort ausgewählt' };
+        }
+
+        if (locationConflicts.length > 0) {
+            return null;
+        }
+
+        return { tone: 'success', text: 'Ort: frei' };
+    },
+
+    getMemberStatusMeta(memberConflicts = []) {
+        if (memberConflicts.length > 0) {
+            return null;
+        }
+
+        return {
+            tone: 'success',
+            text: 'Mitglieder: alle ausgewählten Mitglieder sind verfügbar'
+        };
+    },
+
+    buildProposalStatusMarkup({ locationId = '', locationConflicts = [], memberConflicts = [] } = {}) {
+        const lines = [];
+        const locationStatus = this.getLocationStatusMeta({ locationId, locationConflicts });
+        const memberStatus = this.getMemberStatusMeta(memberConflicts);
+
+        if (locationStatus) {
+            lines.push(`<span class="proposal-status-line is-${locationStatus.tone}">${locationStatus.tone === 'success' ? '✓' : '•'} ${locationStatus.text}</span>`);
+        }
+
+        if (memberStatus) {
+            lines.push(`<span class="proposal-status-line is-${memberStatus.tone}">${memberStatus.tone === 'warning' ? '•' : '✓'} ${memberStatus.text}</span>`);
+        }
+
+        return `<div class="proposal-status-stack">${lines.join('')}</div>`;
+    },
+
+    collectMemberConflicts(startDateTime, endDateTime) {
+        if (typeof App === 'undefined' || !App.checkMembersAvailabilityLocally || !Array.isArray(this.currentBandMemerAbsences)) {
+            return [];
+        }
+
+        const selectedMembers = typeof this.getSelectedMembers === 'function' ? this.getSelectedMembers() : [];
+        const relevantAbsences = this.currentBandMemerAbsences.filter(absence => selectedMembers.includes(String(absence.userId)));
+
+        return App.checkMembersAvailabilityLocally(relevantAbsences, startDateTime, endDateTime).map(conflict => {
+            const card = document.querySelector(`.member-select-card[data-user-id="${conflict.userId}"]`);
+            const userName = card?.querySelector('.member-select-name')?.textContent?.trim() || 'Ein Mitglied';
+
+            return {
+                ...conflict,
+                name: userName,
+                reason: conflict.reason || 'Abwesend'
+            };
+        });
+    },
+
+    renderLocationConflictItem(conflict) {
+        const summary = Bands.escapeHtml(conflict?.summary || 'Belegter Kalendereintrag');
+
+        if (!conflict?.startDate || !conflict?.endDate) {
+            return `<div class="conflict-item">• ${summary}</div>`;
+        }
+
+        const start = new Date(conflict.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        const end = new Date(conflict.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        const datePart = new Date(conflict.startDate).toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: '2-digit',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        return `<div class="conflict-item">• ${summary} (${datePart} von ${start} - ${end} Uhr)</div>`;
+    },
+
+    buildLocationConflictDetailsSection(conflicts = [], headerText = 'Der ausgewählte Probeort ist in diesem Zeitraum bereits belegt:') {
+        if (!Array.isArray(conflicts) || conflicts.length === 0) return '';
+
+        return `
+            <div class="conflict-details-header">${headerText}</div>
+            ${conflicts.map(conflict => this.renderLocationConflictItem(conflict)).join('')}
+        `;
+    },
+
+    buildMemberConflictDetailsSection(memberConflicts = []) {
+        if (!Array.isArray(memberConflicts) || memberConflicts.length === 0) return '';
+
+        const headerText = memberConflicts.length === 1
+            ? 'Dieses ausgewählte Mitglied ist in diesem Zeitraum nicht verfügbar:'
+            : 'Diese ausgewählten Mitglieder sind in diesem Zeitraum nicht verfügbar:';
+
+        return `
+            <div class="conflict-details-header">${headerText}</div>
+            ${memberConflicts.map(conflict => {
+                const name = Bands.escapeHtml(conflict.name || 'Ein Mitglied');
+                const reason = conflict.reason ? ` (${Bands.escapeHtml(conflict.reason)})` : '';
+                return `<div class="conflict-item">• ${name}${reason}</div>`;
+            }).join('')}
+        `;
+    },
+
+    buildAvailabilityDetailsHtml({ locationConflicts = [], memberConflicts = [] } = {}) {
+        const sections = [];
+
+        if (locationConflicts.length > 0) {
+            sections.push(`<div class="conflict-details-box">${this.buildLocationConflictDetailsSection(locationConflicts)}</div>`);
+        }
+
+        if (memberConflicts.length > 0) {
+            sections.push(`<div class="member-details-box">${this.buildMemberConflictDetailsSection(memberConflicts)}</div>`);
+        }
+
+        if (sections.length === 0) return '';
+
+        return sections.join('');
+    },
+
     setupStatusSwitcher() {
         const view = document.getElementById('rehearsalsView');
         if (!view) return;
@@ -337,10 +490,11 @@ const Rehearsals = {
         const isAdmin = Auth.isAdmin();
         let isLeader = false;
         let isCoLeader = false;
-        if (user && band) {
+        const bandId = rehearsal.bandId || (band && band.id);
+        if (user && bandId) {
             // Get role from context or fetch fallback
-            const userBand = dataContext.userBands && dataContext.userBands[band.id];
-            const role = userBand ? userBand.role : await Storage.getUserRoleInBand(user.id, band.id);
+            const userBand = dataContext.userBands && dataContext.userBands[bandId];
+            const role = userBand ? userBand.role : await Storage.getUserRoleInBand(user.id, bandId);
 
             isLeader = role === 'leader';
             isCoLeader = role === 'co-leader';
@@ -476,7 +630,7 @@ const Rehearsals = {
                                 <button class="btn btn-vote-now" 
                                         data-rehearsal-id="${rehearsal.id}"
                                         onclick="Rehearsals.openVotingModal('${rehearsal.id}')">
-                                    Jetzt abstimmen
+                                    ${hasCurrentUserVoted ? 'Abstimmungen bearbeiten' : 'Jetzt abstimmen'}
                                 </button>
                             ` : ''}
                             ${canManage && rehearsal.status === 'pending' ? `
@@ -826,8 +980,6 @@ const Rehearsals = {
                 const dateInput = item.querySelector('.date-input-date');
                 const startInput = item.querySelector('.date-input-start');
                 const endInput = item.querySelector('.date-input-end');
-                const availabilitySpan = item.querySelector('.date-availability');
-
                 // Validate inputs
                 if (!dateInput || !dateInput.value || !startInput || !startInput.value || !endInput || !endInput.value) {
                     UI.showToast('Bitte alle Felder ausfüllen', 'error');
@@ -842,14 +994,11 @@ const Rehearsals = {
 
                 // Get location and check availability
                 const locationId = document.getElementById('rehearsalLocation')?.value;
-                let hasConflict = false;
-                let conflictDetails = null;
-                let conflictCount = 0;
+                let locationConflicts = [];
+                const startDateTime = `${dateInput.value}T${startInput.value}`;
+                const endDateTime = `${dateInput.value}T${endInput.value}`;
 
                 if (locationId && typeof App !== 'undefined' && App.checkLocationAvailability) {
-                    const startDateTime = `${dateInput.value}T${startInput.value}`;
-                    const endDateTime = `${dateInput.value}T${endInput.value}`;
-
                     const availability = await App.checkLocationAvailability(
                         locationId,
                         new Date(startDateTime),
@@ -857,13 +1006,14 @@ const Rehearsals = {
                     );
 
                     if (!availability.available) {
-                        hasConflict = true;
-                        conflictCount = availability.conflicts?.length || 1;
-                        conflictDetails = availability.conflicts && availability.conflicts.length > 0
+                        locationConflicts = availability.conflicts && availability.conflicts.length > 0
                             ? availability.conflicts
-                            : null;
+                            : [];
                     }
                 }
+
+                const memberConflicts = this.collectMemberConflicts(startDateTime, endDateTime);
+                const hasConflict = locationConflicts.length > 0 || memberConflicts.length > 0;
 
                 // Mark as confirmed
                 item.dataset.confirmed = 'true';
@@ -871,22 +1021,17 @@ const Rehearsals = {
                 // Update display
                 const dateStr = new Date(dateInput.value).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' });
                 const timeStr = `${startInput.value} - ${endInput.value}`;
-                const availabilityLabel = !locationId
-                    ? 'Kein Ort gewählt'
-                    : hasConflict
-                        ? `⚠️ ${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}`
-                        : '✓ Ort ist frei';
-                const availabilityClass = locationId
-                    ? (hasConflict ? 'has-conflict' : 'is-available')
-                    : 'is-neutral';
+                const statusMarkup = this.buildProposalStatusMarkup({
+                    locationId,
+                    locationConflicts,
+                    memberConflicts
+                });
 
                 const displayDiv = item.querySelector('.confirmed-proposal-display') || document.createElement('div');
                 displayDiv.className = 'confirmed-proposal-display';
                 displayDiv.innerHTML = `
                     <span class="confirmed-date">📅 ${dateStr}, ${timeStr}</span>
-                    <span class="confirmed-availability ${availabilityClass}">
-                        ${availabilityLabel}
-                    </span>
+                    ${statusMarkup}
                 `;
 
                 // Replace inputs with display if not already there, OR just show this
@@ -897,27 +1042,22 @@ const Rehearsals = {
 
                 // Store data in dataset
                 item.dataset.confirmed = 'true';
-                item.dataset.startTime = new Date(`${dateInput.value}T${startInput.value}`).toISOString();
-                item.dataset.endTime = new Date(`${dateInput.value}T${endInput.value}`).toISOString();
+                item.dataset.startTime = new Date(startDateTime).toISOString();
+                item.dataset.endTime = new Date(endDateTime).toISOString();
                 item.dataset.hasConflict = hasConflict ? 'true' : 'false';
 
                 // Clear item and add confirmed display
                 item.innerHTML = '';
-                item.appendChild(displayDiv);
+                const summaryRow = document.createElement('div');
+                summaryRow.className = 'date-proposal-summary';
+                summaryRow.appendChild(displayDiv);
+                item.appendChild(summaryRow);
 
                 // Add conflict details if there are conflicts
-                if (hasConflict && conflictDetails) {
+                if (hasConflict) {
                     const detailsBox = document.createElement('div');
-                    detailsBox.className = 'conflict-details-box';
-                    detailsBox.innerHTML = `
-                        <div class="conflict-details-header">Konflikte:</div>
-                        ${conflictDetails.map(c => {
-                        const start = new Date(c.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        const end = new Date(c.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        const datePart = new Date(c.startDate).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
-                        return `<div class="conflict-item">• ${Bands.escapeHtml(c.summary)} (${datePart} von ${start} - ${end} Uhr)</div>`;
-                    }).join('')}
-                    `;
+                    detailsBox.className = 'availability-details-stack';
+                    detailsBox.innerHTML = this.buildAvailabilityDetailsHtml({ locationConflicts, memberConflicts });
                     item.appendChild(detailsBox);
                 }
 
@@ -930,7 +1070,10 @@ const Rehearsals = {
                     item.remove();
                     this.updateRemoveButtons();
                 });
-                item.appendChild(deleteBtn);
+                const actions = document.createElement('div');
+                actions.className = 'date-proposal-actions date-proposal-actions-compact';
+                actions.appendChild(deleteBtn);
+                summaryRow.appendChild(actions);
 
                 // Kein automatisches Hinzufügen eines neuen Vorschlags mehr
             });
@@ -1600,19 +1743,19 @@ const Rehearsals = {
                             <div class="conflict-header">
                                 <div class="conflict-header-title-row">
                                     <span class="conflict-header-kicker">Ort</span>
-                                    <span class="conflict-header-badge">${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}</span>
+                                    <span class="conflict-header-badge">${this.formatCountLabel(conflictCount, 'Überschneidung', 'Überschneidungen')}</span>
                                 </div>
                                 <div class="conflict-header-title">${Bands.escapeHtml(location?.name || 'Unbekannt')}</div>
                                 <div class="conflict-header-info">
                                     <span class="conflict-header-info-label">Gewählter Zeitraum</span>
                                     <strong>${dateLabel}</strong>
                                 </div>
-                                <p class="conflict-header-text">Der gewählte Zeitraum überschneidet sich mit bestehenden Buchungen an diesem Ort.</p>
+                                <p class="conflict-header-text">Der ausgewählte Probeort ist in diesem Zeitraum bereits belegt. Unten siehst du, welche Buchungen sich mit deiner Probe überschneiden.</p>
                             </div>
                             <div class="conflict-card">
                                 <div class="conflict-card-header">
-                                    <div class="date-badge">Kalendereinträge mit Überschneidung</div>
-                                    <span class="conflict-count">${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}</span>
+                                    <div class="date-badge">Diese Belegungen überschneiden sich</div>
+                                    <span class="conflict-count">${this.formatCountLabel(conflictCount, 'Eintrag', 'Einträge')}</span>
                                 </div>
                                 <div class="conflict-card-body">
                                     <div class="conflict-event-list">
@@ -1637,6 +1780,9 @@ const Rehearsals = {
 
                     document.getElementById('conflictDetails').innerHTML = conflictDetailsHtml;
 
+                    window._pendingRehearsalCreation = null;
+                    window._locationConflictReturnModalId = 'confirmRehearsalModal';
+
                     // Close confirmation modal and open conflict modal
                     UI.closeModal('confirmRehearsalModal');
                     UI.openModal('locationConflictModal');
@@ -1660,7 +1806,7 @@ const Rehearsals = {
 
                 if (conflictingAdditionalDates.length > 0) {
                     UI.showToast(
-                        `Zusatztermine haben Ortskonflikte: ${conflictingAdditionalDates.join(', ')}`,
+                        `Diese Zusatztermine können nicht bestätigt werden, weil der gewählte Probeort dort bereits belegt ist: ${conflictingAdditionalDates.join(', ')}`,
                         'error'
                     );
                     return;
@@ -1752,6 +1898,9 @@ const Rehearsals = {
                     'success'
                 );
             }
+
+            window._pendingRehearsalCreation = null;
+            window._locationConflictReturnModalId = null;
 
             UI.closeModal('confirmRehearsalModal');
             UI.closeModal('locationConflictModal'); // Close conflict modal if it was open
@@ -1902,13 +2051,91 @@ const Rehearsals = {
         }
     },
 
+    async loadBandMembers(bandId, selectedMembers = null) {
+        const container = document.getElementById('rehearsalBandMembers');
+        if (!container) return;
+        if (!bandId) {
+            container.innerHTML = '<div class="member-selection-empty">Bitte zuerst eine Band auswählen.</div>';
+            this.currentBandMemerAbsences = [];
+            return;
+        }
+
+        const members = await Storage.getBandMembers(bandId);
+        const users = await Promise.all(members.map(member => Storage.getById('users', member.userId)));
+        const normalizedSelectedMembers = Array.isArray(selectedMembers)
+            ? selectedMembers.map(memberId => String(memberId))
+            : null;
+        const validUsers = users.filter(u => u).sort((a, b) => {
+            const getRank = role => role === 'leader' ? 0 : role === 'co-leader' ? 1 : 2;
+            const rankA = getRank(members.find(m => m.userId === a.id)?.role);
+            const rankB = getRank(members.find(m => m.userId === b.id)?.role);
+            if (rankA !== rankB) return rankA - rankB;
+            return (a.first_name || '').localeCompare(b.first_name || '');
+        });
+
+        const userIds = validUsers.map(u => u.id);
+        this.currentBandMemerAbsences = await Storage.getAbsencesForUsers(userIds);
+
+        container.innerHTML = validUsers.map(user => {
+            const member = members.find(m => m.userId === user.id);
+            const role = member ? member.role : 'member';
+            const roleLabel = role === 'leader' ? 'Leiter' : role === 'co-leader' ? 'Co-Leiter' : 'Mitglied';
+            const isSelected = normalizedSelectedMembers ? normalizedSelectedMembers.includes(String(user.id)) : true;
+            const displayName = user.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : (user.username || 'Unbekannt');
+            const profileImage = user.profile_image_url ? `<img src="${user.profile_image_url}" alt="${Bands.escapeHtml(displayName)}">` : displayName.charAt(0).toUpperCase();
+            
+            let instrumentHtml = '';
+            if (typeof Events !== 'undefined' && typeof Events.getInstrumentLabels === 'function') {
+                const instruments = Events.getInstrumentLabels(user);
+                if (instruments.length > 0) {
+                    instrumentHtml = `<span class="member-select-instrument">${Bands.escapeHtml(instruments.join(', '))}</span>`;
+                }
+            }
+
+            return `
+                <label class="member-select-card ${isSelected ? 'is-selected' : ''}" data-user-id="${user.id}">
+                    <input type="checkbox" class="member-select-checkbox" value="${user.id}" ${isSelected ? 'checked' : ''}>
+                    <span class="member-select-body">
+                        <span class="member-select-avatar" style="${user.profile_image_url ? '' : `background: ${UI.getAvatarColor(displayName)};`}">
+                            ${profileImage}
+                        </span>
+                        <span class="member-select-copy">
+                            <span class="member-select-name-row">
+                                <span class="member-select-name">${Bands.escapeHtml(displayName)}</span>
+                                <span class="member-select-role">${Bands.escapeHtml(roleLabel)}</span>
+                            </span>
+                            ${instrumentHtml}
+                        </span>
+                        <span class="member-select-check" aria-hidden="true">✓</span>
+                    </span>
+                </label>
+            `;
+        }).join('');
+
+        container.querySelectorAll('.member-select-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const card = checkbox.closest('.member-select-card');
+                if (card) {
+                    card.classList.toggle('is-selected', checkbox.checked);
+                }
+                this.updateAvailabilityIndicators();
+            });
+        });
+
+        this.updateAvailabilityIndicators();
+    },
+
+    getSelectedMembers() {
+        return Array.from(document.querySelectorAll('#rehearsalBandMembers input:checked')).map(cb => cb.value);
+    },
+
     // Create new rehearsal
     async createRehearsal(bandId, title, description, dates, locationId = null, eventId = null) {
         const user = Auth.getCurrentUser();
         if (!user) return;
 
         if (!(await Auth.canProposeRehearsal(bandId))) {
-            UI.showToast('Du hast keine Berechtigung, Proben vorzuschlagen', 'error');
+            UI.showToast('Keine Berechtigung – nur Leiter und Co-Leiter dürfen Proben vorschlagen.', 'error');
             return;
         }
 
@@ -1929,9 +2156,9 @@ const Rehearsals = {
                     }).join('\n');
 
                     const proceed = confirm(
-                        `⚠️ Achtung: ${location.name} ist zu dieser Zeit bereits belegt!\n\n` +
-                        `Konflikte am ${date.date}:\n${conflictList}\n\n` +
-                        `Möchtest du trotzdem fortfahren?`
+                        `⚠️ Achtung: ${location.name} ist am ${date.date} in diesem Zeitraum bereits belegt.\n\n` +
+                        `Diese bestehenden Buchungen überschneiden sich mit deiner Probe:\n${conflictList}\n\n` +
+                        `Wenn du fortfährst, wird die Probe trotzdem mit diesem Ort gespeichert. Möchtest du das wirklich?`
                     );
 
                     if (!proceed) {
@@ -2017,6 +2244,9 @@ const Rehearsals = {
             await App.populateLocationSelect();
         }
 
+        // Load members list
+        await this.loadBandMembers(rehearsal.bandId, rehearsal.members);
+
         // Populate form
         document.getElementById('rehearsalBand').value = rehearsal.bandId;
         document.getElementById('rehearsalTitle').value = rehearsal.title;
@@ -2047,29 +2277,34 @@ const Rehearsals = {
                     if (locationId && typeof App !== 'undefined' && App.checkLocationAvailability) {
                         availability = await this.checkSingleDateAvailability(locationId, date.startTime, date.endTime);
                     }
-                    const conflictDetails = availability.conflicts && availability.conflicts.length > 0
-                        ? `<div class='conflict-details-box'><div class='conflict-details-header'>Konflikte:</div>${availability.conflicts.map(c => `<div class='conflict-item'>• ${Bands.escapeHtml(c.summary)}</div>`).join('')}</div>`
+                    const locationConflicts = availability.conflicts || [];
+                    const memberConflicts = this.collectMemberConflicts(date.startTime, date.endTime);
+                    const hasConflict = locationConflicts.length > 0 || memberConflicts.length > 0;
+                    const conflictDetails = hasConflict
+                        ? `<div class="availability-details-stack">${this.buildAvailabilityDetailsHtml({ locationConflicts, memberConflicts })}</div>`
                         : '';
                     const card = document.createElement('div');
                     card.className = 'date-proposal-item';
                     card.dataset.confirmed = date.confirmed ? 'true' : 'false';
-                    card.dataset.hasConflict = availability.available ? 'false' : 'true';
+                    card.dataset.hasConflict = hasConflict ? 'true' : 'false';
                     card.dataset.startTime = date.startTime;
                     card.dataset.endTime = date.endTime;
-                    const conflictCount = availability.conflicts?.length || 1;
-                    const availabilityLabel = locationId
-                        ? (availability.available ? '✓ Ort ist frei' : `⚠️ ${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}`)
-                        : 'Kein Ort gewählt';
-                    const availabilityClass = locationId
-                        ? (availability.available ? 'is-available' : 'has-conflict')
-                        : 'is-neutral';
+                    const statusMarkup = this.buildProposalStatusMarkup({
+                        locationId,
+                        locationConflicts,
+                        memberConflicts
+                    });
                     card.innerHTML = `
-                        <div class="confirmed-proposal-display">
-                            <span class="confirmed-date">📅 ${dateStr}, ${timeStr}</span>
-                            <span class="confirmed-availability ${availabilityClass}">${availabilityLabel}</span>
+                        <div class="date-proposal-summary">
+                            <div class="confirmed-proposal-display">
+                                <span class="confirmed-date">📅 ${dateStr}, ${timeStr}</span>
+                                ${statusMarkup}
+                            </div>
+                            <div class="date-proposal-actions date-proposal-actions-compact">
+                                <button type="button" class="btn-icon remove-confirmed">🗑️</button>
+                            </div>
                         </div>
                         ${conflictDetails}
-                        <button type="button" class="btn-icon remove-confirmed">🗑️</button>
                     `;
                     card.querySelector('.remove-confirmed').addEventListener('click', () => {
                         card.remove();
@@ -2226,6 +2461,11 @@ const Rehearsals = {
         const locationId = document.getElementById('rehearsalLocation')?.value || '';
         const items = document.querySelectorAll('#dateProposals .date-proposal-item');
 
+        // Reset any generic member conflict highlighting.
+        document.querySelectorAll('.member-select-card').forEach(card => {
+            card.classList.remove('has-conflict');
+        });
+
         for (const item of items) {
             // Skip confirmed proposals
             if (item.dataset.confirmed === 'true') {
@@ -2239,7 +2479,7 @@ const Rehearsals = {
 
             if (!indicator) continue;
 
-            if (!dateInput || !dateInput.value || !startInput || !startInput.value || !endInput || !endInput.value || !locationId) {
+            if (!dateInput || !dateInput.value || !startInput || !startInput.value || !endInput || !endInput.value) {
                 indicator.textContent = '';
                 indicator.className = 'date-availability';
                 continue;
@@ -2249,28 +2489,42 @@ const Rehearsals = {
             const startDateTime = `${dateInput.value}T${startInput.value}`;
             const endDateTime = `${dateInput.value}T${endInput.value}`;
 
-            // Check availability for the full time range
-            if (typeof App !== 'undefined' && App.checkLocationAvailability) {
+            let locationConflicts = [];
+
+            // Check location availability
+            if (locationId && typeof App !== 'undefined' && App.checkLocationAvailability) {
                 const availability = await App.checkLocationAvailability(
                     locationId,
                     new Date(startDateTime),
                     new Date(endDateTime)
                 );
 
-                // Remove any existing conflict details box
-                const existingDetails = item.querySelector('.conflict-details-box');
-                if (existingDetails) {
-                    existingDetails.remove();
+                if (!availability.available) {
+                    locationConflicts = availability.conflicts || [];
                 }
+            }
+            const memberConflicts = this.collectMemberConflicts(startDateTime, endDateTime);
 
-                if (availability.available) {
-                    indicator.textContent = '✓ Ort ist frei';
-                    indicator.className = 'date-availability is-available';
-                } else {
-                    const conflictCount = availability.conflicts?.length || 1;
-                    indicator.textContent = `⚠️ ${conflictCount} Konflikt${conflictCount > 1 ? 'e' : ''}`;
-                    indicator.className = 'date-availability has-conflict';
-                }
+            // Remove any existing conflict details box
+            const existingDetails = item.querySelector('.availability-details-stack, .conflict-details-box, .member-details-box');
+            if (existingDetails) {
+                existingDetails.remove();
+            }
+
+            const hasConflicts = locationConflicts.length > 0 || memberConflicts.length > 0;
+            indicator.innerHTML = this.buildProposalStatusMarkup({
+                locationId,
+                locationConflicts,
+                memberConflicts
+            });
+            indicator.className = `date-availability ${hasConflicts ? 'has-conflict' : 'is-available'}`;
+
+            const detailsHtml = hasConflicts
+                ? `<div class="availability-details-stack">${this.buildAvailabilityDetailsHtml({ locationConflicts, memberConflicts })}</div>`
+                : '';
+            if (detailsHtml) {
+                const detailsAnchor = item.querySelector('.date-proposal-footer') || indicator;
+                detailsAnchor.insertAdjacentHTML('afterend', detailsHtml);
             }
         }
 
@@ -2390,9 +2644,12 @@ const Rehearsals = {
                 <span class="time-separator">bis</span>
                 <input type="time" class="date-input-end" value="21:30" required>
             </div>
-            <span class="date-availability" style="margin-left:8px"></span>
-            <button type="button" class="btn btn-sm confirm-proposal-btn">✓ Bestätigen</button>
-            <button type="button" class="btn-icon remove-date">🗑️</button>
+            <div class="date-proposal-footer">
+                <span class="date-availability"></span>
+                <div class="date-proposal-actions">
+                    <button type="button" class="btn-icon remove-date">🗑️</button>
+                </div>
+            </div>
         `;
 
         container.appendChild(newItem);
@@ -2430,8 +2687,6 @@ const Rehearsals = {
         const items = document.querySelectorAll('#dateProposals .date-proposal-item');
         const dates = [];
         items.forEach(item => {
-            const isConfirmed = item.dataset.confirmed === 'true';
-
             // Try to get from inputs first (new proposals)
             const dateInput = item.querySelector('.date-input-date');
             const startInput = item.querySelector('.date-input-start');
@@ -2440,10 +2695,11 @@ const Rehearsals = {
             if (dateInput && startInput && endInput && dateInput.value && startInput.value && endInput.value) {
                 const startTime = `${dateInput.value}T${startInput.value}`;
                 const endTime = `${dateInput.value}T${endInput.value}`;
-                dates.push({ startTime, endTime, confirmed: isConfirmed });
+                dates.push({ startTime, endTime, confirmed: true });
             }
             // Fallback to dataset (existing confirmed cards)
             else if (item.dataset.startTime && item.dataset.endTime) {
+                const isConfirmed = item.dataset.confirmed === 'true';
                 dates.push({
                     startTime: item.dataset.startTime,
                     endTime: item.dataset.endTime,

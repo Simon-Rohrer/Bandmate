@@ -16,6 +16,31 @@ const ChordProConverter = {
         this.reset();
     },
 
+    scrollToEditor() {
+        const editor = document.getElementById('chordproResultArea');
+        if (editor) {
+            editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Keep caret at the top and prevent auto-scroll to the end
+            if (typeof editor.setSelectionRange === 'function') {
+                editor.setSelectionRange(0, 0);
+            } else {
+                editor.selectionStart = 0;
+                editor.selectionEnd = 0;
+            }
+            editor.scrollTop = 0;
+            editor.scrollLeft = 0;
+            try {
+                editor.focus({ preventScroll: true });
+            } catch (err) {
+                editor.focus();
+            }
+            requestAnimationFrame(() => {
+                editor.scrollTop = 0;
+                editor.scrollLeft = 0;
+            });
+        }
+    },
+
     setupEventListeners() {
         const dropzone = document.getElementById('converterDropzone');
         const fileInput = document.getElementById('converterFileInput');
@@ -98,6 +123,15 @@ const ChordProConverter = {
                 this.syncActionState();
             });
         }
+
+        const newFileBtn = document.getElementById('createNewChordProBtn');
+        if (newFileBtn) {
+            newFileBtn.onclick = () => {
+                console.log('📝 [ChordProConverter] Creating new ChordPro file (manual)');
+                this.reset();
+                this.scrollToEditor();
+            };
+        }
     },
 
     handleFileSelected(file) {
@@ -169,6 +203,7 @@ const ChordProConverter = {
             this.updateFileStatus('converted');
             this.updateDisclaimer('converted');
             this.syncActionState();
+            this.scrollToEditor();
 
             console.log('✨ [ChordProConverter] Pipeline finished successfully');
         } catch (err) {

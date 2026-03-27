@@ -253,7 +253,6 @@ const Bands = {
                                         ${roleLabel}
                                     </span>
                                 </div>
-                                <p class="band-card-subtitle">Deine Rolle: ${roleLabel}</p>
                             </div>
                         </div>
                         <span class="band-card-open-icon" aria-hidden="true">↗</span>
@@ -788,22 +787,32 @@ const Bands = {
 
         // Color palette for members
         this.memberColors = [
-            '#10b981', // Emerald
             '#f59e0b', // Amber
-            '#ef4444', // Rose
             '#6366f1', // Indigo
             '#0ea5e9', // Sky
             '#8b5cf6', // Violet
             '#f43f5e', // Pink
-            '#14b8a6'  // Teal
+            '#14b8a6', // Teal
+            '#f97316', // Orange
+            '#06b6d4', // Cyan
+            '#a855f7', // Purple
+            '#eab308', // Yellow
+            '#64748b'  // Slate
         ];
 
         // Reset content with structure
         container.innerHTML = `
-            <div class="band-details-panel-intro band-details-panel-intro-compact">
+            <div class="band-details-panel-intro band-details-panel-intro-compact" style="position: relative;">
                 <span class="band-details-section-eyebrow">Kalender</span>
                 <h3>Abwesenheiten</h3>
                 <p>Behalte Verfuegbarkeiten der Band im Blick und plane transparenter.</p>
+                
+                <div class="absence-info-badge" style="position: absolute; top: 0; right: 0; margin: 0;">
+                    <div class="info-icon">i</div>
+                    <div class="info-text">
+                        Die Abwesenheiten erscheinen auch in der Verfügbarkeitsübersicht und der Datumsauswahl für neue Termine.
+                    </div>
+                </div>
             </div>
             <div class="absence-view-controls">
                 <div class="filter-group">
@@ -812,12 +821,10 @@ const Bands = {
                         <button class="absence-filter-btn" data-filter="own">Deine eigenen</button>
                     </div>
                 </div>
-                
-                <div class="absence-info-badge">
-                    <div class="info-icon">i</div>
-                    <div class="info-text">
-                        Die Abwesenheiten erscheinen auch in der Verfügbarkeitsübersicht und der Datumsauswahl für neue Termine.
-                    </div>
+                <div class="absence-actions">
+                    <button type="button" id="openAbsenceSettingsShortcut" class="btn btn-primary btn-sm">
+                        + Abwesenheit anlegen
+                    </button>
                 </div>
             </div>
 
@@ -843,6 +850,27 @@ const Bands = {
                 this.renderAbsenceCalendarGrid(bandId, btn.dataset.filter);
             });
         });
+
+        const shortcutBtn = container.querySelector('#openAbsenceSettingsShortcut');
+        if (shortcutBtn && !shortcutBtn._bound) {
+            shortcutBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (window.App && typeof window.App.openAbsencesSettings === 'function') {
+                    window.App.openAbsencesSettings();
+                    return;
+                }
+                if (window.App && typeof window.App.openSettingsModal === 'function') {
+                    window.App.openSettingsModal().then(() => {
+                        if (typeof window.App.switchSettingsTab === 'function') {
+                            setTimeout(() => window.App.switchSettingsTab('absences'), 50);
+                        }
+                    });
+                    return;
+                }
+                console.warn('[BandAbsences] Settings shortcut not available');
+            });
+            shortcutBtn._bound = true;
+        }
 
         // Initial render grid
         await this.renderAbsenceCalendarGrid(bandId, 'all');
@@ -1238,10 +1266,10 @@ const Bands = {
                 item.style.display = '';
             });
 
-            // 'Neuen Probetermin' Button nur anzeigen, wenn mindestens eine Band
+            // 'Neuen Probetermin' Button immer anzeigen
             const createRehearsalBtn = document.getElementById('createRehearsalBtn');
             if (createRehearsalBtn) {
-                createRehearsalBtn.style.display = show ? '' : 'none';
+                createRehearsalBtn.style.display = '';
             }
 
             // Probetermine Tab nur anzeigen, wenn mindestens eine Band
@@ -1264,20 +1292,22 @@ const Bands = {
         if (!user) return;
 
         const bands = (await Storage.getUserBands(user.id)) || [];
+        const planningBands = (await Auth.getBandsUserCanManagePlanning()) || [];
 
-        // Populate rehearsal band select (Rolle egal: alle Bands des Nutzers)
+        // Populate rehearsal band select (nur Bands mit Leiter-/Co-Leiter-Recht)
         const rehearsalSelect = document.getElementById('rehearsalBand');
         if (rehearsalSelect) {
-            const eligibleBands = bands;
-
-            rehearsalSelect.innerHTML = '<option value="">Band auswählen</option>' +
-                eligibleBands.map(band =>
-                    `<option value="${band.id}">${this.escapeHtml(band.name)}</option>`
-                ).join('');
+            rehearsalSelect.disabled = planningBands.length === 0;
+            rehearsalSelect.innerHTML = planningBands.length > 0
+                ? '<option value="">Band auswählen</option>' +
+                    planningBands.map(band =>
+                        `<option value="${band.id}">${this.escapeHtml(band.name)}</option>`
+                    ).join('')
+                : '<option value="">Keine freigegebene Band verfügbar</option>';
 
             // Vorauswahl: wenn genau eine Band vorhanden ist
-            if (eligibleBands.length === 1) {
-                rehearsalSelect.value = eligibleBands[0].id;
+            if (planningBands.length === 1) {
+                rehearsalSelect.value = planningBands[0].id;
                 rehearsalSelect.dispatchEvent(new Event('change'));
             }
         }
@@ -1323,13 +1353,16 @@ const Bands = {
         // Populate event band select (for event creation)
         const eventBandSelect = document.getElementById('eventBand');
         if (eventBandSelect) {
-            eventBandSelect.innerHTML = '<option value="">Band auswählen</option>' +
-                bands.map(band =>
-                    `<option value="${band.id}">${this.escapeHtml(band.name)}</option>`
-                ).join('');
+            eventBandSelect.disabled = planningBands.length === 0;
+            eventBandSelect.innerHTML = planningBands.length > 0
+                ? '<option value="">Band auswählen</option>' +
+                    planningBands.map(band =>
+                        `<option value="${band.id}">${this.escapeHtml(band.name)}</option>`
+                    ).join('')
+                : '<option value="">Keine freigegebene Band verfügbar</option>';
             // Vorauswahl: wenn genau eine Band vorhanden ist
-            if (bands.length === 1) {
-                eventBandSelect.value = bands[0].id;
+            if (planningBands.length === 1) {
+                eventBandSelect.value = planningBands[0].id;
                 eventBandSelect.dispatchEvent(new Event('change'));
             }
         }

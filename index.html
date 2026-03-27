@@ -433,7 +433,7 @@
                     <div class="auth-grid auth-grid-3">
                         <div class="form-group">
                             <label for="registerCode">Code</label>
-                            <input type="text" id="registerCode" placeholder="Band-Code" required>
+                            <input type="text" id="registerCode" placeholder="Registrierungscode" required>
                         </div>
                         <div class="form-group">
                             <label for="registerFirstName">Vorname</label>
@@ -537,8 +537,16 @@
 
             <!-- Purple Sidebar (Desktop only) -->
             <aside class="app-sidebar">
-                <div class="sidebar-brand sidebar-brand-wordmark">
-                    <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" id="sidebarBrandLogo">
+                <div class="sidebar-brand">
+                    <div class="sidebar-logo-container">
+                        <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="logo-expanded" id="sidebarLogoExpanded">
+                        <img src="images/branding/bandmate-logo-only.svg" alt="Bandmate" class="logo-collapsed" id="sidebarLogoCollapsed">
+                    </div>
+                    <button id="toggleSidebarBtn" class="sidebar-toggle-btn" title="Menü ein-/ausklappen">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                    </button>
                 </div>
 
                 <!-- Profile Section Removed (now in Header) -->
@@ -742,6 +750,9 @@
                             <span class="sidebar-label">Abmelden</span>
                         </button>
                     </div>
+
+                    <!-- Sidebar Resizer Handle -->
+                    <div class="sidebar-resizer" id="sidebarResizer"></div>
                 </aside>
 
             <!-- Main Content Wrapper (right of sidebar on desktop) -->
@@ -973,6 +984,30 @@
                     </div>
                 </div>
 
+                <!-- Vote Banner (appears when members vote on dates) -->
+                <div id="voteBanner" class="news-banner" style="display: none;">
+                    <div class="news-banner-content">
+                        <span class="news-banner-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M9 11l3 3L22 4"></path>
+                                <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h10"></path>
+                            </svg>
+                        </span>
+                        <div class="news-banner-text">
+                            <strong>Neue Abstimmung</strong>
+                            <span id="voteBannerMessage">Ein Bandmitglied hat abgestimmt</span>
+                        </div>
+                        <div class="news-banner-actions">
+                            <button id="voteBannerButton" class="btn btn-sm btn-primary">
+                                Zu Abstimmungen
+                            </button>
+                            <button id="voteBannerClose" class="news-banner-close" title="Schließen" aria-label="Abstimmungs-Banner schließen">
+                                ×
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
 
                 <!-- Main Content -->
                 <main class="app-main">
@@ -981,7 +1016,7 @@
                         <div id="dashboardHero" class="dashboard-hero">
                             <div class="hero-welcome">
                                 <span class="dashboard-section-kicker">Überblick</span>
-                                <h2 class="welcome-text">Willkommen zurück, <span id="welcomeUserName">Musiker</span></h2>
+                                <h2 class="welcome-text">Willkommen zurück, <span id="welcomeUserName">Musiker</>!</h2>
                                 <p class="hero-subtitle">Hier ist dein kompakter Überblick für Termine, Aktivitäten und Bandorganisation.</p>
                             </div>
                             <div id="nextEventHero" class="next-event-hero-card">
@@ -1140,7 +1175,7 @@
                                     </button>
                                     <button id="createBandBtnView" class="btn btn-primary">
                                         <span class="bands-action-icon" aria-hidden="true">＋</span>
-                                        <span class="bands-action-label">Erstellen</span>
+                                        <span class="bands-action-label">Band erstellen</span>
                                     </button>
                                 </div>
                             </section>
@@ -1373,62 +1408,16 @@
                                         <div id="converterFileStatus" class="converter-file-status">
                                             Noch keine PDF ausgewählt.
                                         </div>
-                                        <div class="converter-upload-actions">
+                                        <div class="converter-upload-actions" style="display: flex; flex-direction: column; gap: 0.75rem; align-items: stretch;">
                                             <button id="startConversionAreaBtn" class="btn btn-primary btn-lg" disabled>
                                                 🚀 PDF konvertieren
+                                            </button>
+                                            <button id="createNewChordProBtn" class="btn btn-secondary">
+                                                📝 ChordPro Datei neu anlegen
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div class="converter-side-stack">
-                                        <div class="converter-step converter-sidebar-card action-card converter-surface-card">
-                                            <div class="converter-card-head converter-sidebar-head">
-                                                <div>
-                                                    <span class="converter-card-eyebrow">Workflow</span>
-                                                    <h3 class="converter-card-title">Weiterverarbeiten</h3>
-                                                    <p class="converter-card-subtitle">Konvertierten Inhalt prüfen, einem Song zuordnen oder direkt exportieren.</p>
-                                                </div>
-                                            </div>
-
-                                            <div id="converterDisclaimer" class="premium-alert-banner converter-status-banner is-idle">
-                                                <div class="banner-content">
-                                                    <span class="banner-icon">ℹ️</span>
-                                                    <span class="banner-text"><strong>Status:</strong> PDF hochladen und konvertieren, dann werden Editor und Vorschau direkt befüllt.</span>
-                                                </div>
-                                            </div>
-
-                                            <div class="converter-sidebar-section">
-                                                <h4>💾 Zu Song hinzufügen</h4>
-                                                <div class="converter-form-stack">
-                                                    <div class="form-group">
-                                                        <select id="converterBandSelect" class="form-select">
-                                                            <option value="">Band wählen...</option>
-                                                        </select>
-                                                    </div>
-                                                    <div class="form-group">
-                                                        <select id="converterSongSelect" class="form-select" disabled>
-                                                            <option value="">Song wählen...</option>
-                                                        </select>
-                                                    </div>
-                                                    <button id="converterSaveToSongBtn" class="btn btn-success converter-primary-side-action" disabled>
-                                                        💾 Speichern
-                                                    </button>
-                                                </div>
-                                            </div>
-
-                                            <div class="converter-sidebar-section converter-sidebar-actions">
-                                                <h4>⚙️ Aktionen</h4>
-                                                <div class="converter-inline-actions">
-                                                    <button id="converterDownloadBtn" class="btn btn-secondary" disabled>
-                                                        📥 Download (.cho)
-                                                    </button>
-                                                    <button id="converterResetBtn" class="btn btn-text converter-reset-btn">
-                                                        🔄 Zurücksetzen
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
 
                                 <div id="converterResultStep" class="converter-step converter-result-panel action-card converter-surface-card">
@@ -1466,7 +1455,58 @@
                                         </div>
                                     </div>
                                 </div>
+
+                                <div class="converter-side-stack" style="margin-top: 2rem;">
+                                    <div class="converter-step converter-sidebar-card action-card converter-surface-card">
+                                        <div class="converter-card-head converter-sidebar-head">
+                                            <div>
+                                                <span class="converter-card-eyebrow">Workflow</span>
+                                                <h3 class="converter-card-title">Weiterverarbeiten</h3>
+                                                <p class="converter-card-subtitle">Konvertierten Inhalt prüfen, einem Song zuordnen oder direkt exportieren.</p>
+                                            </div>
+                                        </div>
+
+                                        <div id="converterDisclaimer" class="premium-alert-banner converter-status-banner is-idle">
+                                            <div class="banner-content">
+                                                <span class="banner-icon">ℹ️</span>
+                                                <span class="banner-text"><strong>Status:</strong> PDF hochladen und konvertieren, dann werden Editor und Vorschau direkt befüllt.</span>
+                                            </div>
+                                        </div>
+
+                                        <div class="converter-sidebar-section">
+                                            <h4>💾 Zu Song hinzufügen</h4>
+                                            <div class="converter-form-stack">
+                                                <div class="form-group">
+                                                    <select id="converterBandSelect" class="form-select">
+                                                        <option value="">Band wählen...</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group">
+                                                    <select id="converterSongSelect" class="form-select" disabled>
+                                                        <option value="">Song wählen...</option>
+                                                    </select>
+                                                </div>
+                                                <button id="converterSaveToSongBtn" class="btn btn-success converter-primary-side-action" disabled>
+                                                    💾 Speichern
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div class="converter-sidebar-section converter-sidebar-actions">
+                                            <h4>⚙️ Aktionen</h4>
+                                            <div class="converter-inline-actions">
+                                                <button id="converterDownloadBtn" class="btn btn-secondary" disabled>
+                                                    📥 Download (.cho)
+                                                </button>
+                                                <button id="converterResetBtn" class="btn btn-text converter-reset-btn">
+                                                    🔄 Zurücksetzen
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
+
 
                             <!-- Loading Overlay for converter -->
                             <div id="converterLoading" class="converter-overlay" style="display: none;">
@@ -1641,12 +1681,12 @@
 
         <!-- Modal: Schnellzugriff bearbeiten -->
         <div id="quickAccessModal" class="modal">
-            <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-content quick-access-modal-content" style="max-width: 420px;">
                 <h2>Schnellzugriff bearbeiten</h2>
                 <form id="quickAccessForm">
-                    <div id="quickAccessOptions"
+                    <div id="quickAccessOptions" class="quick-access-options"
                         style="display: flex; flex-direction: column; gap: 0.7rem; margin: 1rem 0;"></div>
-                    <div style="display: flex; justify-content: flex-end; gap: 0.5rem;">
+                    <div class="quick-access-actions" style="display: flex; justify-content: flex-end; gap: 0.5rem;">
                         <button type="button" class="btn btn-secondary" id="cancelQuickAccessBtn">Abbrechen</button>
                         <button type="submit" class="btn btn-primary">Speichern</button>
                     </div>
@@ -2500,7 +2540,7 @@
             <form id="createRehearsalForm" class="scheduler-form">
                 <input type="hidden" id="editRehearsalId">
                 <div class="scheduler-form-scroll">
-                    <section class="scheduler-panel">
+                    <section class="scheduler-panel scheduler-panel-basics">
                         <div class="scheduler-panel-head">
                             <div>
                                 <span class="scheduler-panel-eyebrow">Grunddaten</span>
@@ -2514,14 +2554,15 @@
                                 <input type="text" id="rehearsalTitle" placeholder="z. B. Bandprobe März, Akustikprobe oder Generalprobe" required>
                                 <small class="scheduler-field-note">Wähle einen klaren Titel, damit die Abstimmung später sofort verständlich ist.</small>
                             </div>
-                            <div class="form-group">
+                            <div class="form-group scheduler-span-2">
                                 <label for="rehearsalBand">Band <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <select id="rehearsalBand" required>
                                     <option value="">Band auswählen</option>
                                 </select>
+                                <small class="scheduler-field-note">Hier werden nur Bands angezeigt, bei denen du Leiter oder Co-Leiter bist. Nur für diese Bands kannst du Proben erstellen.</small>
                             </div>
-                            <div class="form-group">
-                                <label for="rehearsalLocation">Ort (optional)</label>
+                            <div class="form-group scheduler-span-2">
+                                <label for="rehearsalLocation">Probeort (optional)</label>
                                 <select id="rehearsalLocation">
                                     <option value="">Kein Ort ausgewählt</option>
                                 </select>
@@ -2547,7 +2588,7 @@
                                 <span class="scheduler-panel-eyebrow">Terminvorschläge</span>
                                 <h3>Abstimmung vorbereiten</h3>
                             </div>
-                            <p>Bestätige mindestens einen Vorschlag, damit die Probe erstellt werden kann.</p>
+                            <p>Lege einen oder mehrere Vorschläge an. Vollständig ausgefüllte Vorschläge werden beim Speichern automatisch übernommen.</p>
                         </div>
                         <div id="dateProposals" class="date-proposals">
                             <div class="date-proposal-item" data-confirmed="false">
@@ -2557,9 +2598,12 @@
                                     <span class="time-separator">bis</span>
                                     <input type="time" class="date-input-end" id="dateInputEnd">
                                 </div>
-                                <span class="date-availability" style="margin-left:8px"></span>
-                                <button type="button" class="btn btn-sm confirm-proposal-btn">✓ Bestätigen</button>
-                                <button type="button" class="btn-icon remove-date" disabled>🗑️</button>
+                                <div class="date-proposal-footer">
+                                    <span class="date-availability"></span>
+                                    <div class="date-proposal-actions">
+                                        <button type="button" class="btn-icon remove-date" disabled>🗑️</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="scheduler-inline-actions">
@@ -2567,13 +2611,16 @@
                         </div>
                     </section>
 
-                    <section class="scheduler-panel scheduler-panel-muted">
-                        <div class="scheduler-panel-head scheduler-panel-head-compact">
+                    <section class="scheduler-panel scheduler-panel-members">
+                        <div class="scheduler-panel-head">
                             <div>
                                 <span class="scheduler-panel-eyebrow">Bandmitglieder</span>
-                                <h3>Abstimmung & Information</h3>
+                                <h3>Beteiligte auswählen</h3>
                             </div>
-                            <p>Alle Mitglieder der gewählten Band werden automatisch in die Terminabstimmung einbezogen.</p>
+                            <p>Wähle die Musiker aus, die an dieser Probe beteiligt sind.</p>
+                        </div>
+                        <div id="rehearsalBandMembers" class="checkbox-list members-grid member-selection-grid">
+                            <div class="member-selection-empty">Bitte zuerst eine Band auswählen.</div>
                         </div>
                     </section>
 
@@ -2746,7 +2793,7 @@
                 <div class="conflict-modal-copy">
                     <span class="conflict-modal-kicker">Ortskonflikt</span>
                     <h2>Probeort belegt</h2>
-                    <p>Prüfe die Überschneidungen und entscheide dann, ob du trotzdem fortfahren möchtest.</p>
+                    <p>Der ausgewählte Probeort ist in diesem Zeitraum bereits belegt. Prüfe die Überschneidungen und entscheide dann, ob du trotzdem fortfahren möchtest.</p>
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
@@ -2754,7 +2801,7 @@
                 <div id="conflictDetails" class="conflict-details"></div>
 
                 <p class="conflict-modal-question">
-                    Möchtest du trotzdem fortfahren?
+                    Du kannst trotzdem fortfahren, obwohl der Ort bereits belegt ist. Möchtest du die Probe dennoch bestätigen?
                 </p>
 
                 <div class="modal-actions conflict-modal-actions">
@@ -2863,6 +2910,7 @@
                                 <select id="eventBand" required>
                                     <option value="">Band auswählen</option>
                                 </select>
+                                <small class="scheduler-field-note">Hier werden nur Bands angezeigt, bei denen du Leiter oder Co-Leiter bist. Nur für diese Bands kannst du Auftritte erstellen.</small>
                             </div>
                             <div class="form-group">
                                 <label for="eventTitle">Titel / Anlass <span style="color:red;"
@@ -2872,6 +2920,7 @@
                             <div class="form-group">
                                 <label for="eventDate">Datum und Uhrzeit (fixer Termin)</label>
                                 <input type="datetime-local" id="eventDate">
+                                <div id="eventFixedDateAvailability" class="date-availability" style="margin-top: 4px;"></div>
                                 <small class="help-text">Nur ausfüllen, wenn der Termin bereits feststeht.</small>
                             </div>
                             <div class="form-group">
@@ -2895,6 +2944,7 @@
                                     <input type="date" class="event-date-input-date">
                                     <input type="time" class="event-date-input-start">
                                 </div>
+                                <span class="event-date-availability date-availability" style="margin-left:8px"></span>
                                 <button type="button" class="btn-icon remove-event-date" disabled>🗑️</button>
                             </div>
                         </div>
@@ -3650,7 +3700,7 @@
     <script src="js/ui.js?v=20260311"></script>
     <script src="js/feedback-service.js?v=20260311"></script>
     <script src="js/chordpro-converter.js?v=20260311"></script>
-    <script src="js/app.js?v=20260311"></script>
+    <script src="js/app.js?v=20260323"></script>
 
     <!-- Skip duplicated pdf.js block -->
 

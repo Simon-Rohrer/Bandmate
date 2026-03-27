@@ -292,6 +292,32 @@
     color: var(--color-text-secondary);
 }
 
+.scheduler-modal .proposal-status-stack {
+    display: grid;
+    gap: 0.3rem;
+    min-width: 0;
+}
+
+.scheduler-modal .proposal-status-line {
+    display: block;
+    min-width: 0;
+    line-height: 1.45;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.scheduler-modal .proposal-status-line.is-success {
+    color: var(--color-success);
+}
+
+.scheduler-modal .proposal-status-line.is-warning {
+    color: var(--color-warning);
+}
+
+.scheduler-modal .proposal-status-line.is-neutral {
+    color: var(--color-text-secondary);
+}
+
 .scheduler-modal .confirm-proposal-btn {
     margin-left: 0;
     white-space: nowrap;
@@ -379,6 +405,11 @@
     background:
         linear-gradient(180deg, rgba(99, 102, 241, 0.12), transparent 72%),
         var(--color-bg-secondary);
+}
+
+.member-select-card.has-conflict .member-select-body {
+    border-color: rgba(239, 68, 68, 0.32);
+    box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.14);
 }
 
 .member-select-avatar {
@@ -1090,14 +1121,16 @@
 }
 
 #feedbackModal .feedback-form-footer .btn-warning {
-    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    color: #fff;
-    border-color: transparent;
-    box-shadow: 0 12px 24px rgba(217, 119, 6, 0.18);
+    background: var(--warning-soft);
+    color: #b45309;
+    border-color: rgba(245, 158, 11, 0.22);
+    box-shadow: none;
 }
 
 #feedbackModal .feedback-form-footer .btn-warning:hover {
-    background: linear-gradient(135deg, #f6ad22 0%, #c96b05 100%);
+    background: rgba(245, 158, 11, 0.18);
+    color: #92400e;
+    border-color: rgba(245, 158, 11, 0.34);
 }
 
 @media (max-width: 820px) {
@@ -2804,6 +2837,11 @@ input:checked+.slider:before {
     animation: fadeIn var(--transition-base);
 }
 
+/* Keep settings above standard modals (e.g., band details) */
+#settingsModal {
+    z-index: 1500;
+}
+
 /* Modals that can open on top of others */
 #timeSuggestionModal,
 #locationConflictModal,
@@ -3067,6 +3105,21 @@ input:checked+.slider:before {
     gap: var(--spacing-sm);
     white-space: nowrap;
     text-decoration: none;
+}
+
+.btn:disabled,
+.btn[disabled] {
+    opacity: 0.55;
+    cursor: not-allowed;
+    box-shadow: none;
+    filter: grayscale(0.35);
+    transform: none;
+}
+
+.btn:disabled:hover,
+.btn[disabled]:hover {
+    transform: none;
+    box-shadow: none;
 }
 
 .btn-primary {
@@ -4058,13 +4111,17 @@ input:checked+.slider:before {
 /* ===== News Banner (Modern Floating Pill) ===== */
 .news-banner {
     position: fixed;
-    top: 80px;
+    top: 24px;
     left: 50%;
     transform: translateX(-50%);
     z-index: 999;
     max-width: 500px;
     width: calc(100% - 2rem);
     animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#voteBanner {
+    top: 84px;
 }
 
 @keyframes slideDown {
@@ -4429,6 +4486,7 @@ input:checked+.slider:before {
 .dashboard-section:hover {
     border-color: var(--color-primary-light);
     box-shadow: var(--shadow-card-hover);
+    transform: translateY(-4px);
 }
 
 /* Instrument Multi-Select Chips */
@@ -6639,9 +6697,35 @@ input:checked+.slider:before {
     margin-bottom: var(--spacing-xs);
 }
 
+.conflict-details-header:not(:first-child) {
+    margin-top: var(--spacing-sm);
+}
+
 .conflict-item {
     color: #800;
     margin: 0.25rem 0;
+}
+
+.availability-details-stack {
+    display: grid;
+    gap: 0.65rem;
+    width: 100%;
+}
+
+.member-details-box {
+    background: color-mix(in srgb, var(--warning-soft) 78%, var(--color-surface));
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: var(--radius-sm);
+    padding: var(--spacing-sm);
+    font-size: 0.875rem;
+}
+
+.member-details-box .conflict-details-header {
+    color: var(--color-warning);
+}
+
+.member-details-box .conflict-item {
+    color: var(--color-text);
 }
 
 /* ===== Statistics ===== */
@@ -9703,6 +9787,19 @@ html[data-theme="light"] .loader-overlay,
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.calendar-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.calendar-actions .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
 }
 
 .calendar-event.event-type .calendar-event-type {
@@ -17033,6 +17130,41 @@ textarea:focus,
     font-size: 0.88rem;
 }
 
+.btn-ghost {
+    background: var(--button-ghost-bg);
+    color: var(--button-ghost-text);
+    border: 1px solid var(--border);
+}
+
+.btn-ghost:hover {
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+}
+
+.btn-danger-soft {
+    background: var(--danger-soft);
+    color: #b91c1c;
+    border: 1px solid rgba(239, 68, 68, 0.18);
+}
+
+.btn-danger-soft:hover {
+    background: rgba(239, 68, 68, 0.18);
+    color: #991b1b;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.btn-warning {
+    background: var(--warning-soft);
+    color: #b45309;
+    border: 1px solid rgba(245, 158, 11, 0.22);
+}
+
+.btn-warning:hover {
+    background: rgba(245, 158, 11, 0.18);
+    color: #92400e;
+    border-color: rgba(245, 158, 11, 0.34);
+}
+
 .main-app {
     background: transparent;
 }
@@ -17185,23 +17317,7 @@ textarea:focus,
     font-weight: 500;
 }
 
-.sidebar-submenu {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding-left: 12px;
-}
-
-.sidebar-subitem {
-    padding: 10px 12px;
-    color: var(--text-muted);
-}
-
-.submenu-arrow {
-    margin-left: auto;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
+/* sidebar-submenu etc moved to sidebar.css to fix visibility issues */
 
 .app-main-wrapper {
     flex: 1;
@@ -17918,7 +18034,7 @@ textarea:focus,
 
 .news-banner {
     padding: 0 var(--page-padding);
-    margin-top: 14px;
+    margin-top: 0;
 }
 
 .news-banner-content {
@@ -19005,6 +19121,30 @@ html[data-theme="light"] #landingPage .landing-phone-device,
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 12px;
     align-items: center;
+}
+
+/* Redesign for Desktop: Hide redundant titles that are already in the app header */
+@media (min-width: 769px) {
+    .page-overview-card .page-overview-kicker,
+    .page-overview-card .page-overview-copy h2 {
+        display: none;
+    }
+
+    .page-overview-card {
+        padding: 12px 18px; /* More compact on desktop */
+        min-height: 72px;   /* Ensure consistent height even with small text */
+        align-items: center;
+    }
+
+    .page-overview-copy {
+        gap: 0; /* No gap needed if only p is left */
+    }
+
+    .page-overview-card p {
+        font-size: 0.92rem; /* Slightly larger for better readability as main text */
+        color: var(--text-primary); /* Use primary color if it's the only text */
+        opacity: 0.9;
+    }
 }
 
 .page-overview-copy {
@@ -22361,7 +22501,7 @@ html[data-theme="dark"] .schedule-card-user-state.is-confirmed,
     background: var(--button-primary-bg);
     color: var(--button-primary-text);
     border: 1px solid transparent;
-    box-shadow: 0 10px 24px rgba(29, 78, 216, 0.18);
+    box-shadow: none;
 }
 
 .btn-vote-now:hover {
@@ -24162,6 +24302,14 @@ html[data-theme="light"] .calendar-sync-card,
 #statisticsView .statistics-page-overview {
     min-height: 0;
     padding: 0.95rem 1.35rem 0.2rem;
+}
+
+@media (min-width: 769px) {
+    #statisticsView .statistics-page-overview {
+        padding: 12px 18px;
+        min-height: 72px;
+        align-items: center;
+    }
 }
 
 #statisticsView .statistics-toolbar {
@@ -29374,4 +29522,436 @@ html[data-theme="light"] #landingPage .auth-forgot-password-link,
 :root:not(.theme-dark) #landingPage .auth-forgot-password-link {
     color: #0f172a !important;
     font-weight: 500 !important;
+}
+
+/* ===== Dashboard Buttons & Hover Unification ===== */
+#dashboardView {
+    --dashboard-btn-bg: var(--surface-secondary);
+    --dashboard-btn-bg-hover: var(--surface);
+    --dashboard-btn-border: var(--border);
+    --dashboard-btn-border-hover: var(--border-strong);
+    --dashboard-btn-radius: var(--card-radius);
+    --dashboard-btn-shadow: var(--shadow-xs);
+    --dashboard-btn-shadow-hover: var(--shadow-sm);
+}
+
+#dashboardView .btn,
+#dashboardView .dashboard-shortcut,
+#dashboardView .quick-access-edit-btn,
+#dashboardView .upcoming-card-action,
+#dashboardView .quick-access-link,
+#dashboardView .btn-show-more-news {
+    border-radius: var(--dashboard-btn-radius);
+    border: 1px solid var(--dashboard-btn-border);
+    background: var(--dashboard-btn-bg);
+    color: var(--text-primary);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    box-shadow: var(--dashboard-btn-shadow);
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease, color 160ms ease;
+}
+
+#dashboardView .btn,
+#dashboardView .quick-access-edit-btn {
+    min-height: 36px;
+    padding: 0.5rem 0.95rem;
+    font-size: 0.85rem;
+}
+
+#dashboardView .btn.btn-sm {
+    min-height: 34px;
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+}
+
+#dashboardView .btn.btn-icon-sm {
+    padding: 0.4rem 0.7rem;
+}
+
+#dashboardView #editQuickAccessBtn {
+    width: auto;
+    height: auto;
+    padding: 0.5rem 0.95rem;
+    border-radius: var(--dashboard-btn-radius);
+    background: var(--dashboard-btn-bg);
+    border: 1px solid var(--dashboard-btn-border);
+    box-shadow: var(--dashboard-btn-shadow);
+    color: var(--text-primary);
+}
+
+#dashboardView .dashboard-shortcut {
+    min-height: 54px;
+    padding: 0.85rem 1rem;
+    width: 100%;
+    justify-content: space-between;
+}
+
+#dashboardView .upcoming-card-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 32px;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.82rem;
+}
+
+#dashboardView .btn-show-more-news {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 12px;
+    padding: 0.35rem 0.8rem;
+    font-size: 0.82rem;
+}
+
+#dashboardView .btn:hover,
+#dashboardView .dashboard-shortcut:hover,
+#dashboardView .quick-access-edit-btn:hover,
+#dashboardView .quick-access-link:hover,
+#dashboardView .btn-show-more-news:hover {
+    transform: translateY(-3px);
+    background: var(--dashboard-btn-bg-hover);
+    border-color: var(--dashboard-btn-border-hover);
+    box-shadow: var(--dashboard-btn-shadow-hover);
+    color: var(--text-primary);
+}
+
+#dashboardView .btn-show-more-news:hover::after {
+    transform: none;
+}
+
+#dashboardView .stat-card:hover,
+#dashboardView .dashboard-section:hover,
+#dashboardView .dashboard-news-item:hover,
+#dashboardView .dashboard-activity-item:hover,
+#dashboardView .upcoming-card:hover,
+#dashboardView .dashboard-shortcut:hover,
+#dashboardView .quick-access-link:hover {
+    border-color: var(--border);
+}
+
+/* ===== Quick Access Modal Refresh ===== */
+#quickAccessModal .quick-access-modal-content {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 24px;
+    box-shadow: var(--shadow-lg);
+}
+
+#quickAccessModal h2 {
+    margin: 0 0 0.75rem;
+    font-size: 1.35rem;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+}
+
+#quickAccessModal .quick-access-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    margin: 1rem 0 1.2rem;
+}
+
+#quickAccessModal .quick-access-options label {
+    width: 100%;
+    padding: 0.7rem 0.9rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface-secondary);
+    color: var(--text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: transform 140ms ease, border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+#quickAccessModal .quick-access-options label:hover {
+    transform: translateY(-1px);
+    border-color: var(--border-strong);
+    background: var(--surface);
+    box-shadow: var(--shadow-xs);
+}
+
+#quickAccessModal .quick-access-options label.is-checked {
+    border-color: color-mix(in srgb, var(--accent-secondary) 55%, var(--border));
+    background: color-mix(in srgb, var(--accent-soft) 80%, var(--surface-secondary));
+}
+
+#quickAccessModal .quick-access-options input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-secondary);
+}
+
+#quickAccessModal .quick-access-actions {
+    gap: 0.6rem;
+    margin-top: 0.25rem;
+}
+
+#quickAccessModal .btn {
+    min-height: 40px;
+    padding: 0.55rem 1.1rem;
+    border-radius: 12px;
+    font-size: 0.88rem;
+    font-weight: 600;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    box-shadow: var(--shadow-xs);
+}
+
+#quickAccessModal .btn:hover {
+    transform: translateY(-2px);
+    background: var(--surface);
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-sm);
+}
+
+#quickAccessModal .btn-primary {
+    background: var(--accent-secondary);
+    border-color: transparent;
+    color: #ffffff;
+    box-shadow: var(--shadow-sm);
+}
+
+#quickAccessModal .btn-primary:hover {
+    background: color-mix(in srgb, var(--accent-secondary) 86%, #ffffff 14%);
+}
+
+#dashboardView #editQuickAccessBtn:hover {
+    transform: translateY(-3px);
+    background: var(--dashboard-btn-bg-hover);
+    border-color: var(--dashboard-btn-border-hover);
+    box-shadow: var(--dashboard-btn-shadow-hover);
+    color: var(--text-primary);
+}
+
+#dashboardView .upcoming-card:hover .upcoming-card-action {
+    transform: none;
+    background: var(--dashboard-btn-bg-hover);
+    border-color: var(--dashboard-btn-border-hover);
+    box-shadow: var(--dashboard-btn-shadow);
+    color: var(--text-primary);
+}
+
+#dashboardView .btn:focus-visible,
+#dashboardView .dashboard-shortcut:focus-visible,
+#dashboardView .quick-access-edit-btn:focus-visible,
+#dashboardView .quick-access-link:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+/* ===== Rehearsal Modal Polish ===== */
+.scheduler-modal-rehearsal .scheduler-panel-basics .scheduler-panel-head {
+    display: grid;
+    justify-content: flex-start;
+    gap: 0.45rem;
+}
+
+.scheduler-modal-rehearsal .scheduler-panel-basics .scheduler-panel-head p {
+    max-width: 42rem;
+}
+
+.scheduler-modal-rehearsal .scheduler-panel-basics .scheduler-grid-basics {
+    width: min(100%, 52rem);
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.scheduler-modal-rehearsal .member-selection-grid {
+    grid-template-columns: repeat(auto-fit, minmax(250px, 280px));
+    align-items: start;
+}
+
+.scheduler-modal-rehearsal .member-select-body {
+    display: grid;
+    grid-template-columns: 3rem minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.9rem;
+    min-height: 0;
+}
+
+.scheduler-modal-rehearsal .member-select-copy {
+    gap: 0.4rem;
+}
+
+.scheduler-modal-rehearsal .member-select-name-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+    gap: 0.35rem;
+}
+
+.scheduler-modal-rehearsal .member-select-name {
+    display: block;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+}
+
+.scheduler-modal-rehearsal .member-select-role {
+    max-width: 100%;
+}
+
+.scheduler-modal-rehearsal .member-select-instrument {
+    display: block;
+    color: var(--color-text-secondary);
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.scheduler-modal-rehearsal .member-select-absence-note {
+    display: block;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+}
+
+.scheduler-modal-rehearsal .member-select-check {
+    align-self: start;
+    margin-top: 0.1rem;
+}
+
+.scheduler-modal-rehearsal #rehearsalTitle,
+.scheduler-modal-rehearsal #rehearsalBand,
+.scheduler-modal-rehearsal #rehearsalLocation,
+.scheduler-modal-rehearsal #rehearsalEvent,
+.scheduler-modal-rehearsal #rehearsalDescription {
+    width: 100%;
+    max-width: none;
+}
+
+.scheduler-modal-rehearsal .date-proposal-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.9rem;
+    padding: 1rem;
+}
+
+.scheduler-modal-rehearsal .date-time-range {
+    display: grid;
+    grid-template-columns: minmax(180px, 1.2fr) minmax(110px, 0.82fr) auto minmax(110px, 0.82fr);
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.scheduler-modal-rehearsal .date-time-range input[type="date"],
+.scheduler-modal-rehearsal .date-time-range input[type="time"] {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    flex: none;
+}
+
+.scheduler-modal-rehearsal .date-proposal-footer,
+.scheduler-modal-rehearsal .date-proposal-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    gap: 0.9rem;
+    width: 100%;
+}
+
+.scheduler-modal-rehearsal .date-proposal-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.55rem;
+    margin-left: auto;
+}
+
+.scheduler-modal-rehearsal .date-proposal-actions-compact {
+    align-self: flex-start;
+}
+
+.scheduler-modal-rehearsal .date-availability {
+    min-width: 0;
+    min-height: 0;
+    line-height: 1.45;
+}
+
+.scheduler-modal-rehearsal .confirmed-proposal-display {
+    display: grid;
+    gap: 0.4rem;
+    align-items: start;
+    min-width: 0;
+}
+
+.scheduler-modal-rehearsal .confirmed-date,
+.scheduler-modal-rehearsal .confirmed-availability {
+    line-height: 1.45;
+    min-width: 0;
+}
+
+.scheduler-modal-rehearsal .conflict-details-box {
+    width: 100%;
+}
+
+.scheduler-modal-rehearsal .conflict-details-box {
+    margin-top: 0;
+    padding: 0.85rem 0.95rem;
+    border-radius: 0.95rem;
+    border-color: rgba(239, 68, 68, 0.24);
+    background: rgba(248, 113, 113, 0.08);
+}
+
+.scheduler-modal-rehearsal .conflict-details-header {
+    color: #f87171;
+}
+
+.scheduler-modal-rehearsal .conflict-item {
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
+.scheduler-modal-rehearsal .date-proposal-item[data-confirmed="true"][data-has-conflict="true"] {
+    border-width: 1px;
+}
+
+@media (max-width: 900px) {
+    .scheduler-modal-rehearsal .date-time-range {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .scheduler-modal-rehearsal .date-time-range .time-separator {
+        grid-column: 1 / -1;
+        text-align: left;
+    }
+}
+
+@media (max-width: 768px) {
+    .scheduler-modal-rehearsal .scheduler-panel-basics .scheduler-grid-basics {
+        width: 100%;
+    }
+
+    .scheduler-modal-rehearsal .member-selection-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .scheduler-modal-rehearsal .member-select-body {
+        grid-template-columns: 3rem minmax(0, 1fr) auto;
+    }
+
+    .scheduler-modal-rehearsal .date-time-range {
+        grid-template-columns: 1fr;
+    }
+
+    .scheduler-modal-rehearsal .date-time-range .time-separator {
+        grid-column: auto;
+        text-align: center;
+    }
+
+    .scheduler-modal-rehearsal .date-proposal-footer,
+    .scheduler-modal-rehearsal .date-proposal-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .scheduler-modal-rehearsal .date-proposal-actions {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .scheduler-modal-rehearsal .date-proposal-actions .btn,
+    .scheduler-modal-rehearsal .date-proposal-actions .btn-icon {
+        justify-content: center;
+    }
 }

@@ -65,6 +65,14 @@ const PersonalCalendar = {
             this.rehearsals = allRehearsals;
             this.absences = allAbsences;
             this.userBands = userBands;
+            
+            // Map roles for quick access
+            this.userRoles = {};
+            (userBands || []).forEach(b => {
+                const bId = b.id || b.band_id || b.bandId;
+                if (bId) this.userRoles[bId] = b.role;
+            });
+
             this.hasLoaded = true;
             this.renderCalendar();
 
@@ -213,7 +221,27 @@ const PersonalCalendar = {
         // Group items by month
         const itemsByMonth = this.groupByMonth(allItems);
 
-        let html = '<div class="personal-calendar-timeline">';
+        const canCreate = Auth.isAdmin() || Object.values(this.userRoles || {}).some(role => role === 'leader' || role === 'co-leader');
+
+        let html = '';
+        
+        if (canCreate) {
+            html += `
+                <div class="calendar-actions">
+                    <button class="btn btn-primary" onclick="App.openCreateRehearsalModal()">
+                        <span>➕</span> Probe anlegen
+                    </button>
+                    <button class="btn btn-secondary" onclick="App.openCreateEventModal()">
+                        <span>🎤</span> Auftritt anlegen
+                    </button>
+                    <button class="btn btn-ghost" onclick="App.openAbsencesSettings()">
+                        <span>🗓️</span> Abwesenheit eintragen
+                    </button>
+                </div>
+            `;
+        }
+
+        html += '<div class="personal-calendar-timeline">';
 
         Object.keys(itemsByMonth).sort().forEach(monthKey => {
             const items = itemsByMonth[monthKey];
@@ -255,6 +283,12 @@ const PersonalCalendar = {
         return grouped;
     },
 
+    canUserEdit(bandId) {
+        if (Auth.isAdmin()) return true;
+        const role = (this.userRoles && this.userRoles[bandId]) || null;
+        return role === 'leader' || role === 'co-leader';
+    },
+
     renderEventItem(event) {
         const band = this.userBands.find(b => b.id === event.bandId);
         const bandName = band ? band.name : 'Unbekannte Band';
@@ -267,7 +301,14 @@ const PersonalCalendar = {
             <div class="calendar-item event-item ${isPast ? 'past-item' : ''}">
                 <div class="calendar-item-icon">🎤</div>
                 <div class="calendar-item-content">
-                    <div class="calendar-item-title">${this.escapeHtml(event.name)}</div>
+                    <div class="calendar-item-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                        <div class="calendar-item-title">${this.escapeHtml(event.title || event.name)}</div>
+                        ${this.canUserEdit(event.bandId) ? `
+                            <button class="btn btn-ghost btn-sm" onclick="App.handleEditEvent('${event.id}')" title="Bearbeiten">
+                                ✏️ Bearbeiten
+                            </button>
+                        ` : ''}
+                    </div>
                     <div class="calendar-item-meta">
                         <span class="calendar-item-band">🎸 ${this.escapeHtml(bandName)}</span>
                         <span class="calendar-item-date">📅 ${dateStr}</span>
@@ -291,12 +332,19 @@ const PersonalCalendar = {
             <div class="calendar-item rehearsal-item ${isPast ? 'past-item' : ''}">
                 <div class="calendar-item-icon">📅</div>
                 <div class="calendar-item-content">
-                    <div class="calendar-item-title">${this.escapeHtml(rehearsal.name || 'Probe')}</div>
+                    <div class="calendar-item-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                        <div class="calendar-item-title">${this.escapeHtml(rehearsal.title || rehearsal.name || 'Probe')}</div>
+                        ${this.canUserEdit(rehearsal.bandId) ? `
+                            <button class="btn btn-ghost btn-sm" onclick="App.handleEditRehearsal('${rehearsal.id}')" title="Bearbeiten">
+                                ✏️ Bearbeiten
+                            </button>
+                        ` : ''}
+                    </div>
                     <div class="calendar-item-meta">
                         <span class="calendar-item-band">🎸 ${this.escapeHtml(bandName)}</span>
                         <span class="calendar-item-date">📅 ${dateStr}</span>
                         ${timeStr ? `<span class="calendar-item-time">🕐 ${this.escapeHtml(timeStr)}</span>` : ''}
-                        ${rehearsal.confirmed_location ? `<span class="calendar-item-location">📍 ${this.escapeHtml(rehearsal.confirmed_location)}</span>` : ''}
+                        ${(rehearsal.confirmed_location || rehearsal.location) ? `<span class="calendar-item-location">📍 ${this.escapeHtml(rehearsal.confirmed_location || rehearsal.location)}</span>` : ''}
                     </div>
                 </div>
             </div>
@@ -313,8 +361,28 @@ const PersonalCalendar = {
 
         const weeks = this.buildCalendarWeeks(year, month);
 
+        const canCreate = Auth.isAdmin() || Object.values(this.userRoles || {}).some(role => role === 'leader' || role === 'co-leader');
+
         // Build calendar HTML
-        let html = `
+        let html = '';
+
+        if (canCreate) {
+            html += `
+                <div class="calendar-actions" style="margin-bottom: 1.5rem; display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                    <button class="btn btn-primary" onclick="App.openCreateRehearsalModal()" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>➕</span> Probe anlegen
+                    </button>
+                    <button class="btn btn-secondary" onclick="App.openCreateEventModal()" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🎤</span> Auftritt anlegen
+                    </button>
+                    <button class="btn btn-ghost" onclick="App.openAbsencesSettings()" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🗓️</span> Abwesenheit eintragen
+                    </button>
+                </div>
+            `;
+        }
+
+        html += `
             <div class="calendar-header">
                 <button onclick="PersonalCalendar.previousMonth()" class="btn btn-icon" style="font-size: 1.5rem;">‹</button>
                 <div style="display: flex; align-items: center; gap: 1rem;">
@@ -931,6 +999,8 @@ const PersonalCalendar = {
                         ${detailsHTML}
                     </div>
                     <div class="modal-actions">
+                        ${itemType === 'event' ? `<button class="btn btn-secondary" onclick="App.handleEditEvent('${item.id}')">Zum Auftritt</button>` : ''}
+                        ${itemType === 'rehearsal' ? `<button class="btn btn-primary" onclick="App.handleEditRehearsal('${item.id}')">Zur Probe</button>` : ''}
                         <button class="btn" onclick="PersonalCalendar.closeDetailsModal()">Schließen</button>
                     </div>
                 </div>

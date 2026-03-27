@@ -13,8 +13,11 @@ const UI = {
 
             // Add click outside to close (only if not already added)
             if (!modal.dataset.hasClickOutside) {
+                modal.addEventListener('mousedown', (e) => {
+                    modal._mouseDownTarget = e.target;
+                });
                 modal.addEventListener('click', (e) => {
-                    if (e.target === modal) {
+                    if (e.target === modal && modal._mouseDownTarget === modal) {
                         this.closeModal(modalId);
                     }
                 });
@@ -55,15 +58,21 @@ const UI = {
                 }
 
                 // Add One-Time Click Listener for outside click
+                const mouseDownHandler = (e) => {
+                    overlay._mouseDownTarget = e.target;
+                };
                 const clickHandler = (e) => {
-                    if (e.target === overlay) {
+                    if (e.target === overlay && overlay._mouseDownTarget === overlay) {
                         this.toggleAuthOverlay(false);
                         overlay.removeEventListener('click', clickHandler);
+                        overlay.removeEventListener('mousedown', mouseDownHandler);
                     }
                 };
+                overlay.addEventListener('mousedown', mouseDownHandler);
                 overlay.addEventListener('click', clickHandler);
                 // Store reference to remove it if closed via button
                 overlay._clickHandler = clickHandler;
+                overlay._mouseDownHandler = mouseDownHandler;
             } else {
 
                 overlay.classList.remove('active');
@@ -80,6 +89,10 @@ const UI = {
                 if (overlay._clickHandler) {
                     overlay.removeEventListener('click', overlay._clickHandler);
                     delete overlay._clickHandler;
+                }
+                if (overlay._mouseDownHandler) {
+                    overlay.removeEventListener('mousedown', overlay._mouseDownHandler);
+                    delete overlay._mouseDownHandler;
                 }
             }
         }
@@ -160,6 +173,15 @@ const UI = {
     closeModal(modalId) {
         const modal = document.getElementById(modalId);
         if (modal) {
+            const locationConflictReturnModalId = modalId === 'locationConflictModal'
+                ? window._locationConflictReturnModalId || ''
+                : '';
+
+            if (modalId === 'locationConflictModal') {
+                window._locationConflictReturnModalId = null;
+                window._pendingRehearsalCreation = null;
+            }
+
             if (modalId === 'feedbackModal' && typeof App !== 'undefined' && typeof App.resetFeedbackModal === 'function') {
                 try {
                     App.resetFeedbackModal();
@@ -203,6 +225,10 @@ const UI = {
                 document.removeEventListener('keydown', modal._escHandler);
                 delete modal._escHandler;
                 delete modal.dataset.hasEscListener;
+            }
+
+            if (locationConflictReturnModalId) {
+                this.openModal(locationConflictReturnModalId);
             }
         }
     },
@@ -649,8 +675,11 @@ const UI = {
         if (onRetry) {
             modal.querySelector('#errorRetryBtn').addEventListener('click', retry);
         }
+        modal.addEventListener('mousedown', (e) => {
+            modal._mouseDownTarget = e.target;
+        });
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) close();
+            if (e.target === modal && modal._mouseDownTarget === modal) close();
         });
     },
 
@@ -813,8 +842,11 @@ const UI = {
         };
 
         closeBtn.addEventListener('click', closeLightbox);
+        overlay.addEventListener('mousedown', (e) => {
+            overlay._mouseDownTarget = e.target;
+        });
         overlay.addEventListener('click', (e) => {
-            if (e.target === overlay) closeLightbox();
+            if (e.target === overlay && overlay._mouseDownTarget === overlay) closeLightbox();
         });
 
         // Escape key to close

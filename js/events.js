@@ -271,15 +271,14 @@ const Events = {
                 .map(vote => vote.userId)
         ).size;
         const hasVoted = eventVotes.some(vote => String(vote.userId) === String(user.id) && vote.availability !== 'none');
-        const firstProposal = Array.isArray(event.proposedDates) && event.proposedDates.length > 0
-            ? event.proposedDates[0]
-            : null;
+        const proposals = this.getEventProposals(event);
+        const firstProposal = proposals.length > 0 ? proposals[0] : null;
         let statusText = event.status === 'pending' ? 'Offen' : 'Bestätigt';
         let statusClass = `status-${event.status}`;
 
         let cardContent = '';
         if (event.status === 'pending') {
-            cardContent = await this._renderPendingEventBody(event, dataContext, canManage);
+            cardContent = await this._renderPendingEventBody(event, dataContext, canManage, hasVoted);
         } else {
             cardContent = await this._renderConfirmedEventBody(event, dataContext, canManage);
         }
@@ -287,9 +286,9 @@ const Events = {
         const headerChips = [];
         if (event.status === 'confirmed' && event.date) {
             headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${UI.formatDateTimeRange(event.date)}</span>`);
-        } else if (Array.isArray(event.proposedDates) && event.proposedDates.length > 0) {
-            if (event.proposedDates.length > 1) {
-                headerChips.push(`<span class="schedule-card-chip">${event.proposedDates.length} Termine</span>`);
+        } else if (proposals.length > 0) {
+            if (proposals.length > 1) {
+                headerChips.push(`<span class="schedule-card-chip">${proposals.length} Termine</span>`);
             }
             if (firstProposal?.start) {
                 headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${UI.formatDateTimeRange(firstProposal.start, firstProposal.end)}</span>`);
@@ -373,7 +372,7 @@ const Events = {
         `;
     },
 
-    async _renderPendingEventBody(event, dataContext, canManage) {
+    async _renderPendingEventBody(event, dataContext, canManage, hasVoted = false) {
         const members = await Storage.getBandMembers(event.bandId);
 
         return `
@@ -384,7 +383,7 @@ const Events = {
 
                 <div class="event-action-buttons" style="margin-bottom: 1.5rem;">
                     <button class="btn btn-vote-now" data-event-id="${event.id}">
-                        Jetzt abstimmen
+                        ${hasVoted ? 'Abstimmungen bearbeiten' : 'Jetzt abstimmen'}
                     </button>
                     ${canManage ? `
                         <button class="btn btn-primary open-event-btn" data-event-id="${event.id}">
@@ -526,6 +525,7 @@ const Events = {
     async renderEventOverviewTable(event, members, dataContext, canManage) {
         const votes = dataContext.votes[event.id] || [];
         const suggestions = dataContext.suggestions[event.id] || [];
+        const proposals = this.getEventProposals(event);
 
         const headerHtml = `
             <thead>
@@ -546,12 +546,11 @@ const Events = {
                         `;
         }))).join('')}
                     <th class="zusage-col">Zusagen</th>
-                    ${canManage ? '<th class="action-col">Aktion</th>' : ''}
                 </tr>
             </thead>
         `;
 
-        const rowsHtml = (event.proposedDates || []).map((date, index) => {
+        const rowsHtml = proposals.map((date, index) => {
             const dateString = date.start;
             const formattedDate = UI.formatDateShort(dateString);
 
@@ -618,16 +617,6 @@ const Events = {
                     </td>
                     ${voteCells}
                     <td class="zusage-col">${yesCount}/${members.length}</td>
-                    ${canManage ? `
-                        <td class="action-col">
-                            <button class="btn btn-sm btn-primary confirm-event-proposal" 
-                                    data-event-id="${event.id}" 
-                                    data-date-index="${index}"
-                                    style="padding: 2px 8px; font-size: 0.75rem;">
-                                ✓ Bestätigen
-                            </button>
-                        </td>
-                    ` : ''}
                 </tr>
             `;
         });
@@ -640,6 +629,31 @@ const Events = {
                 </tbody>
             </table>
         `;
+    },
+
+    getEventProposals(event) {
+        const raw = Array.isArray(event?.proposedDates) ? event.proposedDates : [];
+        const normalized = raw.map((date) => {
+            if (!date) return null;
+            if (typeof date === 'string') {
+                return { start: date, end: date };
+            }
+            if (typeof date === 'object') {
+                if (date.start) {
+                    return { start: date.start, end: date.end || date.start };
+                }
+                if (date.startTime) {
+                    return { start: date.startTime, end: date.endTime || date.startTime };
+                }
+            }
+            return null;
+        }).filter(Boolean);
+
+        if (normalized.length === 0 && event?.date) {
+            normalized.push({ start: event.date, end: event.date });
+        }
+
+        return normalized;
     },
 
     // Attach event handlers
@@ -920,11 +934,19 @@ const Events = {
                 <input type="date" class="event-date-input-date">
                 <input type="time" class="event-date-input-start">
             </div>
+            <span class="event-date-availability date-availability" style="margin-left:8px"></span>
             <button type="button" class="btn-icon remove-event-date">🗑️</button>
         `;
         container.appendChild(row);
 
-        row.querySelector('.remove-event-date').onclick = () => row.remove();
+        row.querySelector('.remove-event-date').onclick = () => {
+             row.remove();
+             this.updateAvailabilityIndicators();
+        };
+
+        row.querySelectorAll('input').forEach(input => {
+             input.addEventListener('change', () => this.updateAvailabilityIndicators());
+        });
     },
 
     async openEventDetails(eventId) {
@@ -1058,6 +1080,16 @@ const Events = {
         const title = document.getElementById('eventTitle').value;
         const fixedDate = document.getElementById('eventDate').value;
         const location = document.getElementById('eventLocation').value;
+
+        if (!bandId) {
+            UI.showToast('Bitte wähle eine Band aus.', 'warning');
+            return;
+        }
+
+        if (!await Auth.canManageEvents(bandId)) {
+            UI.showToast('Keine Berechtigung – nur Leiter und Co-Leiter dürfen Auftritte für diese Band erstellen oder bearbeiten.', 'error');
+            return;
+        }
 
         const proposals = [];
         document.querySelectorAll('#eventDateProposals .date-proposal-item').forEach(row => {
@@ -1233,10 +1265,17 @@ const Events = {
                             <input type="date" class="event-date-input-date" value="${d}">
                             <input type="time" class="event-date-input-start" value="${s}">
                         </div>
+                        <span class="event-date-availability date-availability" style="margin-left:8px"></span>
                         <button type="button" class="btn-icon remove-event-date">🗑️</button>
                     `;
                     container.appendChild(row);
-                    row.querySelector('.remove-event-date').onclick = () => row.remove();
+                    row.querySelector('.remove-event-date').onclick = () => {
+                        row.remove();
+                        this.updateAvailabilityIndicators();
+                    };
+                    row.querySelectorAll('input').forEach(input => {
+                        input.addEventListener('change', () => this.updateAvailabilityIndicators());
+                    });
                 });
             } else {
                 this.addDateProposalRow();
@@ -1247,6 +1286,7 @@ const Events = {
         if (songPoolBtn) songPoolBtn.style.display = 'block';
 
         UI.openModal('createEventModal');
+        this.updateAvailabilityIndicators();
     },
 
     getSelectedMembers() {
@@ -1328,7 +1368,7 @@ const Events = {
             const isChecked = toSelect.has(String(user.id));
 
             return `
-                <label class="member-select-card ${isChecked ? 'is-selected' : ''}" for="member_${user.id}">
+                <label class="member-select-card ${isChecked ? 'is-selected' : ''}" for="member_${user.id}" data-user-id="${user.id}">
                     <input
                         class="member-select-checkbox"
                         type="checkbox"
@@ -1346,6 +1386,7 @@ const Events = {
                                 <span class="member-select-role">${Bands.escapeHtml(roleLabel)}</span>
                             </span>
                             ${instrumentHtml}
+                            <span class="member-select-absence-note text-danger" style="display:none; font-size: 0.75rem; margin-top: 2px;"></span>
                         </span>
                         <span class="member-select-check" aria-hidden="true">✓</span>
                     </span>
@@ -1353,23 +1394,147 @@ const Events = {
             `;
         }).join('');
 
+        const userIds = users.filter(Boolean).map(u => u.id);
+        this.currentBandMemerAbsences = await Storage.getAbsencesForUsers(userIds);
+
         container.querySelectorAll('.member-select-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', () => {
                 const card = checkbox.closest('.member-select-card');
                 if (card) {
                     card.classList.toggle('is-selected', checkbox.checked);
                 }
+                this.updateAvailabilityIndicators();
             });
+        });
+
+        this.updateAvailabilityIndicators();
+    },
+
+    async updateAvailabilityIndicators() {
+        // Evaluate for fixed date
+        const selectedMembers = typeof this.getSelectedMembers === 'function' ? this.getSelectedMembers() : [];
+        const memberAbsencesMap = {};
+
+        // Reset member absence notes
+        document.querySelectorAll('.member-select-card').forEach(card => {
+            const note = card.querySelector('.member-select-absence-note');
+            if (note) {
+                note.style.display = 'none';
+                note.textContent = '';
+            }
+            card.classList.remove('has-conflict');
+        });
+
+        const locationId = document.getElementById('eventLocation')?.value || ''; // Events uses string mostly, but we can do our best if it's text "Musterstadt" vs Location ID.
+        // Wait, eventLocation is a text input, not a select!
+        // App.checkLocationAvailability expects an ID. For Events, it doesn't currently check location availability interactively because it's text.
+        // We only check member absences for events!
+
+        if (typeof App === 'undefined' || !App.checkMembersAvailabilityLocally || !this.currentBandMemerAbsences) return;
+
+        // 1. Fixed Date
+        const fixedDateInput = document.getElementById('eventDate');
+        const fixedDateIndicator = document.getElementById('eventFixedDateAvailability');
+        if (fixedDateInput && fixedDateIndicator) {
+            if (fixedDateInput.value) {
+                const dt = new Date(fixedDateInput.value);
+                const relevantAbsences = this.currentBandMemerAbsences.filter(a => selectedMembers.includes(String(a.userId)));
+                const memberConflicts = App.checkMembersAvailabilityLocally(relevantAbsences, dt, dt);
+                
+                let dateConflicts = [];
+                memberConflicts.forEach(conflict => {
+                    const card = document.querySelector(`.member-select-card[data-user-id="${conflict.userId}"]`);
+                    const userName = card ? card.querySelector('.member-select-name').textContent : 'Ein Mitglied';
+                    const reason = conflict.reason || 'Abwesend';
+                    dateConflicts.push(`${Bands.escapeHtml(userName)} (${Bands.escapeHtml(reason)})`);
+                    
+                    if (!memberAbsencesMap[conflict.userId]) memberAbsencesMap[conflict.userId] = [];
+                    memberAbsencesMap[conflict.userId].push(reason);
+                });
+
+                if (dateConflicts.length === 0) {
+                     fixedDateIndicator.textContent = '✓ Alle verfügbar';
+                     fixedDateIndicator.className = 'date-availability is-available';
+                } else {
+                     fixedDateIndicator.textContent = `⚠️ Konflikte: ${dateConflicts.join(', ')}`;
+                     fixedDateIndicator.className = 'date-availability has-conflict';
+                }
+            } else {
+                fixedDateIndicator.textContent = '';
+            }
+        }
+
+        // 2. Proposed Dates
+        const items = document.querySelectorAll('#eventDateProposals .date-proposal-item');
+        for (const item of items) {
+            const dateInput = item.querySelector('.event-date-input-date');
+            const startInput = item.querySelector('.event-date-input-start');
+            const indicator = item.querySelector('.event-date-availability');
+
+            if (!indicator) continue;
+
+            if (!dateInput || !dateInput.value || !startInput || !startInput.value) {
+                indicator.textContent = '';
+                indicator.className = 'date-availability';
+                continue;
+            }
+
+            const startDateTime = `${dateInput.value}T${startInput.value}`;
+            const relevantAbsences = this.currentBandMemerAbsences.filter(a => selectedMembers.includes(String(a.userId)));
+            const memberConflicts = App.checkMembersAvailabilityLocally(relevantAbsences, startDateTime, startDateTime);
+            
+            let dateConflicts = [];
+            memberConflicts.forEach(conflict => {
+                const card = document.querySelector(`.member-select-card[data-user-id="${conflict.userId}"]`);
+                const userName = card ? card.querySelector('.member-select-name').textContent : 'Ein Mitglied';
+                const reason = conflict.reason || 'Abwesend';
+                dateConflicts.push(`${Bands.escapeHtml(userName)} (${Bands.escapeHtml(reason)})`);
+                
+                if (!memberAbsencesMap[conflict.userId]) memberAbsencesMap[conflict.userId] = [];
+                memberAbsencesMap[conflict.userId].push(reason);
+            });
+
+            if (dateConflicts.length === 0) {
+                 indicator.textContent = '✓ Alle verfügbar';
+                 indicator.className = 'date-availability is-available';
+            } else {
+                 indicator.textContent = `⚠️ Konflikte: ${dateConflicts.join(', ')}`;
+                 indicator.className = 'date-availability has-conflict';
+            }
+        }
+
+        // Display absent warning on member cards
+        Object.keys(memberAbsencesMap).forEach(userId => {
+            const card = document.querySelector(`.member-select-card[data-user-id="${userId}"]`);
+            if (card) {
+                const note = card.querySelector('.member-select-absence-note');
+                const uniqueReasons = [...new Set(memberAbsencesMap[userId])];
+                if (note) {
+                    note.textContent = '🚫 ' + uniqueReasons.join(', ');
+                    note.style.display = 'block';
+                }
+                card.classList.add('has-conflict');
+            }
         });
     },
 
+
     async populateBandSelect() {
         const user = Auth.getCurrentUser();
-        const bands = await Storage.getUserBands(user.id);
         const select = document.getElementById('eventBand');
-        if (select) {
-            select.innerHTML = '<option value="">Band wählen</option>' +
-                bands.map(b => `<option value="${b.id}">${Bands.escapeHtml(b.name)}</option>`).join('');
+        if (!user || !select) return;
+
+        const bands = (await Auth.getBandsUserCanManagePlanning()) || [];
+
+        select.disabled = bands.length === 0;
+        select.innerHTML = bands.length > 0
+            ? '<option value="">Band wählen</option>' +
+                bands.map(b => `<option value="${b.id}">${Bands.escapeHtml(b.name)}</option>`).join('')
+            : '<option value="">Keine freigegebene Band verfügbar</option>';
+
+        if (bands.length === 1) {
+            select.value = bands[0].id;
+            select.dispatchEvent(new Event('change'));
         }
     }
 };

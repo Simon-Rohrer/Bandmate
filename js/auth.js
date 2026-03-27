@@ -446,12 +446,27 @@ const Auth = {
         return true;
     },
 
+    hasLeadershipRole(role) {
+        return role === 'leader' || role === 'co-leader';
+    },
+
+    async getBandsUserCanManagePlanning() {
+        if (!this.currentUser) return [];
+
+        if (this.isAdmin()) {
+            return (await Storage.getAllBands()) || [];
+        }
+
+        const userBands = (await Storage.getUserBands(this.currentUser.id)) || [];
+        return userBands.filter(band => this.hasLeadershipRole(band.role));
+    },
+
     // Check if user can manage band (admin or leader)
     async canManageBand(bandId) {
         if (!this.currentUser) return false;
         if (this.isAdmin()) return true;
         const role = await Storage.getUserRoleInBand(this.currentUser.id, bandId);
-        return role === 'leader';
+        return this.hasLeadershipRole(role);
     },
 
     // Check if user can change roles (admin or leader)
@@ -459,7 +474,7 @@ const Auth = {
         if (!this.currentUser) return false;
         if (this.isAdmin()) return true;
         const role = await Storage.getUserRoleInBand(this.currentUser.id, bandId);
-        return role === 'leader';
+        return this.hasLeadershipRole(role);
     },
 
     // Check if user can propose/edit rehearsals (leader or co-leader)
@@ -467,7 +482,7 @@ const Auth = {
         if (!this.currentUser) return false;
         if (this.isAdmin()) return true;
         const role = await Storage.getUserRoleInBand(this.currentUser.id, bandId);
-        return role === 'leader' || role === 'co-leader';
+        return this.hasLeadershipRole(role);
     },
 
     // Check if user can confirm rehearsals (leader or co-leader)
@@ -475,7 +490,7 @@ const Auth = {
         if (!this.currentUser) return false;
         if (this.isAdmin()) return true;
         const role = await Storage.getUserRoleInBand(this.currentUser.id, bandId);
-        return role === 'leader' || role === 'co-leader';
+        return this.hasLeadershipRole(role);
     },
 
     // Check if user can edit band details (leader or co-leader)
@@ -483,7 +498,7 @@ const Auth = {
         if (!this.currentUser) return false;
         if (this.isAdmin()) return true;
         const role = await Storage.getUserRoleInBand(this.currentUser.id, bandId);
-        return role === 'leader' || role === 'co-leader';
+        return this.hasLeadershipRole(role);
     },
 
     // Check if user can manage events (leader or co-leader)
@@ -491,7 +506,7 @@ const Auth = {
         if (!this.currentUser) return false;
         if (this.isAdmin()) return true;
         const role = await Storage.getUserRoleInBand(this.currentUser.id, bandId);
-        return role === 'leader' || role === 'co-leader';
+        return this.hasLeadershipRole(role);
     },
 
     // Check if user is member of band

@@ -631,6 +631,30 @@ const App = {
         this.deletedEventSongs = [];
     },
 
+    async getPlanningManagerBands() {
+        if (typeof Auth === 'undefined' || typeof Auth.getBandsUserCanManagePlanning !== 'function') {
+            return [];
+        }
+
+        return (await Auth.getBandsUserCanManagePlanning()) || [];
+    },
+
+    async updatePlanningCreationButtons() {
+        const planningBands = await this.getPlanningManagerBands();
+        const createEventBtn = document.getElementById('createEventBtn');
+        const createRehearsalBtn = document.getElementById('createRehearsalBtn');
+
+        if (createEventBtn) {
+            createEventBtn.style.display = '';
+        }
+
+        if (createRehearsalBtn) {
+            createRehearsalBtn.style.display = '';
+        }
+
+        return planningBands;
+    },
+
     // Account löschen Logik
     // Account löschen Logik
     // Account löschen Logik
@@ -694,6 +718,20 @@ const App = {
                     <span>${l.label}</span>
                 </label>`
             ).join('');
+            const optionLabels = Array.from(optionsDiv.querySelectorAll('label'));
+            const syncOptionStates = () => {
+                optionLabels.forEach(label => {
+                    const input = label.querySelector('input');
+                    label.classList.toggle('is-checked', Boolean(input && input.checked));
+                });
+            };
+            optionLabels.forEach(label => {
+                const input = label.querySelector('input');
+                if (input) {
+                    input.addEventListener('change', syncOptionStates);
+                }
+            });
+            syncOptionStates();
             modal.classList.add('active');
         };
         cancelBtn.onclick = (e) => {
@@ -777,7 +815,8 @@ const App = {
 
         updateImage('loaderBrandLogo', logoOnlySrc);
         updateImage('landingBrandLogo', logoOnlySrc);
-        updateImage('sidebarBrandLogo', logoShortSrc);
+        updateImage('sidebarLogoExpanded', logoShortSrc);
+        updateImage('sidebarLogoCollapsed', logoOnlySrc);
 
         const favicon = document.getElementById('faviconSvg');
         if (favicon) {
@@ -1078,6 +1117,119 @@ const App = {
         }
     },
 
+    // Sidebar Toggle (Desktop)
+    setupSidebarToggle() {
+        const toggleBtn = document.getElementById('toggleSidebarBtn');
+        const sidebar = document.querySelector('.app-sidebar');
+        const wrapper = document.querySelector('.app-main-wrapper');
+
+        this._autoExpanded = false; // Flag for auto-expand behavior
+
+        if (!toggleBtn || !sidebar || !wrapper) return;
+
+        if (!toggleBtn || !sidebar || !wrapper) return;
+
+        // Load saved state
+        const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+        if (isCollapsed && window.innerWidth > 768) {
+            sidebar.classList.add('collapsed');
+            wrapper.classList.add('sidebar-collapsed');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+            wrapper.classList.toggle('sidebar-collapsed');
+
+            this._autoExpanded = false; // Reset on manual toggle
+            
+            const nowCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', nowCollapsed);
+            
+            // Trigger a resize event to layout charts or components if needed
+            window.dispatchEvent(new Event('resize'));
+        });
+
+        this.setupSidebarResize();
+    },
+
+    // Sidebar Resize (Desktop)
+    setupSidebarResize() {
+        const resizer = document.getElementById('sidebarResizer');
+        const sidebar = document.querySelector('.app-sidebar');
+        const wrapper = document.querySelector('.app-main-wrapper');
+        const root = document.documentElement;
+
+        if (!resizer || !sidebar || !wrapper) return;
+
+        // Initialize width from localStorage
+        const savedWidth = localStorage.getItem('sidebarWidth');
+        if (savedWidth && window.innerWidth > 768) {
+            root.style.setProperty('--sidebar-width', `${savedWidth}px`);
+        }
+
+        let isResizing = false;
+
+        resizer.addEventListener('mousedown', (e) => {
+            isResizing = true;
+            document.body.style.cursor = 'col-resize';
+            sidebar.classList.add('is-resizing');
+            wrapper.classList.add('is-resizing');
+            
+            // Disable text selection during resize
+            document.body.style.userSelect = 'none';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isResizing) return;
+
+            let newWidth = e.clientX;
+
+            // Constraints
+            const minWidth = 180;
+            const maxWidth = 600;
+            const collapseThreshold = 140;
+
+            // Handle Auto-Collapse/Expand during drag
+            if (newWidth < collapseThreshold) {
+                if (!sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.add('collapsed');
+                    wrapper.classList.add('sidebar-collapsed');
+                    localStorage.setItem('sidebarCollapsed', 'true');
+                }
+                newWidth = 78; // Visual feedback for collapsed state
+            } else {
+                if (sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.remove('collapsed');
+                    wrapper.classList.remove('sidebar-collapsed');
+                    localStorage.setItem('sidebarCollapsed', 'false');
+                }
+                
+                if (newWidth < minWidth) newWidth = minWidth;
+                if (newWidth > maxWidth) newWidth = maxWidth;
+            }
+
+            root.style.setProperty('--sidebar-width', `${newWidth}px`);
+            
+            // Only save non-collapsed width
+            if (newWidth >= minWidth) {
+                localStorage.setItem('sidebarWidth', newWidth);
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (!isResizing) return;
+            
+            isResizing = false;
+            document.body.style.cursor = '';
+            sidebar.classList.remove('is-resizing');
+            wrapper.classList.remove('is-resizing');
+            document.body.style.userSelect = '';
+            
+            // Trigger resize for components
+            window.dispatchEvent(new Event('resize'));
+        });
+    },
+
     // Setup sidebar navigation (desktop)
     setupSidebarNav() {
         // Prevent re-initialization
@@ -1107,6 +1259,18 @@ const App = {
                 e.preventDefault();
                 e.stopPropagation();
 
+                const sidebar = document.querySelector('.app-sidebar');
+                const wrapper = document.querySelector('.app-main-wrapper');
+
+                // If collapsed, expand first
+                if (sidebar && sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.remove('collapsed');
+                    if (wrapper) wrapper.classList.remove('sidebar-collapsed');
+                    this._autoExpanded = true; // Mark as auto-expanded
+                    localStorage.setItem('sidebarCollapsed', 'false');
+                    window.dispatchEvent(new Event('resize'));
+                }
+
                 const group = navItem.parentElement;
 
                 // Toggle current group
@@ -1128,6 +1292,17 @@ const App = {
             if (view) {
                 e.preventDefault();
                 e.stopPropagation();
+
+                // Auto-collapse if it was expanded by an accordion click previously
+                const sidebar = document.querySelector('.app-sidebar');
+                const wrapper = document.querySelector('.app-main-wrapper');
+                if (this._autoExpanded && sidebar && !sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.add('collapsed');
+                    if (wrapper) wrapper.classList.add('sidebar-collapsed');
+                    this._autoExpanded = false;
+                    localStorage.setItem('sidebarCollapsed', 'true');
+                    window.dispatchEvent(new Event('resize'));
+                }
 
                 // Sichertstellen: Schließe alle offenen Dropdowns bei Navigation zu einem anderen Punkt
                 // Aber NICHT, wenn wir auf ein Subitem innerhalb eines offenen Dropdowns klicken
@@ -1694,6 +1869,7 @@ const App = {
 
         // Initialize Supabase Auth first
         this.setupMobileSubmenuToggle();
+        this.setupSidebarToggle();
         this.setupSidebarNav();
         this.setupFeedbackModal();
 
@@ -1833,15 +2009,10 @@ const App = {
             });
         }
 
-        // Zeige '+ Neuer Auftritt' nur, wenn User in mindestens einer Band ist
-
-        const createEventBtn = document.getElementById('createEventBtn');
-        const user = Auth.getCurrentUser();
-        if (createEventBtn && user) {
-            Storage.getUserBands(user.id).then(bands => {
-                createEventBtn.style.display = (bands && bands.length > 0) ? '' : 'none';
-            });
-        }
+        // Zeige Planungs-Buttons nur für Bands, bei denen der Nutzer Leiter oder Co-Leiter ist
+        this.updatePlanningCreationButtons().catch(error => {
+            Logger.error('Error updating planning creation buttons', error);
+        });
         // Ensure 'Auftritte' and 'Planung' main navigation tabs are always visible (desktop & mobile)
         document.querySelectorAll('.nav-item[data-view="events"], .nav-item[data-view="rehearsals"]').forEach(item => {
             item.style.display = '';
@@ -1850,17 +2021,6 @@ const App = {
         document.querySelectorAll('.nav-subitem[data-view="events"], .nav-subitem[data-view="rehearsals"], .nav-subitem[data-view="probeorte"], .nav-subitem[data-view="kalender"]').forEach(item => {
             item.style.display = '';
         });
-
-        // Hide 'Neuen Probetermin' button if user is not in a band
-        const user2 = Auth.getCurrentUser();
-        if (user2) {
-            Storage.getUserBands(user2.id).then(bands => {
-                const createRehearsalBtn = document.getElementById('createRehearsalBtn');
-                if (createRehearsalBtn) {
-                    createRehearsalBtn.style.display = (bands && bands.length > 0) ? '' : 'none';
-                }
-            });
-        }
         // Landing Hero Interactivity
         const heroArea = document.getElementById('heroArea');
         if (heroArea) {
@@ -2320,17 +2480,16 @@ const App = {
         // Show 'Probetermine hinzufügen' button only if user is in at least one band
         const createRehearsalBtn = document.getElementById('createRehearsalBtn');
         if (createRehearsalBtn) {
-            const user = Auth.getCurrentUser();
-            if (user) {
-                Storage.getUserBands(user.id).then(bands => {
-                    createRehearsalBtn.style.display = (bands && bands.length > 0) ? '' : 'none';
-                });
-            }
+            this.updatePlanningCreationButtons().catch(error => {
+                Logger.error('Error updating planning creation buttons', error);
+            });
             createRehearsalBtn.addEventListener('click', async () => {
                 Logger.userAction('Button', 'createRehearsalBtn', 'Click', { action: 'Open New Rehearsal Modal' });
+                const planningBands = await this.getPlanningManagerBands();
+
                 // Reset form for new rehearsal
                 document.getElementById('rehearsalModalTitle').textContent = 'Neuen Probetermin vorschlagen';
-                document.getElementById('saveRehearsalBtn').textContent = 'Vorschlag erstellen';
+                document.getElementById('saveRehearsalBtn').textContent = 'Probetermin erstellen';
                 document.getElementById('editRehearsalId').value = '';
                 UI.clearForm('createRehearsalForm');
 
@@ -2350,9 +2509,12 @@ const App = {
                             <span class="time-separator">bis</span>
                             <input type="time" class="date-input-end" value="21:30">
                         </div>
-                        <span class="date-availability" style="margin-left:8px"></span>
-                        <button type="button" class="btn btn-sm confirm-proposal-btn">✓ Bestätigen</button>
-                        <button type="button" class="btn-icon remove-date" disabled>🗑️</button>
+                        <div class="date-proposal-footer">
+                            <span class="date-availability"></span>
+                            <div class="date-proposal-actions">
+                                <button type="button" class="btn-icon remove-date" disabled>🗑️</button>
+                            </div>
+                        </div>
                     </div>
                 `;
 
@@ -2361,6 +2523,13 @@ const App = {
 
                 await Bands.populateBandSelects();
                 await this.populateLocationSelect();
+
+                if (typeof Rehearsals !== 'undefined' && Rehearsals.loadBandMembers) {
+                    const currentBandId = document.getElementById('rehearsalBand')?.value || '';
+                    if (!currentBandId) {
+                        await Rehearsals.loadBandMembers('', []);
+                    }
+                }
 
                 // Attach availability listeners for initial input
                 if (typeof Rehearsals !== 'undefined' && Rehearsals.attachAvailabilityListeners) {
@@ -2371,15 +2540,11 @@ const App = {
                 const eventSelect = document.getElementById('rehearsalEvent');
                 const bandSelect = document.getElementById('rehearsalBand');
                 if (eventSelect && bandSelect) {
-                    const user = Auth.getCurrentUser();
-                    if (user) {
-                        const bands = await Storage.getUserBands(user.id);
-                        if (bands && bands.length === 1 && bandSelect.value) {
-                            // Wenn nur eine Band, direkt Events dieser Band laden
-                            await App.populateEventSelect(bandSelect.value);
-                        } else {
-                            eventSelect.innerHTML = '<option value="">Bitte zuerst eine Band auswählen</option>';
-                        }
+                    if (planningBands.length === 1 && bandSelect.value) {
+                        // Wenn genau eine berechtigte Band vorhanden ist, direkt Events dieser Band laden
+                        await App.populateEventSelect(bandSelect.value);
+                    } else {
+                        eventSelect.innerHTML = '<option value="">Bitte zuerst eine Band auswählen</option>';
                     }
                 }
 
@@ -2396,15 +2561,24 @@ const App = {
 
         // Listen for band selection changes in rehearsal form
         const rehearsalBandSelect = document.getElementById('rehearsalBand');
-        if (rehearsalBandSelect) {
+        if (rehearsalBandSelect && !rehearsalBandSelect.dataset.schedulerBound) {
+            rehearsalBandSelect.dataset.schedulerBound = 'true';
             rehearsalBandSelect.addEventListener('change', async (e) => {
                 const bandId = e.target.value;
                 if (bandId) {
                     await this.populateEventSelect(bandId);
+
+                    if (typeof Rehearsals !== 'undefined' && Rehearsals.loadBandMembers) {
+                        await Rehearsals.loadBandMembers(bandId, null);
+                    }
                 } else {
                     const eventSelect = document.getElementById('rehearsalEvent');
                     if (eventSelect) {
                         eventSelect.innerHTML = '<option value="">Bitte zuerst eine Band auswählen</option>';
+                    }
+
+                    if (typeof Rehearsals !== 'undefined' && Rehearsals.loadBandMembers) {
+                        await Rehearsals.loadBandMembers('', []);
                     }
                 }
             });
@@ -2449,7 +2623,7 @@ const App = {
 
 
         // Create event button
-        document.getElementById('createEventBtn').addEventListener('click', () => {
+        document.getElementById('createEventBtn').addEventListener('click', async () => {
             Logger.userAction('Button', 'createEventBtn', 'Click', { action: 'Open New Event Modal' });
             // Reset form for new event
             document.getElementById('eventModalTitle').textContent = 'Neuen Auftritt erstellen';
@@ -2474,7 +2648,7 @@ const App = {
                 Events.addDateProposalRow();
             }
 
-            Events.populateBandSelect();
+            await Events.populateBandSelect();
             // Clear draft song selection and deleted songs for new event
             this.resetDraftEventState();
             this.renderDraftEventSongs();
@@ -2505,6 +2679,16 @@ const App = {
                 if (copyBtn) copyBtn.style.display = 'none';
             }
         });
+
+        // Event fixed date change
+        const eventDateInput = document.getElementById('eventDate');
+        if (eventDateInput) {
+            eventDateInput.addEventListener('change', () => {
+                if (typeof Events !== 'undefined' && typeof Events.updateAvailabilityIndicators === 'function') {
+                    Events.updateAvailabilityIndicators();
+                }
+            });
+        }
 
         // Add event song button (create new song)
         const addEventSongBtn = document.getElementById('addEventSongBtn');
@@ -2562,14 +2746,6 @@ const App = {
         document.getElementById('eventBandFilter').addEventListener('change', (e) => {
             Events.currentFilter = e.target.value;
             Events.renderEvents(e.target.value);
-        });
-
-        // Rehearsal band change - load events for selection
-        document.getElementById('rehearsalBand').addEventListener('change', async (e) => {
-            const bandId = e.target.value;
-            if (bandId) {
-                await this.populateEventSelect(bandId);
-            }
         });
 
         // Onboarding handlers
@@ -2635,15 +2811,10 @@ const App = {
         // Location conflict modal handlers
         const abortConfirmationBtn = document.getElementById('abortConfirmationBtn');
         if (abortConfirmationBtn) {
-            abortConfirmationBtn.addEventListener('click', () => {
+            abortConfirmationBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 UI.closeModal('locationConflictModal');
-
-                // Check if we're in creation or confirmation mode
-                if (window._pendingRehearsalCreation) {
-                    UI.openModal('createRehearsalModal'); // Return to creation modal
-                } else {
-                    UI.openModal('confirmRehearsalModal'); // Return to confirmation modal
-                }
             });
         }
 
@@ -2652,11 +2823,14 @@ const App = {
             proceedAnywayBtn.addEventListener('click', async () => {
                 // Check if we're in creation mode
                 if (window._pendingRehearsalCreation) {
-                    window._pendingRehearsalCreation(); // Execute stored proceed function
-                    window._pendingRehearsalCreation = null; // Clear it
+                    const pendingCreation = window._pendingRehearsalCreation;
+                    window._pendingRehearsalCreation = null;
+                    window._locationConflictReturnModalId = null;
                     UI.closeModal('locationConflictModal');
+                    await pendingCreation();
                 } else {
                     // Confirmation mode
+                    window._locationConflictReturnModalId = null;
                     await Rehearsals.confirmRehearsal(true); // Force confirm despite conflicts
                 }
             });
@@ -2935,6 +3109,24 @@ const App = {
             });
         }
 
+        // Vote Banner Buttons
+        const voteBannerButton = document.getElementById('voteBannerButton');
+        if (voteBannerButton) {
+            voteBannerButton.addEventListener('click', () => {
+                const banner = document.getElementById('voteBanner');
+                const targetView = banner?.dataset?.targetView || 'events';
+                this.hideVoteBanner(true);
+                this.navigateTo(targetView, 'vote-banner');
+            });
+        }
+
+        const voteBannerClose = document.getElementById('voteBannerClose');
+        if (voteBannerClose) {
+            voteBannerClose.addEventListener('click', () => {
+                this.hideVoteBanner(true);
+            });
+        }
+
         const adminTestNewsBannerBtn = document.getElementById('adminTestNewsBannerBtn');
         if (adminTestNewsBannerBtn) {
             adminTestNewsBannerBtn.addEventListener('click', () => {
@@ -3165,9 +3357,11 @@ const App = {
                 } else if (view === 'events') {
                     await Bands.populateBandSelects();
                     await Events.renderEvents();
+                    this.hideVoteBanner(true);
                 } else if (view === 'rehearsals') {
                     await Bands.populateBandSelects();
                     await Rehearsals.renderRehearsals();
+                    this.hideVoteBanner(true);
                 } else if (view === 'statistics') {
                     await Statistics.initStatisticsFilters();
                     await Statistics.renderGeneralStatistics();
@@ -3855,12 +4049,7 @@ const App = {
 
     async canCurrentUserCreateNews(user = Auth.getCurrentUser()) {
         if (!user) return false;
-        if (Auth.isAdmin()) return true;
-
-        const userBands = await Storage.getUserBands(user.id);
-        return Array.isArray(userBands) && userBands.some(
-            band => band.role === 'leader' || band.role === 'co-leader'
-        );
+        return Auth.isAdmin();
     },
 
     resetNewsComposer() {
@@ -3918,7 +4107,7 @@ const App = {
             if (!editId) {
                 const canCreateNews = await this.canCurrentUserCreateNews(user);
                 if (!canCreateNews) {
-                    UI.showToast('Keine Berechtigung', 'error');
+                    UI.showToast('Keine Berechtigung – nur Admins dürfen News erstellen.', 'error');
                     return;
                 }
             }
@@ -4345,6 +4534,87 @@ const App = {
         if (banner) {
             banner.style.display = 'none';
         }
+    },
+
+    async checkAndShowVoteBanner() {
+        const user = Auth.getCurrentUser();
+        if (!user) return;
+
+        let leaderBandIds = [];
+        try {
+            const bands = await Storage.getUserBands(user.id);
+            leaderBandIds = (bands || [])
+                .filter(b => ['leader', 'co-leader'].includes(b.role))
+                .map(b => String(b.id));
+        } catch (err) {
+            console.warn('[voteBanner] Could not load bands:', err);
+            return;
+        }
+
+        if (leaderBandIds.length === 0) return;
+
+        const [events, rehearsals] = await Promise.all([
+            Storage.getUserEvents(user.id),
+            Storage.getUserRehearsals(user.id)
+        ]);
+
+        const leaderEvents = (events || []).filter(e => leaderBandIds.includes(String(e.bandId)));
+        const leaderRehearsals = (rehearsals || []).filter(r => leaderBandIds.includes(String(r.bandId)));
+
+        const eventIds = leaderEvents.map(e => String(e.id)).filter(Boolean);
+        const rehearsalIds = leaderRehearsals.map(r => String(r.id)).filter(Boolean);
+
+        if (eventIds.length === 0 && rehearsalIds.length === 0) return;
+
+        const [eventVotes, rehearsalVotes] = await Promise.all([
+            Storage.getEventVotesForMultipleEvents(eventIds),
+            Storage.getRehearsalVotesForMultipleRehearsals(rehearsalIds)
+        ]);
+
+        const votes = []
+            .concat((eventVotes || []).map(v => ({ ...v, _type: 'event' })))
+            .concat((rehearsalVotes || []).map(v => ({ ...v, _type: 'rehearsal' })))
+            .filter(v => v.createdAt && String(v.userId) !== String(user.id));
+
+        if (votes.length === 0) return;
+
+        const lastSeenRaw = localStorage.getItem(`voteBanner_seen_${user.id}`);
+        const lastSeen = lastSeenRaw ? Number(lastSeenRaw) : 0;
+        const newVotes = votes.filter(v => new Date(v.createdAt).getTime() > lastSeen);
+
+        if (newVotes.length === 0) return;
+
+        const latestVote = newVotes.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+        const latestTs = new Date(latestVote.createdAt).getTime();
+        const targetView = latestVote._type === 'rehearsal' ? 'rehearsals' : 'events';
+
+        const banner = document.getElementById('voteBanner');
+        const message = document.getElementById('voteBannerMessage');
+
+        if (banner && message) {
+            const voteText = newVotes.length === 1
+                ? '1 neue Abstimmung eingegangen'
+                : `${newVotes.length} neue Abstimmungen eingegangen`;
+            message.textContent = voteText;
+            banner.dataset.latestVoteTs = String(latestTs);
+            banner.dataset.targetView = targetView;
+            banner.style.display = 'block';
+            banner.style.animation = 'none';
+            banner.offsetHeight;
+            banner.style.animation = 'slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1)';
+        }
+    },
+
+    hideVoteBanner(markSeen = false) {
+        const banner = document.getElementById('voteBanner');
+        if (banner) {
+            banner.style.display = 'none';
+        }
+        if (!markSeen) return;
+        const user = Auth.getCurrentUser();
+        if (!user) return;
+        const latestTs = banner?.dataset?.latestVoteTs ? Number(banner.dataset.latestVoteTs) : Date.now();
+        localStorage.setItem(`voteBanner_seen_${user.id}`, String(latestTs));
     },
 
     // Return array of conflicts for given band and dates (dates = array of ISO strings)
@@ -6130,6 +6400,8 @@ const App = {
 
         // Check for unread news and show banner (background)
         this.checkAndShowNewsBanner();
+        // Check for new votes and show banner (background)
+        this.checkAndShowVoteBanner();
 
         // Load calendar right after login so it is ready without manual refresh
         if (document.getElementById('tonstudioView')) {
@@ -7045,6 +7317,37 @@ const App = {
         `, 'info', 8000);
     },
 
+    // ── Calendar quick-action helpers ─────────────────────────────────────────
+
+    openCreateRehearsalModal() {
+        // Trigger the same logic as clicking the "Probe erstellen" button
+        const btn = document.getElementById('createRehearsalBtn');
+        if (btn) {
+            btn.click();
+        } else {
+            console.warn('[openCreateRehearsalModal] createRehearsalBtn not found');
+        }
+    },
+
+    openCreateEventModal() {
+        // Trigger the same logic as clicking the "Auftritt erstellen" button
+        const btn = document.getElementById('createEventBtn');
+        if (btn) {
+            btn.click();
+        } else {
+            console.warn('[openCreateEventModal] createEventBtn not found');
+        }
+    },
+
+    async openAbsencesSettings() {
+        // Open settings modal and switch directly to the absences tab
+        // Use setTimeout to override the default profile-tab switch that happens at end of openSettingsModal
+        await this.openSettingsModal();
+        setTimeout(() => this.switchSettingsTab('absences'), 50);
+    },
+
+    // ──────────────────────────────────────────────────────────────────────────
+
     async openSettingsModal() {
         Logger.action('Open Settings Modal');
         const user = Auth.currentUser;
@@ -7136,7 +7439,8 @@ const App = {
             }
         }
 
-        const profileImageInput = effectiveRoot.querySelector('#profileImageInput');
+        const settingsRoot = document.querySelector('#settingsModal .modal-body') || document;
+        const profileImageInput = settingsRoot.querySelector('#profileImageInput');
         if (profileImageInput && !profileImageInput.dataset.previewHandlerAttached) {
             profileImageInput.addEventListener('change', () => {
                 const currentUser = Auth.getCurrentUser() || user;
@@ -7755,19 +8059,7 @@ const App = {
                         await App.updateDashboard();
                     }
                     // Show/hide 'Neuer Auftritt' and 'Neuer Probetermin' buttons
-                    const user = Auth.getCurrentUser();
-                    let userBands = [];
-                    if (user) {
-                        userBands = await Storage.getUserBands(user.id);
-                    }
-                    const createEventBtn = document.getElementById('createEventBtn');
-                    if (createEventBtn) {
-                        createEventBtn.style.display = (userBands && userBands.length > 0) ? '' : 'none';
-                    }
-                    const createRehearsalBtn = document.getElementById('createRehearsalBtn');
-                    if (createRehearsalBtn) {
-                        createRehearsalBtn.style.display = (userBands && userBands.length > 0) ? '' : 'none';
-                    }
+                    await this.updatePlanningCreationButtons();
                     UI.showToast('Band gelöscht', 'success');
                 }
             });
@@ -8616,6 +8908,29 @@ const App = {
         return { available: true };
     },
 
+    // Check members against cached absences
+    checkMembersAvailabilityLocally(absences, startDateTime, endDateTime) {
+        if (!absences || absences.length === 0) return [];
+        const rangeStart = new Date(startDateTime);
+        const rangeEnd = new Date(endDateTime);
+        
+        return absences.filter(a => {
+            const absStart = new Date(a.startDate);
+            const absEnd = new Date(a.endDate);
+
+            if (!(typeof a.startDate === 'string' && a.startDate.includes('T'))) {
+                absStart.setHours(0, 0, 0, 0);
+            }
+
+            const endIsMidnight = absEnd.getHours() === 0 && absEnd.getMinutes() === 0 && absEnd.getSeconds() === 0 && absEnd.getMilliseconds() === 0;
+            if (!(typeof a.endDate === 'string' && a.endDate.includes('T')) || endIsMidnight) {
+                absEnd.setHours(23, 59, 59, 999);
+            }
+
+            return (absStart <= rangeEnd && absEnd >= rangeStart);
+        });
+    },
+
     // Populate location select
     async populateLocationSelect() {
         const select = document.getElementById('rehearsalLocation');
@@ -8809,7 +9124,8 @@ const App = {
         });
 
         // Handle Events & Rehearsals (Dependent logic: Next Event, Stats, Activities, Upcoming List)
-        Promise.all([bandsPromise, eventsPromise, rehearsalsPromise]).then(([bands, events, rehearsals]) => {
+        try {
+            const [bands, events, rehearsals] = await Promise.all([bandsPromise, eventsPromise, rehearsalsPromise]);
             const now = new Date();
             const nowTs = Date.now();
             const bandMap = new Map((bands || []).map(band => [band.id, band]));
@@ -8927,15 +9243,23 @@ const App = {
 
             // Render upcoming list using cached data
             this.renderUpcomingList(events, rehearsals).catch(err => console.error('[updateDashboard] renderUpcomingList failed', err));
-
-            return { events, rehearsals };
-        });
+        } catch (err) {
+            console.error('[updateDashboard] Failed to load events/rehearsals:', err);
+        }
 
         // Handle Activities (needs News + Events + Rehearsals)
-        Promise.all([eventsPromise, rehearsalsPromise, newsPromise, Storage.getLocations().catch(() => [])]).then(([events, rehearsals, news, locations]) => {
+        try {
+            const [events, rehearsals, news, locations] = await Promise.all([
+                eventsPromise,
+                rehearsalsPromise,
+                newsPromise,
+                Storage.getLocations().catch(() => [])
+            ]);
             const activitySection = document.getElementById('dashboardActivityList');
             if (activitySection) {
                 const locationMap = new Map((locations || []).map(loc => [String(loc.id), loc]));
+                const eventMap = new Map((events || []).map(e => [String(e.id), e]));
+                const rehearsalMap = new Map((rehearsals || []).map(r => [String(r.id), r]));
                 let activities = [];
                 activities = activities.concat(
                     (events || []).map(e => ({
@@ -8968,6 +9292,48 @@ const App = {
                         accent: '#8b5cf6'
                     }))
                 );
+
+                try {
+                    const eventIds = (events || []).map(e => String(e.id)).filter(Boolean);
+                    const rehearsalIds = (rehearsals || []).map(r => String(r.id)).filter(Boolean);
+                    const [eventVotes, rehearsalVotes] = await Promise.all([
+                        Storage.getEventVotesForMultipleEvents(eventIds),
+                        Storage.getRehearsalVotesForMultipleRehearsals(rehearsalIds)
+                    ]);
+                    const voteActivities = [];
+                    (eventVotes || []).forEach(vote => {
+                        if (!vote.createdAt || String(vote.userId) === String(user.id)) return;
+                        const event = eventMap.get(String(vote.eventId));
+                        if (!event) return;
+                        voteActivities.push({
+                            type: 'vote-event',
+                            date: vote.createdAt,
+                            title: event.title || 'Auftritt',
+                            id: event.id,
+                            bandName: event.band?.name || '',
+                            metaSecondary: event.location || '',
+                            accent: event.band?.color || '#8b5cf6'
+                        });
+                    });
+                    (rehearsalVotes || []).forEach(vote => {
+                        if (!vote.createdAt || String(vote.userId) === String(user.id)) return;
+                        const rehearsal = rehearsalMap.get(String(vote.rehearsalId));
+                        if (!rehearsal) return;
+                        voteActivities.push({
+                            type: 'vote-rehearsal',
+                            date: vote.createdAt,
+                            title: rehearsal.title || 'Probetermin',
+                            id: rehearsal.id,
+                            bandName: rehearsal.band?.name || '',
+                            metaSecondary: rehearsal.locationId ? (locationMap.get(String(rehearsal.locationId))?.name || '') : '',
+                            accent: rehearsal.band?.color || '#5b8cff'
+                        });
+                    });
+                    activities = activities.concat(voteActivities);
+                } catch (err) {
+                    console.warn('[dashboard] Could not load vote activities:', err);
+                }
+
                 activities = activities.filter(a => a.date).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
 
                 if (activities.length === 0) {
@@ -8977,7 +9343,7 @@ const App = {
                     <div class="dashboard-activity-item upcoming-card clickable" data-type="${a.type}" data-id="${a.id || ''}" style="--upcoming-accent: ${a.accent}">
                         <div class="upcoming-card-content">
                             <div class="upcoming-card-topline">
-                                <span class="upcoming-card-type">${a.type === 'event' ? 'Auftritt' : a.type === 'rehearsal' ? 'Probetermin' : 'News'}</span>
+                                <span class="upcoming-card-type">${a.type === 'event' ? 'Auftritt' : a.type === 'rehearsal' ? 'Probetermin' : a.type === 'vote-event' ? 'Abstimmung (Auftritt)' : a.type === 'vote-rehearsal' ? 'Abstimmung (Probe)' : 'News'}</span>
                                 ${a.bandName ? `<span class="upcoming-card-band">${Bands.escapeHtml(a.bandName)}</span>` : `<span class="upcoming-card-band">${UI.formatDateShort(a.date)}</span>`}
                             </div>
                             <div class="upcoming-card-title">${Bands.escapeHtml(a.title)}</div>
@@ -8993,14 +9359,16 @@ const App = {
                     activitySection.querySelectorAll('.dashboard-activity-item.clickable').forEach(item => {
                         item.addEventListener('click', async () => {
                             const type = item.dataset.type;
-                            if (type === 'event') self.navigateTo('events', 'dashboard-upcoming-list-event');
-                            else if (type === 'rehearsal') self.navigateTo('rehearsals', 'dashboard-upcoming-list-rehearsal');
+                            if (type === 'event' || type === 'vote-event') self.navigateTo('events', 'dashboard-upcoming-list-event');
+                            else if (type === 'rehearsal' || type === 'vote-rehearsal') self.navigateTo('rehearsals', 'dashboard-upcoming-list-rehearsal');
                             else self.navigateTo('news', 'dashboard-upcoming-list-unknown');
                         });
                     });
                 }
             }
-        });
+        } catch (err) {
+            console.error('[updateDashboard] Failed to load activities:', err);
+        }
 
         Logger.timeEnd('dashboard-load');
     },
@@ -9051,7 +9419,7 @@ const App = {
 
         const combined = [...upcomingEvents, ...upcomingRehearsals]
             .sort((a, b) => new Date(a.date) - new Date(b.date))
-            .slice(0, 5);
+            .slice(0, 3);
 
         if (combined.length === 0) {
             container.innerHTML = '<div class="dashboard-empty-state"><strong>Keine anstehenden Termine</strong><p>Sobald feste Proben oder Auftritte anstehen, erscheinen sie hier.</p></div>';
@@ -9111,19 +9479,7 @@ const App = {
                 await this.updateDashboard();
             }
             // Show 'Neuer Auftritt' and 'Neuer Probetermin' buttons if user is now in a band
-            const user = Auth.getCurrentUser();
-            let userBands = [];
-            if (user) {
-                userBands = await Storage.getUserBands(user.id);
-            }
-            const createEventBtn = document.getElementById('createEventBtn');
-            if (createEventBtn) {
-                createEventBtn.style.display = (userBands && userBands.length > 0) ? '' : 'none';
-            }
-            const createRehearsalBtn = document.getElementById('createRehearsalBtn');
-            if (createRehearsalBtn) {
-                createRehearsalBtn.style.display = (userBands && userBands.length > 0) ? '' : 'none';
-            }
+            await this.updatePlanningCreationButtons();
             // Refresh band management list if admin
             if (Auth.isAdmin() && typeof this.renderAllBandsList === 'function') {
                 await this.renderAllBandsList();
@@ -9171,8 +9527,12 @@ const App = {
             }
 
             // Band-Cache leeren, damit die Übersicht neu geladen wird
-            Bands.bands = null;
-            await Bands.renderBands();
+            if (typeof Bands.invalidateCache === 'function') {
+                Bands.invalidateCache();
+            } else {
+                Bands.bandsCache = null;
+            }
+            await Bands.renderBands(true);
 
             // Wenn die aktuelle Ansicht "bands" ist, Ansicht neu laden
             if (this.currentView === 'bands') {
@@ -9259,8 +9619,12 @@ const App = {
                 if (Bands.currentBandId === bandId) {
                     await Bands.showBandDetails(bandId);
                 }
-                Bands.bands = null; // Clear cache
-                await Bands.renderBands(); // Update list
+                if (typeof Bands.invalidateCache === 'function') {
+                    Bands.invalidateCache();
+                } else {
+                    Bands.bandsCache = null;
+                }
+                await Bands.renderBands(true); // Update list
                 return true;
             } else {
                 UI.showToast('Fehler beim Speichern der URL', 'error');
@@ -9313,8 +9677,12 @@ const App = {
                 if (Bands.currentBandId === bandId) {
                     await Bands.showBandDetails(bandId);
                 }
-                Bands.bands = null;
-                await Bands.renderBands();
+                if (typeof Bands.invalidateCache === 'function') {
+                    Bands.invalidateCache();
+                } else {
+                    Bands.bandsCache = null;
+                }
+                await Bands.renderBands(true);
             } else {
                 UI.showToast('Fehler beim Löschen', 'error');
             }
@@ -9351,16 +9719,8 @@ const App = {
 
         const dates = Rehearsals.getDatesFromForm();
 
-        // Check if there's at least one confirmed proposal
-        const confirmedProposals = document.querySelectorAll('#dateProposals .date-proposal-item[data-confirmed="true"]');
-
-        if (confirmedProposals.length === 0) {
-            UI.showToast('Bitte mindestens einen Terminvorschlag bestätigen', 'error');
-            return;
-        }
-
         if (dates.length === 0) {
-            UI.showToast('Bitte mindestens einen Terminvorschlag machen', 'error');
+            UI.showToast('Bitte mindestens einen vollständigen Terminvorschlag eingeben', 'error');
             return;
         }
 
@@ -9462,6 +9822,7 @@ const App = {
 
                 // Store the proceed function for later use
                 window._pendingRehearsalCreation = proceed;
+                window._locationConflictReturnModalId = 'createRehearsalModal';
 
                 // Close create modal and open conflict modal
                 UI.closeModal('createRehearsalModal');
@@ -9485,12 +9846,45 @@ const App = {
         }
     },
 
+    // Handle editing an existing rehearsal
+    async handleEditRehearsal(rehearsalId) {
+        if (!rehearsalId) return;
+        
+        // Close calendar detail modal if open
+        if (window.PersonalCalendar) {
+            window.PersonalCalendar.closeDetailsModal();
+        }
+        
+        // Close all other modals to be safe
+        UI.closeAllModals();
+        
+        // Navigate to rehearsals view
+        await this.navigateTo('rehearsals');
+        
+        // Open edit modal
+        if (typeof Rehearsals !== 'undefined' && Rehearsals.editRehearsal) {
+            await Rehearsals.editRehearsal(rehearsalId);
+        }
+    },
+
     // Handle create event
     async handleCreateEvent() {
         const editId = document.getElementById('editEventId').value;
         const bandId = document.getElementById('eventBand').value;
         const title = document.getElementById('eventTitle').value;
-        const date = new Date(document.getElementById('eventDate').value).toISOString();
+        const eventDateValue = document.getElementById('eventDate').value;
+
+        if (!bandId) {
+            UI.showToast('Bitte eine Band auswählen.', 'error');
+            return;
+        }
+
+        if (!await Auth.canManageEvents(bandId)) {
+            UI.showToast('Keine Berechtigung – nur Leiter und Co-Leiter dürfen Auftritte für diese Band erstellen oder bearbeiten.', 'error');
+            return;
+        }
+
+        const date = eventDateValue ? new Date(eventDateValue).toISOString() : null;
 
         const location = document.getElementById('eventLocation').value;
         let soundcheckDate = null, soundcheckLocation = null, info = null, techInfo = null;
@@ -9516,7 +9910,19 @@ const App = {
             } else {
                 // Create new
                 Logger.userAction('Form', 'eventForm', 'Submit', { action: 'Create Event', title, bandId });
-                const saved = await Events.createEvent(bandId, title, date, location, info, techInfo, members, guests, soundcheckDate, soundcheckLocation);
+                const saved = await Storage.createEvent({
+                    bandId,
+                    title,
+                    date,
+                    location,
+                    info,
+                    techInfo,
+                    members,
+                    guests,
+                    soundcheckDate,
+                    soundcheckLocation,
+                    status: 'pending'
+                });
                 savedEventId = saved?.id || null;
             }
 
@@ -9536,7 +9942,7 @@ const App = {
         };
 
         // Only check absences for selected members
-        const absences = await Promise.all(members.map(async memberId => {
+        const absences = date ? await Promise.all(members.map(async memberId => {
             const abs = await Storage.getUserAbsences(memberId);
             const eventDate = new Date(date);
             return abs.find(a => {
@@ -9544,7 +9950,7 @@ const App = {
                 const end = new Date(a.endDate);
                 return eventDate >= start && eventDate <= end;
             });
-        }));
+        })) : [];
         const absentMembers = absences.filter(a => !!a);
 
         if (absentMembers.length > 0) {
@@ -9555,6 +9961,27 @@ const App = {
         }
 
         await proceed();
+    },
+
+    // Handle editing an existing event
+    async handleEditEvent(eventId) {
+        if (!eventId) return;
+        
+        // Close calendar detail modal if open
+        if (window.PersonalCalendar) {
+            window.PersonalCalendar.closeDetailsModal();
+        }
+        
+        // Close all other modals to be safe
+        UI.closeAllModals();
+        
+        // Navigate to events view
+        await this.navigateTo('events');
+        
+        // Open edit modal
+        if (typeof Events !== 'undefined' && Events.editEvent) {
+            await Events.editEvent(eventId);
+        }
     },
 
     // Handle create absence
