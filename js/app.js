@@ -2637,15 +2637,17 @@ const App = {
                 eventDateInput.value = '';
             }
 
-            // Ensure proposals section is visible (might be hidden by confirmation flow)
-            const proposalsSection = document.getElementById('eventDateProposalsSection');
-            if (proposalsSection) proposalsSection.style.display = 'block';
-
             // Reset Date Proposals
-            if (typeof Events !== 'undefined' && Events.addDateProposalRow) {
+            if (typeof Events !== 'undefined' && Events.resetDateProposalRows) {
+                Events.resetDateProposalRows();
+            } else if (typeof Events !== 'undefined' && Events.addDateProposalRow) {
                 const container = document.getElementById('eventDateProposals');
                 container.innerHTML = '';
                 Events.addDateProposalRow();
+            }
+
+            if (typeof Events !== 'undefined' && Events.setScheduleMode) {
+                Events.setScheduleMode('fixed', { lockMode: false, refreshAvailability: true });
             }
 
             await Events.populateBandSelect();
@@ -2689,6 +2691,16 @@ const App = {
                 }
             });
         }
+
+        document.querySelectorAll('input[name="eventScheduleMode"]').forEach(input => {
+            if (input.dataset.initialized) return;
+            input.dataset.initialized = 'true';
+            input.addEventListener('change', () => {
+                if (typeof Events !== 'undefined' && typeof Events.setScheduleMode === 'function') {
+                    Events.setScheduleMode(input.value);
+                }
+            });
+        });
 
         // Add event song button (create new song)
         const addEventSongBtn = document.getElementById('addEventSongBtn');
@@ -9835,11 +9847,15 @@ const App = {
         // Check for absence conflicts
         const conflicts = await this.getAbsenceConflicts(bandId, dates);
         if (conflicts && conflicts.length > 0) {
-            // Build message
-            const lines = conflicts.map(c => `${c.name}: ${c.dates.join(', ')}`);
-            const msg = `Achtung — Folgende Mitglieder haben für die ausgewählten Termine Abwesenheiten eingetragen: \n\n${lines.join('\n')}\n\nTrotzdem fortfahren?`;
+            const lines = conflicts.map(c => `• ${c.name}: ${c.dates.join(', ')}`);
+            const msg = `Folgende Mitglieder haben für die ausgewählten Probetermine Abwesenheiten eingetragen:\n\n${lines.join('\n')}\n\nMöchtest du die Probe trotzdem anlegen?`;
             UI.showConfirm(msg, () => {
                 proceed();
+            }, null, {
+                kicker: 'Abwesenheiten',
+                title: 'Mitglieder nicht verfügbar',
+                confirmText: 'Trotzdem anlegen',
+                confirmClass: 'btn-warning'
             });
         } else {
             await proceed();
@@ -9873,6 +9889,12 @@ const App = {
         const bandId = document.getElementById('eventBand').value;
         const title = document.getElementById('eventTitle').value;
         const eventDateValue = document.getElementById('eventDate').value;
+        const scheduleMode = (typeof Events !== 'undefined' && typeof Events.getScheduleMode === 'function')
+            ? Events.getScheduleMode()
+            : 'fixed';
+        const proposals = (scheduleMode === 'proposals' && typeof Events !== 'undefined' && typeof Events.collectDateProposals === 'function')
+            ? Events.collectDateProposals()
+            : [];
 
         if (!bandId) {
             UI.showToast('Bitte eine Band auswählen.', 'error');
@@ -9884,7 +9906,17 @@ const App = {
             return;
         }
 
-        const date = eventDateValue ? new Date(eventDateValue).toISOString() : null;
+        if (scheduleMode === 'fixed' && !eventDateValue) {
+            UI.showToast('Bitte trage den festen Termin ein.', 'error');
+            return;
+        }
+
+        if (scheduleMode === 'proposals' && proposals.length === 0) {
+            UI.showToast('Bitte gib mindestens einen Terminvorschlag mit Uhrzeit an.', 'error');
+            return;
+        }
+
+        const date = scheduleMode === 'fixed' && eventDateValue ? new Date(eventDateValue).toISOString() : null;
 
         const location = document.getElementById('eventLocation').value;
         let soundcheckDate = null, soundcheckLocation = null, info = null, techInfo = null;
@@ -9897,6 +9929,25 @@ const App = {
 
         const members = Events.getSelectedMembers();
         const guests = Events.getGuests();
+        const currentUser = Auth.getCurrentUser();
+        const eventData = {
+            bandId,
+            title,
+            date: scheduleMode === 'fixed' ? date : (proposals.length > 0 ? proposals[0].start : null),
+            proposedDates: scheduleMode === 'proposals' ? proposals : [],
+            location,
+            info,
+            techInfo,
+            members,
+            guests,
+            soundcheckDate,
+            soundcheckLocation,
+            status: scheduleMode === 'fixed' ? 'confirmed' : 'pending'
+        };
+
+        if (!editId && currentUser) {
+            eventData.createdBy = currentUser.id;
+        }
 
         const proceed = async () => {
             // Clear deleted songs list - changes are being saved
@@ -9906,23 +9957,11 @@ const App = {
             if (editId) {
                 // Update existing
                 Logger.userAction('Form', 'eventForm', 'Submit', { action: 'Update Event', eventId: editId, title, bandId });
-                await Events.updateEvent(editId, bandId, title, date, location, info, techInfo, members, guests, soundcheckDate, soundcheckLocation);
+                await Storage.updateEvent(editId, eventData);
             } else {
                 // Create new
                 Logger.userAction('Form', 'eventForm', 'Submit', { action: 'Create Event', title, bandId });
-                const saved = await Storage.createEvent({
-                    bandId,
-                    title,
-                    date,
-                    location,
-                    info,
-                    techInfo,
-                    members,
-                    guests,
-                    soundcheckDate,
-                    soundcheckLocation,
-                    status: 'pending'
-                });
+                const saved = await Storage.createEvent(eventData);
                 savedEventId = saved?.id || null;
             }
 
@@ -9941,23 +9980,28 @@ const App = {
             }
         };
 
-        // Only check absences for selected members
-        const absences = date ? await Promise.all(members.map(async memberId => {
-            const abs = await Storage.getUserAbsences(memberId);
-            const eventDate = new Date(date);
-            return abs.find(a => {
-                const start = new Date(a.startDate);
-                const end = new Date(a.endDate);
-                return eventDate >= start && eventDate <= end;
-            });
-        })) : [];
-        const absentMembers = absences.filter(a => !!a);
+        const datesToCheck = scheduleMode === 'fixed'
+            ? (date ? [date] : [])
+            : proposals.map(proposal => proposal.start);
 
-        if (absentMembers.length > 0) {
-            UI.showConfirm('Mindestens ein ausgewähltes Bandmitglied ist am Termin abwesend. Trotzdem speichern?', async () => {
-                await proceed();
-            });
-            return;
+        if (datesToCheck.length > 0 && members.length > 0) {
+            const conflicts = (typeof Events !== 'undefined' && typeof Events.collectSelectedMemberAbsenceConflicts === 'function')
+                ? await Events.collectSelectedMemberAbsenceConflicts(datesToCheck)
+                : [];
+
+            if (conflicts.length > 0) {
+                const lines = conflicts.map(conflict => `• ${conflict.name}: ${conflict.dates.join(', ')}`);
+                const msg = `Folgende Mitglieder haben für die ausgewählten Auftrittstermine Abwesenheiten eingetragen:\n\n${lines.join('\n')}\n\nMöchtest du den Auftritt trotzdem anlegen?`;
+                UI.showConfirm(msg, async () => {
+                    await proceed();
+                }, null, {
+                    kicker: 'Abwesenheiten',
+                    title: 'Mitglieder nicht verfügbar',
+                    confirmText: 'Trotzdem anlegen',
+                    confirmClass: 'btn-warning'
+                });
+                return;
+            }
         }
 
         await proceed();

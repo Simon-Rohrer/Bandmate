@@ -220,6 +220,70 @@
     line-height: 1.5;
 }
 
+.scheduler-choice-label {
+    display: block;
+    margin-bottom: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text);
+}
+
+.event-schedule-mode-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.85rem;
+}
+
+.event-schedule-mode-option {
+    display: block;
+    position: relative;
+    cursor: pointer;
+}
+
+.event-schedule-mode-option input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.event-schedule-mode-option-body {
+    display: block;
+    min-height: 100%;
+    padding: 1rem 1.05rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent),
+        var(--color-bg-secondary);
+    transition: border-color var(--transition-base), box-shadow var(--transition-base), transform var(--transition-base), background var(--transition-base);
+}
+
+.event-schedule-mode-option:hover .event-schedule-mode-option-body {
+    transform: translateY(-1px);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.event-schedule-mode-option-body strong {
+    display: block;
+    color: var(--color-text);
+    font-size: 0.98rem;
+    line-height: 1.35;
+}
+
+.event-schedule-mode-option-body small {
+    display: block;
+    margin-top: 0.4rem;
+    color: var(--color-text-secondary);
+    line-height: 1.45;
+}
+
+.event-schedule-mode-option input:checked + .event-schedule-mode-option-body {
+    border-color: var(--scheduler-accent);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.18), 0 16px 28px rgba(15, 23, 42, 0.12);
+    background:
+        linear-gradient(180deg, rgba(99, 102, 241, 0.14), transparent 74%),
+        var(--color-bg-secondary);
+}
+
 .scheduler-modal .date-proposals {
     gap: 0.85rem;
     margin-bottom: 0;
@@ -263,7 +327,21 @@
 .scheduler-modal .date-time-range input[type="time"] {
     width: auto;
     max-width: none;
-    flex: 1 1 140px;
+    flex: 1 1 160px;
+    min-height: 54px;
+    padding: 0.78rem 1rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    font-variant-numeric: tabular-nums;
+}
+
+.scheduler-modal-event .date-time-range input[type="date"] {
+    flex-basis: 220px;
+}
+
+.scheduler-modal-event .date-time-range input[type="time"] {
+    flex-basis: 160px;
 }
 
 .scheduler-modal .time-separator {
@@ -27078,6 +27156,8 @@ html[data-theme="dark"] .modal-voting-shell .voting-option-btn.active.no,
 }
 
 #confirmDeleteModal.is-warning .confirm-action-modal-content {
+    width: min(92vw, 620px);
+    max-width: 620px;
     background:
         linear-gradient(180deg, color-mix(in srgb, #f59e0b 6%, transparent), transparent 34%),
         var(--surface);
@@ -27086,6 +27166,11 @@ html[data-theme="dark"] .modal-voting-shell .voting-option-btn.active.no,
 #confirmDeleteModal .confirm-action-modal-header {
     padding: 1rem 1.05rem 0.85rem;
     border-bottom: 1px solid var(--border);
+}
+
+#confirmDeleteModal.is-warning .confirm-action-modal-header {
+    background:
+        linear-gradient(180deg, color-mix(in srgb, #f59e0b 4%, transparent), transparent 100%);
 }
 
 #confirmDeleteModal .confirm-action-modal-copy {
@@ -27117,7 +27202,8 @@ html[data-theme="dark"] .modal-voting-shell .voting-option-btn.active.no,
     margin: 0;
     color: var(--text-secondary);
     font-size: 0.95rem;
-    line-height: 1.55;
+    line-height: 1.6;
+    white-space: pre-line;
 }
 
 #confirmDeleteModal .confirm-action-modal-actions {
@@ -27138,6 +27224,11 @@ html[data-theme="dark"] .modal-voting-shell .voting-option-btn.active.no,
         max-width: 350px;
         max-height: min(58dvh, 440px);
         border-radius: 20px;
+    }
+
+    #confirmDeleteModal.is-warning .confirm-action-modal-content {
+        width: min(92vw, 520px);
+        max-width: 520px;
     }
 
     #confirmDeleteModal .confirm-action-modal-header {
@@ -29743,19 +29834,47 @@ html[data-theme="light"] #landingPage .auth-forgot-password-link,
 }
 
 /* ===== Rehearsal Modal Polish ===== */
+.scheduler-modal-event .scheduler-panel-basics .scheduler-panel-head,
 .scheduler-modal-rehearsal .scheduler-panel-basics .scheduler-panel-head {
     display: grid;
     justify-content: flex-start;
     gap: 0.45rem;
 }
 
+.scheduler-modal-event .scheduler-panel-basics .scheduler-panel-head p,
 .scheduler-modal-rehearsal .scheduler-panel-basics .scheduler-panel-head p {
     max-width: 42rem;
 }
 
+.scheduler-modal-event .scheduler-panel-basics .scheduler-grid-basics,
 .scheduler-modal-rehearsal .scheduler-panel-basics .scheduler-grid-basics {
     width: min(100%, 52rem);
     grid-template-columns: minmax(0, 1fr);
+}
+
+.scheduler-modal-event #eventTitle,
+.scheduler-modal-event #eventBand,
+.scheduler-modal-event #eventLocation,
+.scheduler-modal-event #eventDate {
+    width: 100%;
+    max-width: none;
+}
+
+.scheduler-modal-event .scheduler-panel-basics .event-schedule-mode-grid {
+    width: 100%;
+    max-width: 52rem;
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.scheduler-modal-rehearsal .scheduler-form-scroll,
+.scheduler-modal-event .scheduler-form-scroll {
+    justify-items: center;
+}
+
+.scheduler-modal-rehearsal .scheduler-form-scroll > *,
+.scheduler-modal-event .scheduler-form-scroll > * {
+    width: min(100%, 84rem);
+    margin-inline: auto;
 }
 
 .scheduler-modal-rehearsal .member-selection-grid {
@@ -29829,7 +29948,7 @@ html[data-theme="light"] #landingPage .auth-forgot-password-link,
 
 .scheduler-modal-rehearsal .date-time-range {
     display: grid;
-    grid-template-columns: minmax(180px, 1.2fr) minmax(110px, 0.82fr) auto minmax(110px, 0.82fr);
+    grid-template-columns: minmax(220px, 1.25fr) minmax(128px, 0.88fr) auto minmax(128px, 0.88fr);
     gap: 0.75rem;
     align-items: center;
 }

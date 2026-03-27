@@ -745,6 +745,14 @@ const Events = {
             addDateBtn.onclick = () => this.addDateProposalRow();
         }
 
+        document.querySelectorAll('input[name="eventScheduleMode"]').forEach(input => {
+            if (input.dataset.initialized) return;
+            input.dataset.initialized = 'true';
+            input.addEventListener('change', () => {
+                this.setScheduleMode(input.value);
+            });
+        });
+
         // Modal close buttons
         document.querySelectorAll('.modal-close, .btn.cancel').forEach(btn => {
             if (!btn.dataset.initialized) {
@@ -907,6 +915,92 @@ const Events = {
         document.getElementById('suggestTimeEventDateIndex').value = dateIndex;
         document.getElementById('eventSuggestedTimeInput').value = '';
         UI.openModal('eventTimeSuggestionModal');
+    },
+
+    getScheduleMode() {
+        return document.querySelector('input[name="eventScheduleMode"]:checked')?.value === 'proposals'
+            ? 'proposals'
+            : 'fixed';
+    },
+
+    resolveScheduleModeFromEvent(event, confirmDate = null) {
+        if (confirmDate) return 'fixed';
+
+        if (Array.isArray(event?.proposedDates) && event.proposedDates.length > 0 && event.status !== 'confirmed') {
+            return 'proposals';
+        }
+
+        return 'fixed';
+    },
+
+    collectDateProposals() {
+        const proposals = [];
+
+        document.querySelectorAll('#eventDateProposals .date-proposal-item').forEach(row => {
+            const date = row.querySelector('.event-date-input-date')?.value;
+            const start = row.querySelector('.event-date-input-start')?.value;
+
+            if (date && start) {
+                proposals.push({
+                    start: `${date}T${start}`,
+                    end: `${date}T${start}`
+                });
+            }
+        });
+
+        return proposals;
+    },
+
+    resetDateProposalRows() {
+        const container = document.getElementById('eventDateProposals');
+        if (!container) return;
+
+        container.innerHTML = '';
+        this.addDateProposalRow();
+    },
+
+    setScheduleMode(mode = 'fixed', options = {}) {
+        const normalizedMode = mode === 'proposals' ? 'proposals' : 'fixed';
+        const fixedRadio = document.getElementById('eventScheduleModeFixed');
+        const proposalsRadio = document.getElementById('eventScheduleModeProposals');
+        const modeSection = document.getElementById('eventScheduleModeSection');
+        const fixedSection = document.getElementById('eventFixedDateSection');
+        const proposalsSection = document.getElementById('eventDateProposalsSection');
+        const fixedDateInput = document.getElementById('eventDate');
+        const fixedDateIndicator = document.getElementById('eventFixedDateAvailability');
+        const proposalsContainer = document.getElementById('eventDateProposals');
+
+        if (fixedRadio) fixedRadio.checked = normalizedMode === 'fixed';
+        if (proposalsRadio) proposalsRadio.checked = normalizedMode === 'proposals';
+
+        if (modeSection) {
+            modeSection.style.display = options.lockMode ? 'none' : '';
+        }
+
+        if (fixedSection) {
+            fixedSection.style.display = normalizedMode === 'fixed' ? '' : 'none';
+        }
+
+        if (proposalsSection) {
+            proposalsSection.style.display = normalizedMode === 'proposals' ? 'block' : 'none';
+        }
+
+        if (fixedDateInput) {
+            fixedDateInput.required = normalizedMode === 'fixed';
+        }
+
+        if (fixedDateIndicator && normalizedMode !== 'fixed') {
+            fixedDateIndicator.textContent = '';
+            fixedDateIndicator.className = 'date-availability';
+        }
+
+        if (normalizedMode === 'proposals' && proposalsContainer && !proposalsContainer.querySelector('.date-proposal-item')) {
+            this.addDateProposalRow();
+        }
+
+        if (options.refreshAvailability !== false) {
+            this.updateAvailabilityIndicators();
+        }
     },
 
     async openConfirmModal(eventId, dateIndex) {
@@ -1078,7 +1172,8 @@ const Events = {
         const eventId = document.getElementById('editEventId').value;
         const bandId = document.getElementById('eventBand').value;
         const title = document.getElementById('eventTitle').value;
-        const fixedDate = document.getElementById('eventDate').value;
+        const scheduleMode = this.getScheduleMode();
+        const fixedDate = scheduleMode === 'fixed' ? document.getElementById('eventDate').value : '';
         const location = document.getElementById('eventLocation').value;
 
         if (!bandId) {
@@ -1091,21 +1186,15 @@ const Events = {
             return;
         }
 
-        const proposals = [];
-        document.querySelectorAll('#eventDateProposals .date-proposal-item').forEach(row => {
-            const date = row.querySelector('.event-date-input-date').value;
-            const start = row.querySelector('.event-date-input-start').value;
-            if (date && start) {
-                proposals.push({
-                    start: `${date}T${start}`,
-                    end: `${date}T${start}` // Default end to start for database consistency if needed
-                });
-            }
-        });
+        const proposals = scheduleMode === 'proposals' ? this.collectDateProposals() : [];
 
-        // Validation: Must have at least one date with time
-        if (!fixedDate && proposals.length === 0) {
-            UI.showToast('Bitte gib mindestens einen Termin mit Uhrzeit an.', 'warning');
+        if (scheduleMode === 'fixed' && !fixedDate) {
+            UI.showToast('Bitte trage den festen Termin ein.', 'warning');
+            return;
+        }
+
+        if (scheduleMode === 'proposals' && proposals.length === 0) {
+            UI.showToast('Bitte gib mindestens einen Terminvorschlag mit Uhrzeit an.', 'warning');
             return;
         }
 
@@ -1115,9 +1204,9 @@ const Events = {
             title,
             location,
             soundcheckLocation: document.getElementById('eventSoundcheckLocation')?.value,
-            status: fixedDate ? 'confirmed' : 'pending',
-            date: fixedDate || (proposals.length > 0 ? proposals[0].start : null),
-            proposedDates: proposals.length > 0 ? proposals : null,
+            status: scheduleMode === 'fixed' ? 'confirmed' : 'pending',
+            date: scheduleMode === 'fixed' ? fixedDate : (proposals.length > 0 ? proposals[0].start : null),
+            proposedDates: scheduleMode === 'proposals' ? proposals : [],
             info: document.getElementById('eventInfo').value,
             techInfo: document.getElementById('eventTechInfo').value,
             members: this.getSelectedMembers(),
@@ -1128,37 +1217,60 @@ const Events = {
             eventData.createdBy = user.id;
         }
 
-        try {
-            let savedEventId = eventId;
-            if (eventId) {
-                await Storage.updateEvent(eventId, eventData);
-                UI.showToast('Auftritt aktualisiert', 'success');
-            } else {
-                const newEvent = await Storage.createEvent(eventData);
-                savedEventId = newEvent?.id;
-                UI.showToast('Auftritt erstellt', 'success');
+        const persistEvent = async () => {
+            try {
+                let savedEventId = eventId;
+                if (eventId) {
+                    await Storage.updateEvent(eventId, eventData);
+                    UI.showToast('Auftritt aktualisiert', 'success');
+                } else {
+                    const newEvent = await Storage.createEvent(eventData);
+                    savedEventId = newEvent?.id;
+                    UI.showToast('Auftritt erstellt', 'success');
+                }
+
+                // Save Songs
+                if (savedEventId && typeof App !== 'undefined') {
+                    // Use syncEventSongs to handle additions, deletions, and ordering
+                    // We pass draftEventSongIds which contains mixture of existing IDs and new BandSong IDs
+                    await App.syncEventSongs(savedEventId, App.draftEventSongIds || []);
+
+                    // Clear draft
+                    App.draftEventSongIds = [];
+                    App.draftEventSongOverrides = {};
+                    App.deletedEventSongs = [];
+
+                    if (App.updateDashboard) await App.updateDashboard();
+                }
+
+                UI.closeModal('createEventModal');
+                await this.renderEvents(this.currentFilter, true);
+            } catch (error) {
+                console.error('Error saving event:', error);
+                UI.showToast('Fehler beim Speichern', 'error');
             }
+        };
 
-            // Save Songs
-            if (savedEventId && typeof App !== 'undefined') {
-                // Use syncEventSongs to handle additions, deletions, and ordering
-                // We pass draftEventSongIds which contains mixture of existing IDs and new BandSong IDs
-                await App.syncEventSongs(savedEventId, App.draftEventSongIds || []);
+        const datesToCheck = scheduleMode === 'fixed'
+            ? (fixedDate ? [fixedDate] : [])
+            : proposals.map(proposal => proposal.start);
+        const absenceConflicts = await this.collectSelectedMemberAbsenceConflicts(datesToCheck);
 
-                // Clear draft
-                App.draftEventSongIds = [];
-                App.draftEventSongOverrides = {};
-                App.deletedEventSongs = [];
-
-                if (App.updateDashboard) await App.updateDashboard();
-            }
-
-            UI.closeModal('createEventModal');
-            await this.renderEvents(this.currentFilter, true);
-        } catch (error) {
-            console.error('Error saving event:', error);
-            UI.showToast('Fehler beim Speichern', 'error');
+        if (absenceConflicts.length > 0) {
+            const lines = absenceConflicts.map(conflict => `• ${conflict.name}: ${conflict.dates.join(', ')}`);
+            const msg = `Folgende Mitglieder haben für die ausgewählten Auftrittstermine Abwesenheiten eingetragen:\n\n${lines.join('\n')}\n\nMöchtest du den Auftritt trotzdem speichern?`;
+            UI.showConfirm(msg, async () => {
+                await persistEvent();
+            }, null, {
+                kicker: 'Abwesenheiten',
+                title: 'Mitglieder nicht verfügbar',
+                confirmText: 'Trotzdem speichern',
+                confirmClass: 'btn-warning'
+            });
+            return;
         }
+
+        await persistEvent();
     },
 
     toggleAccordion(eventId) {
@@ -1245,15 +1357,11 @@ const Events = {
 
         const container = document.getElementById('eventDateProposals');
         container.innerHTML = '';
-        const proposalsSection = document.getElementById('eventDateProposalsSection');
+        const scheduleMode = this.resolveScheduleModeFromEvent(event, confirmDate);
 
         if (confirmDate) {
-            // Confirming: Hide proposals, user is choosing a fixed date
-            if (proposalsSection) proposalsSection.style.display = 'none';
+            this.setScheduleMode('fixed', { lockMode: true, refreshAvailability: false });
         } else {
-            // Normal edit
-            if (proposalsSection) proposalsSection.style.display = 'block';
-
             if (event.proposedDates && event.proposedDates.length > 0) {
                 event.proposedDates.forEach(prop => {
                     const row = document.createElement('div');
@@ -1277,9 +1385,11 @@ const Events = {
                         input.addEventListener('change', () => this.updateAvailabilityIndicators());
                     });
                 });
-            } else {
+            } else if (scheduleMode === 'proposals') {
                 this.addDateProposalRow();
             }
+
+            this.setScheduleMode(scheduleMode, { lockMode: false, refreshAvailability: false });
         }
 
         const songPoolBtn = document.getElementById('copyBandSongsBtn');
@@ -1326,6 +1436,123 @@ const Events = {
         });
 
         return [...new Set(parsed.filter(Boolean))];
+    },
+
+    getMemberConflictSummaryLabel(memberConflicts = []) {
+        const memberConflictCount = memberConflicts.length || 1;
+        return memberConflictCount === 1
+            ? '1 ausgewähltes Mitglied ist nicht verfügbar'
+            : `${memberConflictCount} ausgewählte Mitglieder sind nicht verfügbar`;
+    },
+
+    getMemberStatusMeta(memberConflicts = []) {
+        if (memberConflicts.length > 0) {
+            return null;
+        }
+
+        return {
+            tone: 'success',
+            text: 'Mitglieder: alle ausgewählten Mitglieder sind verfügbar'
+        };
+    },
+
+    buildMemberStatusMarkup(memberConflicts = []) {
+        const memberStatus = this.getMemberStatusMeta(memberConflicts);
+        if (!memberStatus) return '';
+
+        return `
+            <div class="proposal-status-stack">
+                <span class="proposal-status-line is-${memberStatus.tone}">✓ ${memberStatus.text}</span>
+            </div>
+        `;
+    },
+
+    collectMemberConflicts(startDateTime, endDateTime) {
+        if (typeof App === 'undefined' || !App.checkMembersAvailabilityLocally || !Array.isArray(this.currentBandMemerAbsences)) {
+            return [];
+        }
+
+        const selectedMembers = typeof this.getSelectedMembers === 'function' ? this.getSelectedMembers() : [];
+        const relevantAbsences = this.currentBandMemerAbsences.filter(absence => selectedMembers.includes(String(absence.userId)));
+
+        return App.checkMembersAvailabilityLocally(relevantAbsences, startDateTime, endDateTime).map(conflict => {
+            const card = document.querySelector(`.member-select-card[data-user-id="${conflict.userId}"]`);
+            const userName = card?.querySelector('.member-select-name')?.textContent?.trim() || 'Ein Mitglied';
+
+            return {
+                ...conflict,
+                name: userName,
+                reason: conflict.reason || 'Abwesend'
+            };
+        });
+    },
+
+    buildMemberConflictDetailsSection(memberConflicts = []) {
+        if (!Array.isArray(memberConflicts) || memberConflicts.length === 0) return '';
+
+        const headerText = memberConflicts.length === 1
+            ? 'Dieses ausgewählte Mitglied ist in diesem Zeitraum nicht verfügbar:'
+            : 'Diese ausgewählten Mitglieder sind in diesem Zeitraum nicht verfügbar:';
+
+        return `
+            <div class="conflict-details-header">${headerText}</div>
+            ${memberConflicts.map(conflict => {
+                const name = Bands.escapeHtml(conflict.name || 'Ein Mitglied');
+                const reason = conflict.reason ? ` (${Bands.escapeHtml(conflict.reason)})` : '';
+                return `<div class="conflict-item">• ${name}${reason}</div>`;
+            }).join('')}
+        `;
+    },
+
+    buildAvailabilityDetailsHtml(memberConflicts = []) {
+        if (!Array.isArray(memberConflicts) || memberConflicts.length === 0) return '';
+        return `<div class="member-details-box">${this.buildMemberConflictDetailsSection(memberConflicts)}</div>`;
+    },
+
+    async collectSelectedMemberAbsenceConflicts(dateValues = []) {
+        const selectedMembers = typeof this.getSelectedMembers === 'function' ? this.getSelectedMembers() : [];
+        if (!Array.isArray(dateValues) || dateValues.length === 0 || selectedMembers.length === 0) {
+            return [];
+        }
+
+        const conflicts = [];
+
+        for (const memberId of selectedMembers) {
+            const [user, absences] = await Promise.all([
+                Storage.getById('users', memberId),
+                Storage.getUserAbsences(memberId)
+            ]);
+
+            const userConflicts = dateValues
+                .filter(dateToCheck => {
+                    const eventDate = new Date(dateToCheck);
+                    return (absences || []).some(absence => {
+                        const start = new Date(absence.startDate);
+                        const end = new Date(absence.endDate);
+
+                        if (!(typeof absence.startDate === 'string' && absence.startDate.includes('T'))) {
+                            start.setHours(0, 0, 0, 0);
+                        }
+
+                        const endIsMidnight = end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0 && end.getMilliseconds() === 0;
+                        if (!(typeof absence.endDate === 'string' && absence.endDate.includes('T')) || endIsMidnight) {
+                            end.setHours(23, 59, 59, 999);
+                        }
+
+                        return eventDate >= start && eventDate <= end;
+                    });
+                })
+                .map(dateToCheck => UI.formatDateOnly(new Date(dateToCheck).toISOString()));
+
+            if (userConflicts.length > 0) {
+                conflicts.push({
+                    name: UI.getUserDisplayName(user),
+                    dates: [...new Set(userConflicts)]
+                });
+            }
+        }
+
+        return conflicts;
     },
 
     async loadBandMembers(bandId, selectedMembers = null) {
@@ -1386,7 +1613,6 @@ const Events = {
                                 <span class="member-select-role">${Bands.escapeHtml(roleLabel)}</span>
                             </span>
                             ${instrumentHtml}
-                            <span class="member-select-absence-note text-danger" style="display:none; font-size: 0.75rem; margin-top: 2px;"></span>
                         </span>
                         <span class="member-select-check" aria-hidden="true">✓</span>
                     </span>
@@ -1411,56 +1637,38 @@ const Events = {
     },
 
     async updateAvailabilityIndicators() {
-        // Evaluate for fixed date
-        const selectedMembers = typeof this.getSelectedMembers === 'function' ? this.getSelectedMembers() : [];
-        const memberAbsencesMap = {};
+        const scheduleMode = this.getScheduleMode();
+        const fixedDateInput = document.getElementById('eventDate');
+        const fixedDateIndicator = document.getElementById('eventFixedDateAvailability');
+        const fixedDateSection = document.getElementById('eventFixedDateSection');
 
-        // Reset member absence notes
-        document.querySelectorAll('.member-select-card').forEach(card => {
-            const note = card.querySelector('.member-select-absence-note');
-            if (note) {
-                note.style.display = 'none';
-                note.textContent = '';
-            }
-            card.classList.remove('has-conflict');
-        });
+        if (fixedDateIndicator && (scheduleMode !== 'fixed' || !fixedDateInput?.value)) {
+            fixedDateIndicator.textContent = '';
+            fixedDateIndicator.className = 'date-availability';
+        }
 
-        const locationId = document.getElementById('eventLocation')?.value || ''; // Events uses string mostly, but we can do our best if it's text "Musterstadt" vs Location ID.
-        // Wait, eventLocation is a text input, not a select!
-        // App.checkLocationAvailability expects an ID. For Events, it doesn't currently check location availability interactively because it's text.
-        // We only check member absences for events!
+        if (fixedDateSection) {
+            fixedDateSection.querySelectorAll('.availability-details-stack').forEach(details => details.remove());
+        }
 
         if (typeof App === 'undefined' || !App.checkMembersAvailabilityLocally || !this.currentBandMemerAbsences) return;
 
         // 1. Fixed Date
-        const fixedDateInput = document.getElementById('eventDate');
-        const fixedDateIndicator = document.getElementById('eventFixedDateAvailability');
         if (fixedDateInput && fixedDateIndicator) {
-            if (fixedDateInput.value) {
-                const dt = new Date(fixedDateInput.value);
-                const relevantAbsences = this.currentBandMemerAbsences.filter(a => selectedMembers.includes(String(a.userId)));
-                const memberConflicts = App.checkMembersAvailabilityLocally(relevantAbsences, dt, dt);
-                
-                let dateConflicts = [];
-                memberConflicts.forEach(conflict => {
-                    const card = document.querySelector(`.member-select-card[data-user-id="${conflict.userId}"]`);
-                    const userName = card ? card.querySelector('.member-select-name').textContent : 'Ein Mitglied';
-                    const reason = conflict.reason || 'Abwesend';
-                    dateConflicts.push(`${Bands.escapeHtml(userName)} (${Bands.escapeHtml(reason)})`);
-                    
-                    if (!memberAbsencesMap[conflict.userId]) memberAbsencesMap[conflict.userId] = [];
-                    memberAbsencesMap[conflict.userId].push(reason);
-                });
+            if (scheduleMode === 'fixed' && fixedDateInput.value) {
+                const dateValue = new Date(fixedDateInput.value).toISOString();
+                const memberConflicts = this.collectMemberConflicts(dateValue, dateValue);
 
-                if (dateConflicts.length === 0) {
-                     fixedDateIndicator.textContent = '✓ Alle verfügbar';
-                     fixedDateIndicator.className = 'date-availability is-available';
-                } else {
-                     fixedDateIndicator.textContent = `⚠️ Konflikte: ${dateConflicts.join(', ')}`;
-                     fixedDateIndicator.className = 'date-availability has-conflict';
+                fixedDateIndicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
+                fixedDateIndicator.className = `date-availability ${memberConflicts.length > 0 ? 'has-conflict' : 'is-available'}`;
+
+                const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts);
+                if (detailsHtml) {
+                    fixedDateIndicator.insertAdjacentHTML('afterend', `<div class="availability-details-stack">${detailsHtml}</div>`);
                 }
             } else {
                 fixedDateIndicator.textContent = '';
+                fixedDateIndicator.className = 'date-availability';
             }
         }
 
@@ -1473,49 +1681,34 @@ const Events = {
 
             if (!indicator) continue;
 
+            const existingDetails = item.querySelector('.availability-details-stack, .member-details-box');
+            if (existingDetails) {
+                existingDetails.remove();
+            }
+
+            if (scheduleMode !== 'proposals') {
+                indicator.textContent = '';
+                indicator.className = 'date-availability';
+                continue;
+            }
+
             if (!dateInput || !dateInput.value || !startInput || !startInput.value) {
                 indicator.textContent = '';
                 indicator.className = 'date-availability';
                 continue;
             }
 
-            const startDateTime = `${dateInput.value}T${startInput.value}`;
-            const relevantAbsences = this.currentBandMemerAbsences.filter(a => selectedMembers.includes(String(a.userId)));
-            const memberConflicts = App.checkMembersAvailabilityLocally(relevantAbsences, startDateTime, startDateTime);
-            
-            let dateConflicts = [];
-            memberConflicts.forEach(conflict => {
-                const card = document.querySelector(`.member-select-card[data-user-id="${conflict.userId}"]`);
-                const userName = card ? card.querySelector('.member-select-name').textContent : 'Ein Mitglied';
-                const reason = conflict.reason || 'Abwesend';
-                dateConflicts.push(`${Bands.escapeHtml(userName)} (${Bands.escapeHtml(reason)})`);
-                
-                if (!memberAbsencesMap[conflict.userId]) memberAbsencesMap[conflict.userId] = [];
-                memberAbsencesMap[conflict.userId].push(reason);
-            });
+            const startDateTime = new Date(`${dateInput.value}T${startInput.value}`).toISOString();
+            const memberConflicts = this.collectMemberConflicts(startDateTime, startDateTime);
 
-            if (dateConflicts.length === 0) {
-                 indicator.textContent = '✓ Alle verfügbar';
-                 indicator.className = 'date-availability is-available';
-            } else {
-                 indicator.textContent = `⚠️ Konflikte: ${dateConflicts.join(', ')}`;
-                 indicator.className = 'date-availability has-conflict';
+            indicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
+            indicator.className = `date-availability ${memberConflicts.length > 0 ? 'has-conflict' : 'is-available'}`;
+
+            const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts);
+            if (detailsHtml) {
+                item.insertAdjacentHTML('beforeend', `<div class="availability-details-stack">${detailsHtml}</div>`);
             }
         }
-
-        // Display absent warning on member cards
-        Object.keys(memberAbsencesMap).forEach(userId => {
-            const card = document.querySelector(`.member-select-card[data-user-id="${userId}"]`);
-            if (card) {
-                const note = card.querySelector('.member-select-absence-note');
-                const uniqueReasons = [...new Set(memberAbsencesMap[userId])];
-                if (note) {
-                    note.textContent = '🚫 ' + uniqueReasons.join(', ');
-                    note.style.display = 'block';
-                }
-                card.classList.add('has-conflict');
-            }
-        });
     },
 
 

@@ -211,6 +211,10 @@ const UI = {
                 })();
             }
 
+            if (typeof modal._confirmActionOnClose === 'function') {
+                modal._confirmActionOnClose();
+            }
+
             modal.classList.remove('active');
 
             // Check if any other modals are open before removing scroll lock
@@ -276,19 +280,24 @@ const UI = {
     },
 
     // Generic confirm action dialog
-    confirmAction(message, title = 'Bestätigung', confirmText = 'OK', confirmClass = 'btn-primary') {
+    confirmAction(message, title = 'Bestätigung', confirmText = 'OK', confirmClass = 'btn-primary', options = {}) {
         return new Promise((resolve) => {
             const modal = document.getElementById('confirmDeleteModal');
+            const kickerEl = document.getElementById('confirmDeleteKicker');
             const titleEl = document.getElementById('confirmDeleteTitle');
             const messageEl = document.getElementById('confirmDeleteMessage');
             const confirmBtn = document.getElementById('confirmDeleteConfirm');
             const cancelBtn = document.getElementById('confirmDeleteCancel');
-            const closeBtn = modal.querySelector('.modal-close');
+            const closeBtn = modal ? modal.querySelector('.modal-close') : null;
 
             if (!modal || !confirmBtn || !cancelBtn || !closeBtn) {
                 console.error('confirmAction: Required modal elements not found');
                 resolve(false);
                 return;
+            }
+
+            if (kickerEl) {
+                kickerEl.textContent = options.kicker || 'Bestätigung';
             }
 
             if (titleEl) {
@@ -316,29 +325,39 @@ const UI = {
             // Update button text and class
             newConfirmBtn.textContent = confirmText;
             newConfirmBtn.className = 'btn ' + confirmClass;
+            newCancelBtn.textContent = options.cancelText || 'Abbrechen';
 
             confirmBtn.replaceWith(newConfirmBtn);
             cancelBtn.replaceWith(newCancelBtn);
             closeBtn.replaceWith(newCloseBtn);
 
-            const cleanup = () => {
-                this.closeModal('confirmDeleteModal');
+            let settled = false;
+            const finalize = (result) => {
+                if (settled) return;
+                settled = true;
+                delete modal._confirmActionResult;
+                delete modal._confirmActionOnClose;
+                resolve(result);
             };
 
-            // Add event listeners to the new buttons
+            modal._confirmActionOnClose = () => {
+                const result = modal._confirmActionResult === true;
+                finalize(result);
+            };
+
             newConfirmBtn.addEventListener('click', () => {
-                cleanup();
-                resolve(true);
+                modal._confirmActionResult = true;
+                this.closeModal('confirmDeleteModal');
             });
 
             newCancelBtn.addEventListener('click', () => {
-                cleanup();
-                resolve(false);
+                modal._confirmActionResult = false;
+                this.closeModal('confirmDeleteModal');
             });
 
             newCloseBtn.addEventListener('click', () => {
-                cleanup();
-                resolve(false);
+                modal._confirmActionResult = false;
+                this.closeModal('confirmDeleteModal');
             });
 
             this.openModal('confirmDeleteModal');
@@ -566,46 +585,20 @@ const UI = {
     // Show a custom confirmation modal with callbacks
     // onConfirm: function called when user confirms
     // onCancel: optional function called when user cancels
-    showConfirm(message, onConfirm, onCancel) {
-        // Create modal markup
-        let existing = document.getElementById('customConfirmModal');
-        if (existing) existing.remove();
+    showConfirm(message, onConfirm, onCancel, options = {}) {
+        this.confirmAction(
+            message,
+            options.title || 'Bestätigung',
+            options.confirmText || 'Bestätigen',
+            options.confirmClass || 'btn-primary',
+            options
+        ).then((confirmed) => {
+            if (confirmed) {
+                if (typeof onConfirm === 'function') onConfirm();
+                return;
+            }
 
-        const modal = document.createElement('div');
-        modal.id = 'customConfirmModal';
-        modal.className = 'modal active';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Bestätigung</h2>
-                    <button class="modal-close">&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p>${message}</p>
-                </div>
-                <div class="modal-actions" style="display:flex; gap:8px; justify-content:flex-end; padding:12px;">
-                    <button id="confirmCancelBtn" class="btn">Abbrechen</button>
-                    <button id="confirmOkBtn" class="btn btn-primary">Bestätigen</button>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Wire events
-        modal.querySelector('.modal-close').addEventListener('click', () => {
-            modal.remove();
             if (typeof onCancel === 'function') onCancel();
-        });
-
-        modal.querySelector('#confirmCancelBtn').addEventListener('click', () => {
-            modal.remove();
-            if (typeof onCancel === 'function') onCancel();
-        });
-
-        modal.querySelector('#confirmOkBtn').addEventListener('click', () => {
-            modal.remove();
-            if (typeof onConfirm === 'function') onConfirm();
         });
     },
 

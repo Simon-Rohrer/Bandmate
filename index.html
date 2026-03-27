@@ -2884,7 +2884,7 @@
 
     <!-- Create Event Modal -->
     <div id="createEventModal" class="modal">
-        <div class="modal-content modal-xl scheduler-modal scheduler-modal-event">
+        <div class="modal-content modal-large scheduler-modal scheduler-modal-event">
             <div class="modal-header scheduler-modal-header">
                 <div class="scheduler-modal-title-group">
                     <span class="scheduler-modal-kicker">Auftrittsplanung</span>
@@ -2896,36 +2896,57 @@
             <form id="createEventForm" class="scheduler-form">
                 <input type="hidden" id="editEventId">
                 <div class="scheduler-form-scroll">
-                    <section class="scheduler-panel">
+                    <section class="scheduler-panel scheduler-panel-basics">
                         <div class="scheduler-panel-head">
                             <div>
                                 <span class="scheduler-panel-eyebrow">Grunddaten</span>
                                 <h3>Rahmen des Auftritts</h3>
                             </div>
-                            <p>Hier legst du Band, Anlass, festen Termin und Ort fest.</p>
+                            <p>Lege Titel, Band, Ort und Terminart in einer klaren Reihenfolge fest.</p>
                         </div>
-                        <div class="form-grid-2 scheduler-grid">
-                            <div class="form-group">
-                                <label for="eventBand">Band <span style="color:red;" title="Pflichtfeld">*</span></label>
+                        <div class="form-grid-2 scheduler-grid scheduler-grid-basics">
+                            <div class="form-group scheduler-span-2">
+                                <label for="eventTitle">Titel / Anlass <span class="required-indicator" title="Pflichtfeld">*</span></label>
+                                <input type="text" id="eventTitle" placeholder="z. B. Hochzeit, Firmenfeier oder Stadtfest" required>
+                                <small class="scheduler-field-note">Wähle einen klaren Anlass, damit der Auftritt später sofort verständlich zugeordnet werden kann.</small>
+                            </div>
+                            <div class="form-group scheduler-span-2">
+                                <label for="eventBand">Band <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <select id="eventBand" required>
                                     <option value="">Band auswählen</option>
                                 </select>
                                 <small class="scheduler-field-note">Hier werden nur Bands angezeigt, bei denen du Leiter oder Co-Leiter bist. Nur für diese Bands kannst du Auftritte erstellen.</small>
                             </div>
-                            <div class="form-group">
-                                <label for="eventTitle">Titel / Anlass <span style="color:red;"
-                                        title="Pflichtfeld">*</span></label>
-                                <input type="text" id="eventTitle" placeholder="z.B. Hochzeit, Firmenfeier..." required>
+                            <div class="form-group scheduler-span-2">
+                                <label for="eventLocation">Ort des Auftrittes</label>
+                                <input type="text" id="eventLocation" placeholder="Musterstadt, Hauptstr 1">
+                                <small class="scheduler-field-note">Trage hier den Veranstaltungsort oder die vollständige Adresse ein.</small>
                             </div>
-                            <div class="form-group">
-                                <label for="eventDate">Datum und Uhrzeit (fixer Termin)</label>
+                            <div class="form-group scheduler-span-2" id="eventScheduleModeSection">
+                                <span class="scheduler-choice-label">Terminart</span>
+                                <div class="event-schedule-mode-grid" role="radiogroup" aria-label="Terminart des Auftritts">
+                                    <label class="event-schedule-mode-option">
+                                        <input type="radio" name="eventScheduleMode" id="eventScheduleModeFixed" value="fixed" checked>
+                                        <span class="event-schedule-mode-option-body">
+                                            <strong>Termin steht fest</strong>
+                                            <small>Datum und Uhrzeit sind bereits verbindlich.</small>
+                                        </span>
+                                    </label>
+                                    <label class="event-schedule-mode-option">
+                                        <input type="radio" name="eventScheduleMode" id="eventScheduleModeProposals" value="proposals">
+                                        <span class="event-schedule-mode-option-body">
+                                            <strong>Termin wird abgestimmt</strong>
+                                            <small>Du sammelst mehrere mögliche Termine für die Band.</small>
+                                        </span>
+                                    </label>
+                                </div>
+                                <small class="scheduler-field-note">Wähle eine Variante. Danach zeigt dir das Formular nur noch die passenden Termin-Felder.</small>
+                            </div>
+                            <div class="form-group scheduler-span-2" id="eventFixedDateSection">
+                                <label for="eventDate">Datum und Uhrzeit</label>
                                 <input type="datetime-local" id="eventDate">
                                 <div id="eventFixedDateAvailability" class="date-availability" style="margin-top: 4px;"></div>
-                                <small class="help-text">Nur ausfüllen, wenn der Termin bereits feststeht.</small>
-                            </div>
-                            <div class="form-group">
-                                <label for="eventLocation">📍 Ort / Adresse</label>
-                                <input type="text" id="eventLocation" placeholder="Musterstadt, Hauptstr 1">
+                                <small class="help-text">Trage hier den endgültigen Termin ein, wenn der Auftritt bereits fix ist.</small>
                             </div>
                         </div>
                     </section>
@@ -3498,15 +3519,15 @@
         <div class="modal-content confirm-action-modal-content">
             <div class="modal-header confirm-action-modal-header">
                 <div class="confirm-action-modal-copy">
-                    <span class="confirm-action-modal-kicker">Bestätigung</span>
+                    <span id="confirmDeleteKicker" class="confirm-action-modal-kicker">Bestätigung</span>
                     <h2 id="confirmDeleteTitle">Wirklich löschen?</h2>
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body confirm-action-modal-body">
-                <p id="confirmDeleteMessage" class="confirm-action-modal-message">
+                <div id="confirmDeleteMessage" class="confirm-action-modal-message">
                     Möchtest du diesen Eintrag wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.
-                </p>
+                </div>
             </div>
             <div class="modal-actions confirm-action-modal-actions">
                 <button type="button" class="btn cancel" id="confirmDeleteCancel">Abbrechen</button>
