@@ -6558,6 +6558,17 @@ const App = {
         const profilePassword = effectiveRoot.querySelector('#profilePassword');
         const profilePasswordConfirm = effectiveRoot.querySelector('#profilePasswordConfirm');
         const profilePasswordConfirmGroup = effectiveRoot.querySelector('#profilePasswordConfirmGroup');
+        const profileDisplayNamePreview = effectiveRoot.querySelector('#profileDisplayNamePreview');
+
+        const updateSettingsProfileNamePreview = () => {
+            if (!profileDisplayNamePreview) return;
+
+            const firstName = (profileFirstName?.value || '').trim();
+            const lastName = (profileLastName?.value || '').trim();
+            const usernameValue = (profileUsername?.value || user.username || '').trim();
+            const displayName = `${firstName} ${lastName}`.trim() || usernameValue || 'Dein Profil';
+            profileDisplayNamePreview.textContent = displayName;
+        };
 
         if (profileFirstName) profileFirstName.value = user.first_name || '';
         if (profileLastName) profileLastName.value = user.last_name || '';
@@ -6573,11 +6584,7 @@ const App = {
         }, 0);
 
         // Update profile display name preview
-        const profileDisplayNamePreview = effectiveRoot.querySelector('#profileDisplayNamePreview');
-        if (profileDisplayNamePreview) {
-            const displayName = UI.getUserDisplayName(user);
-            profileDisplayNamePreview.textContent = displayName || user.username || 'Dein Profil';
-        }
+        updateSettingsProfileNamePreview();
 
         // Continue with existing logic...
 
@@ -6799,6 +6806,8 @@ const App = {
                     if (usernameEl) usernameEl.value = updatedUser.username;
                     if (emailEl) emailEl.value = updatedUser.email;
                     if (instrumentEl) instrumentEl.value = updatedUser.instrument || '';
+
+                    updateSettingsProfileNamePreview();
 
                     const savedImageInput = effectiveRoot.querySelector('#profileImageInput');
                     if (savedImageInput) {
@@ -8995,6 +9004,30 @@ const App = {
             welcomeUserName.textContent = user.first_name || user.username || 'Musiker';
         }
 
+        const createEventShortcut = document.getElementById('dashboardCreateEventShortcut');
+        if (createEventShortcut) {
+            createEventShortcut.onclick = (e) => {
+                e.preventDefault();
+                this.openCreateEventModal();
+            };
+        }
+
+        const createRehearsalShortcut = document.getElementById('dashboardCreateRehearsalShortcut');
+        if (createRehearsalShortcut) {
+            createRehearsalShortcut.onclick = (e) => {
+                e.preventDefault();
+                this.openCreateRehearsalModal();
+            };
+        }
+
+        const openCalendarShortcut = document.getElementById('dashboardOpenCalendarShortcut');
+        if (openCalendarShortcut) {
+            openCalendarShortcut.onclick = (e) => {
+                e.preventDefault();
+                this.navigateTo('kalender', 'dashboard-primary-shortcut-calendar');
+            };
+        }
+
         // Stat Cards Click Handlers
         const statCards = document.querySelectorAll('.stat-card');
         const statTargets = ['bands', 'events', 'rehearsals'];
@@ -9053,7 +9086,7 @@ const App = {
         try {
             const dashboardSectionsContainer = document.querySelector('.dashboard-bento-grid');
             if (dashboardSectionsContainer) {
-                const sectionIds = ['dashboardUpcomingSection', 'dashboardActivitySection', 'dashboardNewsSection', 'dashboardCalendarSection', 'dashboardQuickAccessSection'];
+                const sectionIds = ['dashboardUpcomingSection', 'dashboardActivitySection', 'dashboardNewsSection', 'dashboardQuickAccessSection'];
                 let order = [];
                 try { order = JSON.parse(localStorage.getItem('dashboardSectionOrder') || 'null'); } catch { }
                 if (!Array.isArray(order) || order.length !== sectionIds.length) order = sectionIds;

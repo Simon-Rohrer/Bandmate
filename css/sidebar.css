@@ -349,15 +349,32 @@ html.theme-dark .sidebar-subitem.active {
 .app-main-wrapper {
     width: auto !important; /* Override width: 100% from style.css */
     min-width: 0;
-    margin-left: var(--sidebar-width);
+    margin-left: 0;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: var(--sidebar-width);
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    min-height: 100dvh;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .app-main-wrapper.sidebar-collapsed {
-    margin-left: var(--sidebar-collapsed-width);
+    left: var(--sidebar-collapsed-width);
+}
+
+/* Let the scroll container span the full shell width.
+   The inner view already keeps the actual content centered. */
+.app-main {
+    width: 100%;
+    max-width: none;
+    margin: 0;
 }
 
 /* Logout Button Styling */
@@ -462,5 +479,15 @@ html.theme-dark #sidebarLogoutBtn.sidebar-item.sidebar-main:hover {
 
     .app-main-wrapper {
         margin-left: 0;
+        position: relative;
+        top: auto;
+        right: auto;
+        bottom: auto;
+        left: auto;
+        width: 100% !important;
+        height: 100vh;
+        height: 100dvh;
+        min-height: 100vh;
+        min-height: 100dvh;
     }
 }
