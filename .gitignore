@@ -35,4 +35,6 @@ npm-debug.log*
 # Environment
 .env
 .env.local
+# Files
+*.md
 js/config.js

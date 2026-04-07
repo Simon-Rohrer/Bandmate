@@ -606,6 +606,13 @@ const App = {
         }
     },
 
+    markSettingsAsDirty() {
+        const settingsModal = document.getElementById('settingsModal');
+        if (settingsModal && settingsModal.classList.contains('active')) {
+            window.isProfileDirty = true;
+        }
+    },
+
     getActiveBaseView() {
         const activeView = document.querySelector('.view.active');
         if (!activeView || !activeView.id) return 'dashboard';
@@ -2082,10 +2089,20 @@ const App = {
                         'Du hast ungespeicherte Änderungen. Möchtest du das Fenster wirklich schließen?',
                         () => {
                             window.isProfileDirty = false;
+                            this.resetProfileImageDraftState({
+                                resetInput: true,
+                                root: document.querySelector('#settingsModal .modal-body') || document
+                            });
                             UI._originalCloseModal.call(UI, modalId);
                         }
                     );
                     return;
+                }
+                if (modalId === 'settingsModal') {
+                    this.resetProfileImageDraftState({
+                        resetInput: true,
+                        root: document.querySelector('#settingsModal .modal-body') || document
+                    });
                 }
                 if (modalId === 'pdfPreviewModal') {
                     this.cleanupPDFPreview();
@@ -2357,7 +2374,7 @@ const App = {
                     settingsProfileImg.dataset.clickHandlerAdded = 'true';
                     settingsProfileImg.addEventListener('click', () => {
                         const user = Auth.getCurrentUser();
-                        const previewUrl = App.profileImageDraftUrl || user?.profile_image_url;
+                        const previewUrl = App.getProfileImageDisplayUrl(user);
                         if (previewUrl) {
                             App.openProfileImagePreview(previewUrl);
                         }
@@ -7075,45 +7092,7 @@ const App = {
                         instrument
                     };
 
-                    // Handle Image Upload (scoped to view)
-                    const imageInput = effectiveRoot.querySelector('#profileImageInput');
-                    if (imageInput && imageInput.files && imageInput.files[0]) {
-                        let file = imageInput.files[0];
-                        // Compress with timeout safety
-                        try {
-                            // Race compression with a 5s timeout
-                            const compressionPromise = this.compressImage(file);
-                            const timeoutPromise = new Promise((_, reject) =>
-                                setTimeout(() => reject(new Error('Bildkomprimierung Zeitüberschreitung')), 5000)
-                            );
-                            file = await Promise.race([compressionPromise, timeoutPromise]);
-                        } catch (cErr) {
-                            console.warn('Compression failed or timed out, using original file', cErr);
-                        }
-
-                        const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
-                        const filePath = `${user.id}/${Date.now()}-profile.${fileExt}`;
-
-                        const sb = SupabaseClient.getClient();
-
-                        const { error: uploadError } = await sb.storage
-                            .from('profile-images')
-                            .upload(filePath, file, {
-                                upsert: true
-                            });
-
-                        if (uploadError) {
-                            throw new Error('Fehler beim Bilder-Upload: ' + uploadError.message);
-                        }
-
-                        const { data } = sb.storage
-                            .from('profile-images')
-                            .getPublicUrl(filePath);
-
-                        if (data && data.publicUrl) {
-                            updates.profile_image_url = data.publicUrl;
-                        }
-                    }
+                    const { previousImageUrl } = await this.applyProfileImageUpdate(user, updates);
 
                     Logger.action('Update Profile', updates);
 
@@ -7187,7 +7166,11 @@ const App = {
                         savedImageInput.value = '';
                     }
 
-                    this.clearProfileImageDraft();
+                    if (previousImageUrl && previousImageUrl !== updates.profile_image_url) {
+                        await this.removeStoredProfileImage(previousImageUrl);
+                    }
+
+                    this.resetProfileImageDraftState();
                     UI.showToast('Profil erfolgreich aktualisiert!', 'success');
                     window.isProfileDirty = false;
 
@@ -7217,64 +7200,11 @@ const App = {
             this.renderUsersList();
         }
 
+        this.resetProfileImageDraftState({ resetInput: true, root: effectiveRoot });
+        this.bindProfileImageDraftHandlers(effectiveRoot, user);
+
         // Render profile image initially
         this.renderProfileImageSettings(user);
-
-        // Delete profile image button (scoped)
-        const deleteImgBtn = effectiveRoot.querySelector('#deleteProfileImageBtn');
-        if (deleteImgBtn) {
-            // Clone to remove old listeners
-            const newBtn = deleteImgBtn.cloneNode(true);
-            deleteImgBtn.parentNode.replaceChild(newBtn, deleteImgBtn);
-
-            newBtn.addEventListener('click', async () => {
-                const currentUser = Auth.getCurrentUser() || user;
-                const hasDraftPreview = Boolean(this.profileImageDraftUrl);
-
-                if (!currentUser?.profile_image_url && hasDraftPreview) {
-                    this.clearProfileImageDraft({ resetInput: true, root: effectiveRoot });
-                    this.renderProfileImageSettings(currentUser);
-                    UI.showToast('Ausgewähltes Bild entfernt', 'info');
-                    return;
-                }
-
-                if (confirm('Möchtest du dein Profilbild wirklich entfernen?')) {
-                    try {
-                        UI.showLoading('Profilbild wird entfernt...');
-
-                        // Try to remove file from storage if URL exists
-                        if (currentUser?.profile_image_url) {
-                            try {
-                                const urlPart = currentUser.profile_image_url.split('/profile-images/')[1];
-                                if (urlPart) {
-                                    const sb = SupabaseClient.getClient();
-                                    await sb.storage.from('profile-images').remove([urlPart]);
-                                }
-                            } catch (e) {
-                                console.warn('Could not remove file from storage:', e);
-                            }
-                        }
-
-                        await Storage.updateUser(currentUser.id, { profile_image_url: null });
-                        await Auth.updateCurrentUser();
-                        const updatedUser = Auth.getCurrentUser();
-                        this.clearProfileImageDraft({ resetInput: true, root: effectiveRoot });
-                        this.renderProfileImageSettings(updatedUser);
-                        this.renderProfileImageHeader(updatedUser);
-
-                        const imageInput = effectiveRoot.querySelector('#profileImageInput');
-                        if (imageInput) imageInput.value = '';
-
-                        UI.hideLoading();
-                        UI.showToast('Profilbild entfernt', 'success');
-                    } catch (err) {
-                        UI.hideLoading();
-                        console.error(err);
-                        UI.showToast('Fehler beim Entfernen: ' + err.message, 'error');
-                    }
-                }
-            });
-        }
 
         // Setup absences form in settings
         const absenceFormSettings = document.getElementById('createAbsenceFormSettings');
@@ -7957,24 +7887,8 @@ const App = {
         }
 
         const settingsRoot = document.querySelector('#settingsModal .modal-body') || document;
-        const profileImageInput = settingsRoot.querySelector('#profileImageInput');
-        if (profileImageInput && !profileImageInput.dataset.previewHandlerAttached) {
-            profileImageInput.addEventListener('change', () => {
-                const currentUser = Auth.getCurrentUser() || user;
-                const selectedFile = profileImageInput.files && profileImageInput.files[0]
-                    ? profileImageInput.files[0]
-                    : null;
-
-                if (selectedFile) {
-                    this.setProfileImageDraft(selectedFile);
-                } else {
-                    this.clearProfileImageDraft();
-                }
-
-                this.renderProfileImageSettings(currentUser);
-            });
-            profileImageInput.dataset.previewHandlerAttached = 'true';
-        }
+        this.resetProfileImageDraftState({ resetInput: true, root: settingsRoot });
+        this.bindProfileImageDraftHandlers(settingsRoot, user);
 
         // Render profile image for all users
         this.renderProfileImageSettings(user);
@@ -7991,13 +7905,28 @@ const App = {
         this.profileImageDraftObjectUrl = null;
     },
 
+    getProfileImageDisplayUrl(user) {
+        if (this.profileImageDraftUrl) {
+            return this.profileImageDraftUrl;
+        }
+
+        if (this.profileImageRemovalPending) {
+            return null;
+        }
+
+        return user?.profile_image_url || null;
+    },
+
     setProfileImageDraft(file) {
         this.revokeProfileImageDraftObjectUrl();
         this.profileImageDraftUrl = null;
+        this.profileImageDraftFile = null;
+        this.profileImageRemovalPending = false;
 
         if (!file) return null;
 
         const previewUrl = URL.createObjectURL(file);
+        this.profileImageDraftFile = file;
         this.profileImageDraftObjectUrl = previewUrl;
         this.profileImageDraftUrl = previewUrl;
         return previewUrl;
@@ -8005,6 +7934,7 @@ const App = {
 
     clearProfileImageDraft({ resetInput = false, root = document } = {}) {
         this.revokeProfileImageDraftObjectUrl();
+        this.profileImageDraftFile = null;
         this.profileImageDraftUrl = null;
 
         if (resetInput) {
@@ -8012,6 +7942,129 @@ const App = {
             if (imageInput) {
                 imageInput.value = '';
             }
+        }
+    },
+
+    resetProfileImageDraftState({ resetInput = false, root = document } = {}) {
+        this.profileImageRemovalPending = false;
+        this.clearProfileImageDraft({ resetInput, root });
+    },
+
+    async removeStoredProfileImage(imageUrl) {
+        if (!imageUrl) return;
+
+        try {
+            const pathPart = imageUrl.split('/profile-images/')[1];
+            if (!pathPart) return;
+            const sb = SupabaseClient.getClient();
+            if (!sb) return;
+            await sb.storage.from('profile-images').remove([pathPart]);
+        } catch (error) {
+            console.warn('Could not remove file from storage:', error);
+        }
+    },
+
+    async applyProfileImageUpdate(user, updates) {
+        const currentImageUrl = user?.profile_image_url || null;
+
+        if (this.profileImageDraftFile) {
+            let file = this.profileImageDraftFile;
+
+            try {
+                const compressionPromise = this.compressImage(file);
+                const timeoutPromise = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Bildkomprimierung Zeitüberschreitung')), 5000)
+                );
+                file = await Promise.race([compressionPromise, timeoutPromise]);
+            } catch (error) {
+                console.warn('Compression failed or timed out, using original file', error);
+            }
+
+            const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const filePath = `${user.id}/${Date.now()}-profile.${fileExt}`;
+            const sb = SupabaseClient.getClient();
+
+            const { error: uploadError } = await sb.storage
+                .from('profile-images')
+                .upload(filePath, file, {
+                    upsert: true
+                });
+
+            if (uploadError) {
+                throw new Error('Fehler beim Bilder-Upload: ' + uploadError.message);
+            }
+
+            const { data } = sb.storage
+                .from('profile-images')
+                .getPublicUrl(filePath);
+
+            if (data?.publicUrl) {
+                updates.profile_image_url = data.publicUrl;
+            }
+
+            return { previousImageUrl: currentImageUrl };
+        }
+
+        if (this.profileImageRemovalPending) {
+            updates.profile_image_url = null;
+            return { previousImageUrl: currentImageUrl };
+        }
+
+        return { previousImageUrl: null };
+    },
+
+    bindProfileImageDraftHandlers(rootElement, fallbackUser) {
+        const root = rootElement || document;
+        const imageInput = root.querySelector('#profileImageInput');
+
+        if (imageInput && !imageInput.dataset.previewHandlerAttached) {
+            imageInput.addEventListener('change', () => {
+                const currentUser = Auth.getCurrentUser() || fallbackUser;
+                const selectedFile = imageInput.files && imageInput.files[0]
+                    ? imageInput.files[0]
+                    : null;
+
+                if (selectedFile) {
+                    this.setProfileImageDraft(selectedFile);
+                } else if (!this.profileImageRemovalPending) {
+                    this.clearProfileImageDraft();
+                }
+
+                this.markSettingsAsDirty();
+                this.renderProfileImageSettings(currentUser);
+            });
+            imageInput.dataset.previewHandlerAttached = 'true';
+        }
+
+        const deleteImgBtn = root.querySelector('#deleteProfileImageBtn');
+        if (deleteImgBtn) {
+            const newBtn = deleteImgBtn.cloneNode(true);
+            deleteImgBtn.parentNode.replaceChild(newBtn, deleteImgBtn);
+
+            newBtn.addEventListener('click', () => {
+                const currentUser = Auth.getCurrentUser() || fallbackUser;
+
+                if (this.profileImageDraftFile) {
+                    this.clearProfileImageDraft({ resetInput: true, root });
+                    this.renderProfileImageSettings(currentUser);
+                    this.markSettingsAsDirty();
+                    UI.showToast('Ausgewähltes Bild entfernt', 'info');
+                    return;
+                }
+
+                if (!currentUser?.profile_image_url) {
+                    UI.showToast('Es ist aktuell kein Profilbild hinterlegt.', 'info');
+                    return;
+                }
+
+                if (confirm('Möchtest du dein Profilbild entfernen? Es wird erst nach dem Speichern endgültig gelöscht.')) {
+                    this.resetProfileImageDraftState({ resetInput: true, root });
+                    this.profileImageRemovalPending = true;
+                    this.renderProfileImageSettings(currentUser);
+                    this.markSettingsAsDirty();
+                    UI.showToast('Profilbild wird nach dem Speichern entfernt', 'info');
+                }
+            });
         }
     },
 
@@ -8032,6 +8085,9 @@ const App = {
         const previewUrl = Object.prototype.hasOwnProperty.call(options, 'previewUrl')
             ? options.previewUrl
             : this.profileImageDraftUrl;
+        const removePending = Object.prototype.hasOwnProperty.call(options, 'removePending')
+            ? options.removePending
+            : this.profileImageRemovalPending === true;
         const containers = document.querySelectorAll('#profileImageSettingsContainer');
         containers.forEach(container => {
             container.innerHTML = '';
@@ -8042,7 +8098,7 @@ const App = {
             container.style.borderRadius = '50%';
             container.style.overflow = 'hidden';
 
-            const effectiveImageUrl = previewUrl || user.profile_image_url;
+            const effectiveImageUrl = previewUrl || (removePending ? null : user.profile_image_url);
 
             if (effectiveImageUrl) {
                 const img = document.createElement('img');

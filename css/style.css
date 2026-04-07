@@ -32502,6 +32502,9 @@ html[data-theme="light"] #dashboardView,
 }
 
 #landingPage .landing-hero-image {
+    display: block;
+    width: 100%;
+    height: auto;
     border-radius: 0;
     border: none;
     background: transparent;
