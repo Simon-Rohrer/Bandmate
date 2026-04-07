@@ -9865,6 +9865,10 @@ html[data-theme="light"] .loader-overlay,
         flex-shrink: 0;
     }
 
+    #dashboardHeaderShortcuts {
+        display: none !important;
+    }
+
     .header-actions .user-name {
         font-size: 0.875rem;
         white-space: nowrap;
@@ -16965,6 +16969,27 @@ body:has(#landingPage.active):not(.modal-open) {
     margin: 0.2rem 0 1rem;
 }
 
+#landingPage .auth-status-notice {
+    margin-bottom: 1rem;
+    padding: 0.95rem 1rem;
+    border-radius: 16px;
+    border: 1px solid rgba(125, 160, 255, 0.22);
+    background: rgba(61, 99, 255, 0.12);
+    color: var(--landing-auth-text);
+    font-size: 0.9rem;
+    line-height: 1.55;
+}
+
+#landingPage .auth-status-notice[data-type="success"] {
+    border-color: rgba(34, 197, 94, 0.24);
+    background: rgba(34, 197, 94, 0.12);
+}
+
+#landingPage .auth-status-notice[data-type="warning"] {
+    border-color: rgba(245, 158, 11, 0.28);
+    background: rgba(245, 158, 11, 0.12);
+}
+
 #landingPage .auth-checkbox-label {
     display: inline-flex;
     align-items: center;
@@ -17929,6 +17954,36 @@ textarea:focus,
     display: flex;
     align-items: center;
     gap: 10px;
+}
+
+.header-dashboard-shortcuts {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+.header-dashboard-shortcuts[hidden] {
+    display: none !important;
+}
+
+.header-dashboard-shortcuts .header-dashboard-shortcut {
+    min-height: 42px;
+    padding: 0.7rem 0.98rem;
+    border-radius: 14px;
+    gap: 0.45rem;
+    font-size: 0.86rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    box-shadow: 0 10px 24px rgba(29, 78, 216, 0.18);
+    white-space: nowrap;
+}
+
+.header-dashboard-shortcuts .header-dashboard-shortcut span[aria-hidden="true"] {
+    font-size: 0.9rem;
+    line-height: 1;
+    flex: 0 0 auto;
 }
 
 .user-name {
@@ -19623,6 +19678,10 @@ html[data-theme="light"] #landingPage .landing-phone-device,
 
     .user-name {
         display: none;
+    }
+
+    #dashboardHeaderShortcuts {
+        display: none !important;
     }
 
     .notification-dropdown {
@@ -31328,34 +31387,48 @@ body:not(.landing-active) #dashboardView.active {
     gap: 0.38rem;
     width: 100%;
     min-width: 0;
-    min-height: 40px;
-    padding-inline: 0.72rem;
-    font-size: clamp(0.72rem, 0.18vw + 0.68rem, 0.84rem);
+    min-height: 46px;
+    padding: 0.62rem 0.7rem;
+    border-radius: 14px;
+    border: 1px solid transparent;
+    background: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    box-shadow: 0 10px 24px rgba(29, 78, 216, 0.18) !important;
+    font-size: clamp(0.74rem, 0.12vw + 0.72rem, 0.86rem);
     font-weight: 700;
-    line-height: 1.15;
+    line-height: 1.18;
     letter-spacing: 0.01em;
+    text-align: center;
+    transition:
+        transform 180ms ease,
+        box-shadow 180ms ease,
+        background 180ms ease;
 }
 
 #dashboardView .dashboard-overview-shortcut span[aria-hidden="true"] {
-    font-size: 0.88rem;
+    font-size: 0.9rem;
     line-height: 1;
     flex: 0 0 auto;
 }
 
 #dashboardView .dashboard-overview-shortcut span:last-child {
     min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
 }
 
-#dashboardView .dashboard-overview-shortcut.btn-ghost {
-    border-color: color-mix(in srgb, #38bdf8 24%, var(--border));
-    background: color-mix(in srgb, #38bdf8 10%, var(--surface));
+#dashboardView .dashboard-overview-shortcut:hover {
+    background: var(--accent-secondary);
+    color: var(--button-primary-text);
 }
 
-#dashboardView .dashboard-overview-shortcut.btn-ghost:hover {
-    border-color: color-mix(in srgb, #38bdf8 36%, var(--border-strong));
-    background: color-mix(in srgb, #38bdf8 16%, var(--surface));
+#dashboardView .dashboard-overview-shortcut:focus-visible {
+    outline: none;
+    box-shadow:
+        0 0 0 3px rgba(111, 147, 255, 0.24),
+        0 14px 28px rgba(29, 78, 216, 0.2) !important;
 }
 
 #dashboardView .next-event-hero-card::before {
@@ -32057,8 +32130,8 @@ html[data-theme="light"] #dashboardView,
     }
 
     #dashboardView .dashboard-overview-shortcut {
-        min-height: 38px;
-        padding-inline: 0.58rem;
+        min-height: 44px;
+        padding: 0.58rem 0.52rem;
         font-size: 0.72rem;
     }
 

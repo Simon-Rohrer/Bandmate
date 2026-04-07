@@ -6,22 +6,48 @@ const Auth = {
     currentUser: null,
     supabaseUser: null, // Supabase auth.users record
 
+    async deleteAuthUserById(userId = null) {
+        const sb = SupabaseClient.getClient();
+        if (!sb) {
+            throw new Error('Supabase nicht konfiguriert');
+        }
+
+        try {
+            const { error } = await sb.rpc('delete_auth_user', {
+                target_user_id: userId || null
+            });
+
+            if (error) {
+                const fallbackAllowed = !userId || userId === this.currentUser?.id || userId === this.supabaseUser?.id;
+                if (fallbackAllowed) {
+                    const fallback = await sb.rpc('delete_user');
+                    if (!fallback.error) {
+                        return true;
+                    }
+                }
+
+                const normalizedMessage = (error.message || '').toLowerCase();
+                if (
+                    normalizedMessage.includes('could not find the function') ||
+                    normalizedMessage.includes('pgrst') ||
+                    normalizedMessage.includes('42883')
+                ) {
+                    throw new Error('Die Supabase-Funktion `delete_auth_user` fehlt noch. Bitte führe die SQL-Datei `sql/delete_auth_user_rpc.sql` im Supabase SQL Editor aus.');
+                }
+
+                throw new Error(error.message || 'Auth-Benutzer konnte nicht gelöscht werden.');
+            }
+        } catch (e) {
+            console.warn('delete_auth_user RPC failed', e);
+            throw e;
+        }
+        return true;
+    },
+
     // Löscht den aktuell eingeloggten User aus Supabase Auth
     async deleteCurrentUser() {
-        const sb = SupabaseClient.getClient();
-        if (!sb) return;
-
-        // NOTE: Deleting the 'auth.users' record directly from the client is not allowed (405 Method Not Allowed)
-        // and requires a Service Role key or a Postgres Function (RPC).
-        // We rely on the fact that we already deleted the public user data in 'handleDeleteAccount'.
-        // Ideally, a Supabase Database Trigger should be set up: "ON DELETE public.users -> DELETE auth.users"
-
-        // Attempt to call a common RPC if it exists, otherwise just proceed
-        try {
-            await sb.rpc('delete_user');
-        } catch (e) {
-            console.warn('RPC delete_user not available or failed', e);
-        }
+        const currentUserId = this.currentUser?.id || this.supabaseUser?.id || null;
+        await this.deleteAuthUserById(currentUserId);
 
         this.currentUser = null;
         this.supabaseUser = null;
@@ -155,11 +181,15 @@ const Auth = {
             email,
             password,
             options: {
+                emailRedirectTo: SupabaseClient.buildProjectPageUrl('confirm-email.html'),
                 data: {
                     username,
                     first_name: firstName,
                     last_name: lastName,
-                    instrument
+                    instrument,
+                    requires_email_activation: true,
+                    email_activation_completed: false,
+                    show_onboarding_after_activation: true
                 }
             }
         });
@@ -187,7 +217,7 @@ const Auth = {
         if (data.user) {
             let profile = null;
             let attempts = 0;
-            const maxAttempts = 3; // Reduced from 5 to fail faster
+            const maxAttempts = 8;
 
             // Try to wait for trigger-created profile
             while (!profile && attempts < maxAttempts) {
@@ -200,26 +230,34 @@ const Auth = {
             if (!profile) {
                 console.log('[Auth.register] Trigger did not create profile, creating manually...');
                 try {
-                    const fullName = `${firstName} ${lastName}`;
                     profile = await Storage.createUser({
                         id: data.user.id,
-                        email: email,
-                        username: username,
-                        name: fullName,
+                        email,
+                        username,
+                        first_name: firstName,
+                        last_name: lastName,
                         instrument: instrument || '',
                         isAdmin: false
                     });
                     console.log('[Auth.register] Profile created manually:', profile);
                 } catch (createError) {
                     console.error('[Auth.register] Failed to create profile manually:', createError);
-                    throw new Error('Profil konnte nicht erstellt werden. Bitte lade die Seite neu und versuche dich einzuloggen.');
+                    profile = await Storage.getById('users', data.user.id);
+                    if (!profile) {
+                        throw new Error('Profil konnte nicht erstellt werden. Bitte prüfe die Supabase-Users-Tabelle oder versuche es erneut.');
+                    }
                 }
             } else {
                 console.log('[Auth.register] Profile created by trigger');
             }
 
-            // Set the current user
-            await this.setCurrentUser(data.user);
+            if (data.session && data.user) {
+                await this.setCurrentUser(data.user);
+            } else {
+                this.currentUser = null;
+                this.supabaseUser = null;
+                SupabaseClient.clearStoredAuthSession();
+            }
         }
 
         return data.user;
@@ -345,10 +383,36 @@ const Auth = {
 
         if (error) {
             console.error('Supabase signIn error:', error);
+            const normalizedMessage = (error.message || '').toLowerCase();
+            if (
+                normalizedMessage.includes('email not confirmed') ||
+                normalizedMessage.includes('email_not_confirmed') ||
+                normalizedMessage.includes('confirm your email')
+            ) {
+                const confirmationError = new Error('Bitte bestätige zuerst deine E-Mail-Adresse. Öffne dazu die Bestätigungs-Mail und aktiviere dein Konto.');
+                confirmationError.code = 'email_not_confirmed';
+                throw confirmationError;
+            }
             throw new Error('Ungültiger Benutzername/E-Mail oder Passwort');
         }
 
         if (data.user) {
+            const metadata = data.user.user_metadata || {};
+            const confirmedAt = data.user.email_confirmed_at || data.user.confirmed_at || null;
+            if (
+                metadata.requires_email_activation === true &&
+                metadata.email_activation_completed !== true &&
+                !confirmedAt
+            ) {
+                await sb.auth.signOut().catch(err => console.warn('[Auth.login] Sign-out after activation check failed:', err));
+                SupabaseClient.clearStoredAuthSession();
+                this.currentUser = null;
+                this.supabaseUser = null;
+                const confirmationError = new Error('Bitte bestätige zuerst deine E-Mail-Adresse. Öffne dazu die Bestätigungs-Mail und aktiviere dein Konto.');
+                confirmationError.code = 'email_not_confirmed';
+                throw confirmationError;
+            }
+
             SupabaseClient.setSessionExpiry(rememberMe);
             await this.setCurrentUser(data.user);
         }
@@ -535,15 +599,7 @@ const Auth = {
         const sb = SupabaseClient.getClient();
         if (!sb) throw new Error('Supabase client missing');
 
-        // Redirect to the dedicated reset-password.html page
-        let baseUrl = window.location.origin + window.location.pathname;
-        if (baseUrl.endsWith('index.html')) {
-            baseUrl = baseUrl.replace('index.html', 'reset-password.html');
-        } else {
-            // If it ends with / or something else, ensure it points to reset-password.html
-            baseUrl = baseUrl.endsWith('/') ? baseUrl + 'reset-password.html' : baseUrl + '/reset-password.html';
-        }
-        const redirectTo = baseUrl;
+        const redirectTo = SupabaseClient.buildProjectPageUrl('reset-password.html');
 
         const { data, error } = await sb.auth.resetPasswordForEmail(email, {
             redirectTo: redirectTo

@@ -670,12 +670,12 @@ const App = {
             const user = Auth.getCurrentUser();
 
             if (user) {
-                // 1. User aus eigener Datenbank löschen ZUERST, solange wir noch Rechte haben
+                // 1. User aus Supabase Auth löschen
+                await Auth.deleteCurrentUser();
+
+                // 2. User aus eigener Datenbank löschen
                 await Storage.deleteUser(user.id);
             }
-
-            // 2. User aus Supabase Auth löschen
-            await Auth.deleteCurrentUser();
 
             UI.showToast('Account und alle Daten wurden gelöscht.', 'success');
 
@@ -687,6 +687,27 @@ const App = {
             UI.showToast('Fehler beim Löschen: ' + (err.message || err), 'error');
         }
     },
+
+    bindDeleteAccountButton(rootElement = null) {
+        const root = rootElement || document;
+        const deleteAccountBtn = root.querySelector
+            ? root.querySelector('#deleteAccountBtn')
+            : document.getElementById('deleteAccountBtn');
+
+        if (!deleteAccountBtn || !deleteAccountBtn.parentNode) {
+            return;
+        }
+
+        const newBtn = deleteAccountBtn.cloneNode(true);
+        newBtn.type = 'button';
+        deleteAccountBtn.parentNode.replaceChild(newBtn, deleteAccountBtn);
+
+        newBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            await App.handleDeleteAccount();
+        });
+    },
+
     setupQuickAccessEdit() {
         const editBtn = document.getElementById('editQuickAccessBtn');
         const modal = document.getElementById('quickAccessModal');
@@ -956,6 +977,13 @@ const App = {
         if (container) {
             container.innerHTML = '';
         }
+    },
+
+    updateHeaderDashboardShortcuts(view) {
+        const shortcutBar = document.getElementById('dashboardHeaderShortcuts');
+        if (!shortcutBar) return;
+        const isMobileViewport = window.matchMedia('(max-width: 1024px)').matches;
+        shortcutBar.hidden = view !== 'dashboard' || isMobileViewport;
     },
 
 
@@ -2129,6 +2157,9 @@ const App = {
             tab.addEventListener('click', () => {
                 const tabName = tab.dataset.tab;
                 UI.switchAuthTab(tabName);
+                if (tabName !== 'login') {
+                    this.clearAuthStatusNotice();
+                }
             });
         });
 
@@ -2182,58 +2213,213 @@ const App = {
             });
         }
 
-        // Live Username Check
+        const registerFirstNameInput = document.getElementById('registerFirstName');
+        const registerLastNameInput = document.getElementById('registerLastName');
         const regUserInput = document.getElementById('registerUsername');
-        if (regUserInput) {
-            let timeout;
-            regUserInput.addEventListener('input', (e) => {
-                clearTimeout(timeout);
-                const username = e.target.value.trim();
-                let feedback = document.getElementById('usernameFeedback');
-                if (!feedback) {
-                    feedback = document.createElement('div');
-                    feedback.id = 'usernameFeedback';
-                    feedback.style.fontSize = '0.85rem';
-                    feedback.style.marginTop = '0.25rem';
-                    regUserInput.parentNode.appendChild(feedback);
-                }
+        const usernameFeedback = document.getElementById('usernameFeedback');
+        const registerSubmitBtn = document.querySelector('#registerForm button[type="submit"]');
+        let usernameValidationTimeout = null;
+        let autoUsernameTimeout = null;
+        let usernameAvailabilityRequestId = 0;
+        let autoUsernameRequestId = 0;
+        let isUpdatingUsernameProgrammatically = false;
 
-                if (username.length < 5) {
-                    feedback.textContent = '⚠️ Benutzername muss mindestens 5 Zeichen lang sein';
-                    feedback.style.color = '#fbbf24'; // amber-400
-                    regUserInput.style.borderColor = '#fbbf24';
+        const setUsernameFeedback = (message = '', state = 'idle') => {
+            if (!usernameFeedback || !regUserInput) return;
+
+            usernameFeedback.textContent = message;
+
+            if (!message) {
+                usernameFeedback.style.color = '';
+                regUserInput.style.borderColor = '';
+                return;
+            }
+
+            if (state === 'error') {
+                usernameFeedback.style.color = '#ef4444';
+                regUserInput.style.borderColor = '#ef4444';
+                return;
+            }
+
+            if (state === 'success') {
+                usernameFeedback.style.color = '#4ade80';
+                regUserInput.style.borderColor = '#4ade80';
+                return;
+            }
+
+            if (state === 'info') {
+                usernameFeedback.style.color = '#93c5fd';
+                regUserInput.style.borderColor = '#6366f1';
+                return;
+            }
+
+            usernameFeedback.style.color = '#fbbf24';
+            regUserInput.style.borderColor = '#fbbf24';
+        };
+
+        const normalizeUsernamePart = (value = '') => {
+            return value
+                .trim()
+                .toLowerCase()
+                .replace(/ä/g, 'ae')
+                .replace(/ö/g, 'oe')
+                .replace(/ü/g, 'ue')
+                .replace(/ß/g, 'ss')
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-z0-9]+/g, '');
+        };
+
+        const buildSuggestedUsernameBase = () => {
+            const firstName = normalizeUsernamePart(registerFirstNameInput?.value || '');
+            const lastName = normalizeUsernamePart(registerLastNameInput?.value || '');
+
+            if (!firstName || !lastName) return '';
+
+            return `${firstName}${lastName}`;
+        };
+
+        const findAvailableUsernameCandidate = async (baseUsername) => {
+            const safeBase = normalizeUsernamePart(baseUsername);
+            if (!safeBase) return { username: '', adjusted: false };
+
+            for (let index = 0; index < 50; index++) {
+                const candidate = index === 0 ? safeBase : `${safeBase}${index + 1}`;
+                const existingUser = await Storage.getUserByUsername(candidate);
+                if (!existingUser) {
+                    return { username: candidate, adjusted: index > 0 };
+                }
+            }
+
+            return {
+                username: `${safeBase}${Date.now().toString().slice(-4)}`,
+                adjusted: true
+            };
+        };
+
+        const validateRegisterUsername = ({ isAutoSuggested = false, wasAdjusted = false } = {}) => {
+            if (!regUserInput) return;
+
+            clearTimeout(usernameValidationTimeout);
+            const username = regUserInput.value.trim();
+
+            if (!username) {
+                setUsernameFeedback('', 'idle');
+                if (registerSubmitBtn) registerSubmitBtn.disabled = false;
+                return;
+            }
+
+            if (username.length < 5) {
+                setUsernameFeedback('Benutzername muss mindestens 5 Zeichen lang sein.', 'error');
+                if (registerSubmitBtn) registerSubmitBtn.disabled = true;
+                return;
+            }
+
+            const requestId = ++usernameAvailabilityRequestId;
+            setUsernameFeedback(
+                isAutoSuggested ? 'Prüfe den automatisch vorgeschlagenen Benutzernamen...' : 'Verfügbarkeit wird geprüft...',
+                'checking'
+            );
+
+            usernameValidationTimeout = setTimeout(async () => {
+                try {
+                    const existingUser = await Storage.getUserByUsername(username);
+                    if (requestId !== usernameAvailabilityRequestId) return;
+
+                    if (existingUser) {
+                        setUsernameFeedback('Dieser Benutzername ist bereits vergeben.', 'error');
+                        if (registerSubmitBtn) registerSubmitBtn.disabled = true;
+                        return;
+                    }
+
+                    if (isAutoSuggested) {
+                        const successMessage = wasAdjusted
+                            ? `Benutzername automatisch angepasst: ${username}`
+                            : `Benutzername automatisch vorgeschlagen: ${username}`;
+                        setUsernameFeedback(successMessage, 'success');
+                    } else {
+                        setUsernameFeedback('Benutzername verfügbar.', 'success');
+                    }
+
+                    if (registerSubmitBtn) registerSubmitBtn.disabled = false;
+                } catch (error) {
+                    console.error('Error checking username:', error);
+                    setUsernameFeedback('Benutzername konnte gerade nicht geprüft werden.', 'info');
+                    if (registerSubmitBtn) registerSubmitBtn.disabled = false;
+                }
+            }, 320);
+        };
+
+        const scheduleAutoUsernameSuggestion = () => {
+            if (!registerFirstNameInput || !registerLastNameInput || !regUserInput) return;
+            if (regUserInput.dataset.userEdited === 'true') return;
+
+            clearTimeout(autoUsernameTimeout);
+            const firstName = registerFirstNameInput.value.trim();
+            const lastName = registerLastNameInput.value.trim();
+            if (!firstName || !lastName) return;
+
+            autoUsernameTimeout = setTimeout(async () => {
+                const baseUsername = buildSuggestedUsernameBase();
+                if (!baseUsername) return;
+
+                const requestId = ++autoUsernameRequestId;
+                setUsernameFeedback('Erstelle Benutzervorschlag...', 'info');
+                if (registerSubmitBtn) registerSubmitBtn.disabled = true;
+
+                try {
+                    const { username, adjusted } = await findAvailableUsernameCandidate(baseUsername);
+                    if (requestId !== autoUsernameRequestId || !username) return;
+
+                    isUpdatingUsernameProgrammatically = true;
+                    regUserInput.value = username;
+                    regUserInput.dataset.lastAutoUsername = username;
+                    regUserInput.dataset.userEdited = 'false';
+                    isUpdatingUsernameProgrammatically = false;
+
+                    validateRegisterUsername({
+                        isAutoSuggested: true,
+                        wasAdjusted: adjusted
+                    });
+                } catch (error) {
+                    console.error('Error generating username suggestion:', error);
+                    setUsernameFeedback('Benutzervorschlag konnte nicht erstellt werden.', 'info');
+                    if (registerSubmitBtn) registerSubmitBtn.disabled = false;
+                }
+            }, 260);
+        };
+
+        if (registerFirstNameInput) {
+            registerFirstNameInput.addEventListener('input', () => {
+                scheduleAutoUsernameSuggestion();
+            });
+        }
+
+        if (registerLastNameInput) {
+            registerLastNameInput.addEventListener('input', () => {
+                scheduleAutoUsernameSuggestion();
+            });
+        }
+
+        if (regUserInput) {
+            regUserInput.dataset.userEdited = 'false';
+            regUserInput.dataset.lastAutoUsername = '';
+
+            regUserInput.addEventListener('input', () => {
+                if (isUpdatingUsernameProgrammatically) return;
+
+                const currentValue = regUserInput.value.trim();
+                const lastAutoUsername = regUserInput.dataset.lastAutoUsername || '';
+
+                if (!currentValue) {
+                    regUserInput.dataset.userEdited = 'false';
+                    setUsernameFeedback('', 'idle');
+                    scheduleAutoUsernameSuggestion();
                     return;
                 }
 
-                // Immediate feedback while typing
-                feedback.textContent = '⏳ Verfügbarkeit wird geprüft...';
-                feedback.style.color = '#fbbf24'; // amber-400 for loading
-                regUserInput.style.borderColor = '#fbbf24';
-
-                timeout = setTimeout(async () => {
-                    const sb = SupabaseClient.getClient();
-                    if (!sb) return;
-
-                    const { data, error } = await sb
-                        .from('users')
-                        .select('username')
-                        .ilike('username', username)
-                        .maybeSingle();
-
-                    const submitBtn = document.querySelector('#registerForm button[type="submit"]');
-
-                    if (data) {
-                        feedback.textContent = '❌ Dieser Benutzername ist bereits vergeben.';
-                        feedback.style.color = '#ef4444'; // red-500
-                        regUserInput.style.borderColor = '#ef4444';
-                        if (submitBtn) submitBtn.disabled = true;
-                    } else {
-                        feedback.textContent = '✅ Benutzername verfügbar';
-                        feedback.style.color = '#4ade80'; // green-400
-                        regUserInput.style.borderColor = '#4ade80';
-                        if (submitBtn) submitBtn.disabled = false;
-                    }
-                }, 500);
+                regUserInput.dataset.userEdited = currentValue !== lastAutoUsername ? 'true' : 'false';
+                validateRegisterUsername();
             });
         }
 
@@ -2350,50 +2536,6 @@ const App = {
                     registerPasswordHint.style.color = 'var(--color-text-secondary)';
                     registerPasswordHint.textContent = 'Mindestens 6 Zeichen erforderlich';
                 }
-            });
-        }
-
-        // Real-time username validation
-        const registerUsernameInput = document.getElementById('registerUsername');
-        const usernameHint = document.getElementById('usernameHint');
-        let usernameCheckTimeout = null;
-
-        if (registerUsernameInput && usernameHint) {
-            registerUsernameInput.addEventListener('input', async () => {
-                const username = registerUsernameInput.value.trim();
-
-                // Clear previous timeout
-                if (usernameCheckTimeout) {
-                    clearTimeout(usernameCheckTimeout);
-                }
-
-                // Reset if empty
-                if (!username) {
-                    usernameHint.textContent = '';
-                    usernameHint.style.color = '#888';
-                    return;
-                }
-
-                // Show checking message
-                usernameHint.textContent = 'Prüfe Verfügbarkeit...';
-                usernameHint.style.color = '#888';
-
-                // Debounce: wait 500ms before checking
-                usernameCheckTimeout = setTimeout(async () => {
-                    try {
-                        const existingUser = await Storage.getUserByUsername(username);
-                        if (existingUser) {
-                            usernameHint.textContent = '✗ Benutzername bereits vergeben';
-                            usernameHint.style.color = 'red';
-                        } else {
-                            usernameHint.textContent = '✓ Benutzername verfügbar';
-                            usernameHint.style.color = 'green';
-                        }
-                    } catch (error) {
-                        console.error('Error checking username:', error);
-                        usernameHint.textContent = '';
-                    }
-                }, 500);
             });
         }
 
@@ -3375,6 +3517,7 @@ const App = {
 
                 // Recalculate underline widths in case layout changed
                 try { this.updateHeaderUnderlineWidths(); } catch (e) { }
+                this.updateHeaderDashboardShortcuts(view);
 
                 // Render specific views
                 if (view === 'dashboard') {
@@ -3620,6 +3763,7 @@ const App = {
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
         const rememberMe = arguments.length > 2 ? arguments[2] : false;
+        this.clearAuthStatusNotice();
 
         // Show the global loading overlay with guitar emoji
         const overlay = document.getElementById('globalLoadingOverlay');
@@ -3644,8 +3788,27 @@ const App = {
                 overlay.style.opacity = '0';
                 setTimeout(() => overlay.style.display = 'none', 400);
             }
+            if (error?.code === 'email_not_confirmed') {
+                this.showAuthStatusNotice('Dein Konto ist noch nicht aktiviert. Bitte bestätige zuerst die E-Mail aus deiner Registrierung und logge dich danach ein.', 'warning');
+            }
             UI.showToast(error.message, 'error');
         }
+    },
+
+    showAuthStatusNotice(message, type = 'info') {
+        const notice = document.getElementById('loginConfirmationNotice');
+        if (!notice) return;
+        notice.textContent = message;
+        notice.dataset.type = type;
+        notice.hidden = false;
+    },
+
+    clearAuthStatusNotice() {
+        const notice = document.getElementById('loginConfirmationNotice');
+        if (!notice) return;
+        notice.hidden = true;
+        notice.textContent = '';
+        delete notice.dataset.type;
     },
 
     // Helper: Compress Image (Client-Side)
@@ -3717,73 +3880,16 @@ const App = {
 
         try {
             const instrument = document.getElementById('registerInstrument').value;
-            const user = await Auth.register(registrationCode, firstName, lastName, email, username, password, instrument);
-
-            // Check if confirmation is pending (session is null if not auto-confirmed)
             const sb = SupabaseClient.getClient();
+            await Auth.register(registrationCode, firstName, lastName, email, username, password, instrument);
+
             const { data: { session } } = await sb.auth.getSession();
-
-            if (!session) {
-                // User is registered but not confirmed/logged in
-                if (overlay) {
-                    overlay.style.opacity = '0';
-                    setTimeout(() => overlay.style.display = 'none', 400);
-                }
-                UI.showToast('✅ Registrierung fast fertig! Bitte bestätige deine E-Mail über den Link, den wir dir gerade geschickt haben.', 'info', 10000);
-                UI.clearForm('registerForm');
-                
-                // Close modal after delay
-                setTimeout(() => {
-                    UI.closeAllModals();
-                }, 3000);
-                return; // Stop here, no login yet
-            }
-
-            // Supabase Auth automatically signed in (auto-confirm is ON)
-            // Now handle image upload if present
-            if (imageInput && imageInput.files && imageInput.files[0]) {
-                try {
-                    if (user) {
-                        let file = imageInput.files[0];
-
-                        // Compress image
-                        try {
-                            const compressionPromise = this.compressImage(file);
-                            const timeoutPromise = new Promise((_, reject) =>
-                                setTimeout(() => reject(new Error('Timeout')), 5000)
-                            );
-                            file = await Promise.race([compressionPromise, timeoutPromise]);
-                        } catch (cErr) {
-                            console.warn('Image compression failed, using original', cErr);
-                        }
-
-                        // Upload to Supabase
-                        const fileExt = file.name.split('.').pop();
-                        const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-                        const sb = SupabaseClient.getClient();
-
-                        const { error: uploadError } = await sb.storage
-                            .from('profile-images')
-                            .upload(fileName, file, { upsert: true });
-
-                        if (!uploadError) {
-                            const { data: { publicUrl } } = sb.storage
-                                .from('profile-images')
-                                .getPublicUrl(fileName);
-
-                            if (publicUrl) {
-                                // Update user profile with image URL
-                                await Storage.updateUser(user.id, { profile_image_url: publicUrl });
-                                // Update local user object
-                                user.profile_image_url = publicUrl;
-                            }
-                        } else {
-                            console.error('Profile image upload failed:', uploadError);
-                        }
-                    }
-                } catch (imgErr) {
-                    console.error('Error handling profile image:', imgErr);
-                    // Continue anyway, registration was successful
+            if (session) {
+                await sb.auth.signOut().catch(err => console.warn('[handleRegister] Sign-out after register failed:', err));
+                SupabaseClient.clearStoredAuthSession();
+                if (typeof Auth !== 'undefined') {
+                    Auth.currentUser = null;
+                    Auth.supabaseUser = null;
                 }
             }
 
@@ -3791,14 +3897,14 @@ const App = {
                 overlay.style.opacity = '0';
                 setTimeout(() => overlay.style.display = 'none', 400);
             }
-            UI.showToast('Registrierung erfolgreich!', 'success');
             UI.clearForm('registerForm');
-
-            // Show app first (behind modal)
-            await this.showApp();
-
-            // Then show onboarding modal
-            UI.openModal('onboardingModal');
+            UI.switchAuthTab('login');
+            const loginUsernameInput = document.getElementById('loginUsername');
+            const loginPasswordInput = document.getElementById('loginPassword');
+            if (loginUsernameInput) loginUsernameInput.value = email;
+            if (loginPasswordInput) loginPasswordInput.value = '';
+            this.showAuthStatusNotice(`Wir haben dir an ${email} eine Bestätigungs-E-Mail geschickt. Bitte bestätige dein Konto über den Link in der Mail, bevor du dich einloggst.`, 'success');
+            UI.showToast('Registrierung abgeschlossen. Bitte bestätige jetzt zuerst deine E-Mail-Adresse über den Link in der Mail.', 'info', 10000);
         } catch (error) {
             if (overlay) {
                 overlay.style.opacity = '0';
@@ -6277,6 +6383,7 @@ const App = {
         // Show landing page instead of modal
         const lPage = document.getElementById('landingPage');
         const mApp = document.getElementById('mainApp');
+        this.clearAuthStatusNotice();
 
         if (lPage) {
             lPage.style.display = 'flex';
@@ -6305,6 +6412,52 @@ const App = {
         if (rememberCheckbox && typeof SupabaseClient !== 'undefined' && SupabaseClient.getRememberPreference) {
             rememberCheckbox.checked = SupabaseClient.getRememberPreference();
         }
+    },
+
+    getOnboardingDismissKey(userId) {
+        return userId ? `bandmate.onboarding.dismissed.${userId}` : '';
+    },
+
+    async consumePostActivationOnboardingFlag() {
+        const supabaseUser = typeof Auth !== 'undefined' && Auth.getSupabaseUser ? Auth.getSupabaseUser() : null;
+        const currentUser = typeof Auth !== 'undefined' && Auth.getCurrentUser ? Auth.getCurrentUser() : null;
+        const userId = currentUser?.id || supabaseUser?.id;
+        if (!userId || !supabaseUser) return false;
+
+        const metadata = supabaseUser.user_metadata || {};
+        if (metadata.show_onboarding_after_activation !== true) {
+            return false;
+        }
+
+        const dismissKey = this.getOnboardingDismissKey(userId);
+        if (dismissKey && localStorage.getItem(dismissKey) === 'true') {
+            return false;
+        }
+
+        if (dismissKey) {
+            localStorage.setItem(dismissKey, 'true');
+        }
+
+        try {
+            const sb = SupabaseClient.getClient();
+            if (sb) {
+                const { data, error } = await sb.auth.updateUser({
+                    data: {
+                        ...metadata,
+                        show_onboarding_after_activation: false,
+                        email_activation_completed: true,
+                        requires_email_activation: true
+                    }
+                });
+                if (!error && data?.user) {
+                    Auth.supabaseUser = data.user;
+                }
+            }
+        } catch (error) {
+            console.warn('[App] Could not persist onboarding flag reset:', error);
+        }
+
+        return true;
     },
 
     // Show main application
@@ -6421,6 +6574,14 @@ const App = {
         this.updateDashboard();
         this.updateNavigationVisibility();
         this.navigateTo('dashboard', 'login-success');
+
+        const shouldOpenOnboarding = await this.consumePostActivationOnboardingFlag();
+        if (shouldOpenOnboarding) {
+            setTimeout(() => {
+                UI.openModal('onboardingModal');
+            }, 120);
+        }
+
         // Ensure create news button visibility immediately after login (so admins/leaders see it without navigating)
         const createNewsBtnGlobal = document.getElementById('createNewsBtn');
         if (createNewsBtnGlobal) {
@@ -6608,17 +6769,7 @@ const App = {
 
 
         // Account delete button (scoped to settings view)
-        const deleteAccountBtn = effectiveRoot.querySelector('#deleteAccountBtn');
-        if (deleteAccountBtn) {
-            // Remove existing listeners to avoid duplicates if re-initialized (cloning hack)
-            const newBtn = deleteAccountBtn.cloneNode(true);
-            deleteAccountBtn.parentNode.replaceChild(newBtn, deleteAccountBtn);
-
-            newBtn.addEventListener('click', (e) => {
-                e.preventDefault();
-                App.handleDeleteAccount();
-            });
-        }
+        this.bindDeleteAccountButton(effectiveRoot);
 
         // Donate link (scoped)
         const donateLinkInput = effectiveRoot.querySelector('#donateLink');
@@ -7420,6 +7571,8 @@ const App = {
 
         // Default to profile tab for everyone initially
         this.switchSettingsTab('profile');
+
+        this.bindDeleteAccountButton(document.querySelector('#settingsModal .modal-body'));
 
         // Theme toggle setup
         const themeToggle = document.getElementById('themeToggle');
@@ -8418,6 +8571,8 @@ const App = {
                     console.error('Error deleting votes:', error);
                 }
             }
+
+            await Auth.deleteAuthUserById(userId);
 
             // Delete user
             const deleted = await Storage.delete('users', userId);

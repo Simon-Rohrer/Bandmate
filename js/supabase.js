@@ -6,6 +6,27 @@ const SupabaseClient = {
     REMEMBER_ME_KEY: 'auth.rememberMe',
     SESSION_EXPIRY_KEY: 'auth.sessionExpiry',
 
+    buildProjectPageUrl(targetPage = 'index.html') {
+        try {
+            const url = new URL(window.location.href);
+            url.search = '';
+            url.hash = '';
+
+            const pathname = url.pathname || '/';
+            if (pathname.endsWith('/')) {
+                url.pathname = `${pathname}${targetPage}`;
+            } else if (/\.[a-z0-9]+$/i.test(pathname)) {
+                url.pathname = pathname.replace(/[^/]+$/, targetPage);
+            } else {
+                url.pathname = `${pathname}/${targetPage}`;
+            }
+
+            return url.toString();
+        } catch (error) {
+            return targetPage;
+        }
+    },
+
     isConfigured() {
         const url = localStorage.getItem('supabase.url');
         const key = localStorage.getItem('supabase.anonKey');

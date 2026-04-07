@@ -59,7 +59,7 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260407-16">
+    <link rel="stylesheet" href="css/style.css?v=20260407-22">
     <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
     <link rel="stylesheet" href="css/calendar.css">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
@@ -379,6 +379,8 @@
                 </div>
 
                 <form id="loginForm" class="auth-form active">
+                    <div id="loginConfirmationNotice" class="auth-status-notice" hidden></div>
+
                     <div class="form-group">
                         <label for="loginUsername">Benutzername oder E-Mail</label>
                         <input type="text" id="loginUsername" placeholder="dein@name.de" required>
@@ -449,6 +451,7 @@
                         <div class="form-group">
                             <label for="registerUsername">Benutzername</label>
                             <input type="text" id="registerUsername" placeholder="max.music" required>
+                            <div id="usernameFeedback" aria-live="polite"></div>
                         </div>
                         <div class="form-group">
                             <label for="registerEmail">E-Mail</label>
@@ -777,6 +780,21 @@
                             <span class="absence-text">Abwesend bis <span id="absenceEndDate"></span></span>
                         </div>
 
+                        <div id="dashboardHeaderShortcuts" class="header-dashboard-shortcuts" aria-label="Schnellaktionen" hidden>
+                            <button id="dashboardCreateEventShortcut" class="btn btn-primary header-dashboard-shortcut" type="button" title="Direkt neuen Auftritt erstellen">
+                                <span aria-hidden="true">🎤</span>
+                                <span>Auftritt hier anlegen</span>
+                            </button>
+                            <button id="dashboardCreateRehearsalShortcut" class="btn btn-primary header-dashboard-shortcut" type="button" title="Direkt neuen Probetermin erstellen">
+                                <span aria-hidden="true">➕</span>
+                                <span>Probe hier anlegen</span>
+                            </button>
+                            <button id="dashboardOpenCalendarShortcut" class="btn btn-primary header-dashboard-shortcut" type="button" title="Direkt zu Mein Kalender wechseln">
+                                <span aria-hidden="true">🗓️</span>
+                                <span>Zur Terminübersicht</span>
+                            </button>
+                        </div>
+
                         <div class="header-notifications">
                             <button
                                 id="notificationBellBtn"
@@ -1056,20 +1074,6 @@
                                     </div>
                                 </div>
                                 <div id="nextEventHero" class="dashboard-panel next-event-hero-card">
-                                    <div class="dashboard-next-event-tools" aria-label="Schnellaktionen">
-                                        <button id="dashboardCreateEventShortcut" class="btn btn-secondary dashboard-overview-shortcut" type="button" title="Direkt neuen Auftritt erstellen">
-                                            <span aria-hidden="true">🎤</span>
-                                            <span>Auftritt hier anlegen</span>
-                                        </button>
-                                        <button id="dashboardCreateRehearsalShortcut" class="btn btn-primary dashboard-overview-shortcut" type="button" title="Direkt neuen Probetermin erstellen">
-                                            <span aria-hidden="true">➕</span>
-                                            <span>Probe hier anlegen</span>
-                                        </button>
-                                        <button id="dashboardOpenCalendarShortcut" class="btn btn-ghost dashboard-overview-shortcut" type="button" title="Direkt zu Mein Kalender wechseln">
-                                            <span aria-hidden="true">🗓️</span>
-                                            <span>Zur Terminübersicht</span>
-                                        </button>
-                                    </div>
                                     <div class="next-event-badge">Nächster Termin</div>
                                     <div id="nextEventContent" class="next-event-content">
                                         <div class="next-event-placeholder">Lade nächsten Termin...</div>
@@ -1986,7 +1990,7 @@
                                         <button type="submit" class="btn btn-primary btn-save">
                                             <span>💾</span> Änderungen speichern
                                         </button>
-                                        <button id="deleteAccountBtn" class="btn btn-danger-soft">
+                                        <button id="deleteAccountBtn" type="button" class="btn btn-danger-soft">
                                             Account löschen
                                         </button>
                                         <div class="settings-meta-links">
@@ -3856,9 +3860,9 @@
 
     <script src="js/logger.js?v=20260311"></script>
     <script src="js/proxy-service.js?v=20260311"></script>
-    <script src="js/supabase.js?v=20260311"></script>
+    <script src="js/supabase.js?v=20260407-17"></script>
     <script src="js/storage.js?v=20260311"></script>
-    <script src="js/auth.js?v=20260311"></script>
+    <script src="js/auth.js?v=20260407-19"></script>
     <script src="js/email-service.js?v=20260311"></script>
     <script src="js/bands.js?v=20260311"></script>
     <script src="js/pdf-generator.js?v=20260311"></script>
@@ -3873,7 +3877,7 @@
     <script src="js/feedback-service.js?v=20260311"></script>
     <script src="js/chordpro-converter.js?v=20260407-8"></script>
     <script src="js/notifications.js?v=20260328"></script>
-    <script src="js/app.js?v=20260407-3"></script>
+    <script src="js/app.js?v=20260407-11"></script>
 
     <!-- Skip duplicated pdf.js block -->
 

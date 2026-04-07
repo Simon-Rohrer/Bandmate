@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Bandmate | E-Mail bestätigen</title>
+
+    <meta name="description" content="Bestätige deine E-Mail-Adresse und aktiviere deinen Bandmate-Account.">
+    <meta name="theme-color" content="#0B1220">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <script>
+        (function () {
+            const STORAGE_KEY = 'theme';
+            let resolvedTheme = 'light';
+            try {
+                const storedTheme = localStorage.getItem(STORAGE_KEY);
+                if (storedTheme === 'light' || storedTheme === 'dark') {
+                    resolvedTheme = storedTheme;
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                    resolvedTheme = 'dark';
+                }
+            } catch (error) { }
+            document.documentElement.dataset.theme = resolvedTheme;
+            document.documentElement.classList.toggle('theme-dark', resolvedTheme === 'dark');
+        })();
+    </script>
+
+    <link rel="stylesheet" href="css/style.css?v=20260407-17">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="landing-active">
+    <main id="landingPage" class="landing-page active">
+        <div class="landing-content">
+            <header class="landing-header" style="padding: 1rem 2rem;">
+                <div class="landing-logo">
+                    <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="logo-light" style="height: 32px !important;">
+                    <img src="images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="logo-dark" style="height: 32px !important;">
+                </div>
+            </header>
+
+            <section class="landing-hero" style="min-height: calc(100vh - 80px); display: flex; align-items: center; justify-content: center; padding: 2rem 1rem;">
+                <div style="width: 100%; max-width: 500px; margin: 0 auto; background: var(--color-surface); border-radius: 22px; border: 1px solid var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;">
+                    <div style="height: 4px; background: #3d63ff;"></div>
+
+                    <div style="padding: 2.5rem 2rem;">
+                        <div style="display: inline-flex; align-items: center; min-height: 30px; padding: 0.28rem 0.78rem; border-radius: 999px; border: 1px solid rgba(61, 99, 255, 0.28); background: rgba(61, 99, 255, 0.12); color: #8db1ff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">
+                            Konto aktivieren
+                        </div>
+
+                        <div style="margin-top: 1.2rem; display: grid; gap: 0.8rem;">
+                            <h1 id="confirmEmailTitle" style="margin: 0; font-size: 1.85rem; line-height: 1.12; color: var(--color-text);">E-Mail-Adresse wird bestätigt...</h1>
+                            <p id="confirmEmailMessage" style="margin: 0; color: var(--color-text-secondary); font-size: 0.96rem; line-height: 1.65;">Einen kleinen Moment bitte. Wir aktivieren gerade dein Bandmate-Konto.</p>
+                        </div>
+
+                        <div id="confirmEmailStatusBox" style="margin-top: 1.5rem; padding: 1rem 1.1rem; border-radius: 18px; border: 1px solid rgba(125, 160, 255, 0.22); background: rgba(61, 99, 255, 0.1); color: var(--color-text); font-size: 0.92rem; line-height: 1.6;">
+                            Bestätigung wird verarbeitet.
+                        </div>
+
+                        <a id="confirmEmailHomeButton" href="index.html" class="btn-submit" style="display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; margin-top: 1.6rem; border: none; border-radius: 16px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #ffffff; font-size: 0.98rem; font-weight: 700; letter-spacing: 0.03em; text-decoration: none; box-shadow: 0 16px 38px rgba(99, 102, 241, 0.28);">
+                            Zur Startseite
+                        </a>
+
+                        <p id="confirmEmailHint" style="margin: 1rem 0 0; color: var(--color-text-secondary); font-size: 0.88rem; line-height: 1.6;">
+                            Nach der Bestätigung kannst du dich mit deiner E-Mail-Adresse und deinem Passwort bei Bandmate einloggen.
+                        </p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script src="js/supabase.js?v=20260407-17"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const titleEl = document.getElementById('confirmEmailTitle');
+            const messageEl = document.getElementById('confirmEmailMessage');
+            const statusBoxEl = document.getElementById('confirmEmailStatusBox');
+            const hintEl = document.getElementById('confirmEmailHint');
+
+            const setState = (state, title, message, detail) => {
+                titleEl.textContent = title;
+                messageEl.textContent = message;
+                statusBoxEl.textContent = detail;
+
+                if (state === 'success') {
+                    statusBoxEl.style.borderColor = 'rgba(34, 197, 94, 0.28)';
+                    statusBoxEl.style.background = 'rgba(34, 197, 94, 0.12)';
+                } else if (state === 'error') {
+                    statusBoxEl.style.borderColor = 'rgba(248, 113, 113, 0.28)';
+                    statusBoxEl.style.background = 'rgba(248, 113, 113, 0.12)';
+                } else {
+                    statusBoxEl.style.borderColor = 'rgba(125, 160, 255, 0.22)';
+                    statusBoxEl.style.background = 'rgba(61, 99, 255, 0.10)';
+                }
+            };
+
+            const readAuthParam = (name) => {
+                const url = new URL(window.location.href);
+                const hashParams = new URLSearchParams((url.hash || '').replace(/^#/, ''));
+                return url.searchParams.get(name) || hashParams.get(name);
+            };
+
+            const clearAuthUrl = () => {
+                try {
+                    const cleanUrl = SupabaseClient.buildProjectPageUrl('confirm-email.html');
+                    window.history.replaceState({}, document.title, cleanUrl);
+                } catch (error) { }
+            };
+
+            try {
+                SupabaseClient.init();
+                const sb = SupabaseClient.getClient();
+                if (!sb) {
+                    throw new Error('Die Verbindung zu Supabase konnte nicht aufgebaut werden.');
+                }
+
+                const code = readAuthParam('code');
+                const tokenHash = readAuthParam('token_hash');
+                const type = readAuthParam('type');
+                const accessToken = readAuthParam('access_token');
+                const refreshToken = readAuthParam('refresh_token');
+                const errorDescription = readAuthParam('error_description');
+
+                if (errorDescription) {
+                    throw new Error(decodeURIComponent(errorDescription.replace(/\+/g, ' ')));
+                }
+
+                if (!code && !tokenHash && !accessToken) {
+                    setState(
+                        'idle',
+                        'Bestätige dein Konto über den Link in deiner E-Mail',
+                        'Öffne dafür die Bestätigungs-Mail von Bandmate und klicke auf "E-Mail bestätigen".',
+                        'Sobald du den Link aus deiner Mail öffnest, wird dein Konto hier automatisch aktiviert.'
+                    );
+                    return;
+                }
+
+                let session = null;
+                let user = null;
+
+                if (code) {
+                    const { data, error } = await sb.auth.exchangeCodeForSession(code);
+                    if (error) throw error;
+                    session = data.session || null;
+                    user = data.user || data.session?.user || null;
+                } else if (accessToken && refreshToken) {
+                    const { data, error } = await sb.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    });
+                    if (error) throw error;
+                    session = data.session || null;
+                    user = data.user || data.session?.user || null;
+                } else if (tokenHash && type) {
+                    const { data, error } = await sb.auth.verifyOtp({
+                        token_hash: tokenHash,
+                        type
+                    });
+                    if (error) throw error;
+                    session = data.session || null;
+                    user = data.user || data.session?.user || null;
+                }
+
+                if (!session || !user) {
+                    const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+                    if (sessionError) throw sessionError;
+                    session = sessionData.session || null;
+                    user = sessionData.session?.user || null;
+                }
+
+                const confirmedAt = user?.email_confirmed_at || user?.confirmed_at || null;
+                if (!user || !confirmedAt) {
+                    throw new Error('Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordere bei Bedarf eine neue Bestätigungs-E-Mail an.');
+                }
+
+                const existingMetadata = user.user_metadata || {};
+                const { error: metadataError } = await sb.auth.updateUser({
+                    data: {
+                        ...existingMetadata,
+                        requires_email_activation: true,
+                        email_activation_completed: true,
+                        show_onboarding_after_activation: existingMetadata.show_onboarding_after_activation !== false
+                    }
+                });
+                if (metadataError) throw metadataError;
+
+                await sb.auth.signOut();
+                clearAuthUrl();
+
+                const confirmedEmail = user.email ? ` fuer ${user.email}` : '';
+                setState(
+                    'success',
+                    'Dein Konto ist jetzt aktiviert',
+                    'Deine E-Mail-Adresse wurde erfolgreich bestätigt. Du kannst dich jetzt in Bandmate einloggen.',
+                    `Die E-Mail-Bestätigung${confirmedEmail} wurde erfolgreich abgeschlossen.`
+                );
+                hintEl.textContent = 'Mit dem Button unten kommst du direkt zur Startseite und kannst dich dort anmelden.';
+            } catch (error) {
+                console.error('[confirm-email] Verification failed:', error);
+                clearAuthUrl();
+                setState(
+                    'error',
+                    'Die Bestätigung konnte nicht abgeschlossen werden',
+                    'Der Link ist möglicherweise abgelaufen oder nicht mehr gültig.',
+                    error?.message || 'Bitte fordere eine neue Bestätigungs-E-Mail an und versuche es erneut.'
+                );
+                hintEl.textContent = 'Du kannst über die Startseite erneut zum Login oder zur Registrierung wechseln.';
+            }
+        });
+    </script>
+</body>
+
+</html>
