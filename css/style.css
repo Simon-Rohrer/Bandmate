@@ -15451,11 +15451,29 @@ html[data-theme="light"] .loader-container,
     color: var(--color-text);
 }
 
+.converter-container .converter-card-title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+}
+
 .converter-container .converter-card-subtitle {
     margin: 0.2rem 0 0;
     color: var(--color-text-secondary);
     line-height: 1.45;
     max-width: 28ch;
+}
+
+.converter-container .converter-help-button {
+    min-height: 34px;
+    padding: 0.55rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .converter-container .converter-info-note {
@@ -15937,6 +15955,116 @@ html[data-theme="light"] .loader-container,
     color: var(--color-text-secondary);
 }
 
+.chordpro-help-modal-content {
+    max-width: 860px;
+    width: min(92vw, 860px);
+}
+
+.chordpro-help-title-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.chordpro-help-kicker {
+    display: inline-flex;
+    align-self: flex-start;
+    min-height: 1.85rem;
+    padding: 0.18rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--color-primary);
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.chordpro-help-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.chordpro-help-intro {
+    padding: 1rem 1.1rem;
+    border-radius: 18px;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(59, 130, 246, 0.05));
+    border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.chordpro-help-intro p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+}
+
+.chordpro-help-intro strong {
+    color: var(--color-text);
+}
+
+.chordpro-help-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.9rem;
+}
+
+.chordpro-help-card {
+    padding: 1rem 1.05rem;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.chordpro-help-card h3 {
+    margin: 0 0 0.55rem;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.chordpro-help-card p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.58;
+}
+
+.chordpro-help-card-wide {
+    grid-column: 1 / -1;
+}
+
+.chordpro-help-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--color-text-secondary);
+}
+
+.chordpro-help-list li + li {
+    margin-top: 0.45rem;
+}
+
+.chordpro-help-example {
+    display: flex;
+    flex-direction: column;
+    gap: 0.38rem;
+}
+
+.chordpro-help-example + .chordpro-help-example {
+    margin-top: 0.85rem;
+}
+
+.chordpro-help-example code {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 0.38rem 0.68rem;
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.32);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    color: var(--color-text);
+    font-size: 0.88rem;
+    font-weight: 700;
+}
+
 .converter-container .cp-ipad-stage {
     width: 100%;
     min-height: 100%;
@@ -16253,6 +16381,19 @@ html[data-theme="light"] .loader-container,
     .converter-container .cp-ipad-page {
         border-radius: 14px;
         padding: 1rem 0.95rem 1.2rem;
+    }
+
+    .converter-container .converter-card-title-row {
+        align-items: flex-start;
+    }
+
+    .converter-container .converter-help-button {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .chordpro-help-grid {
+        grid-template-columns: 1fr;
     }
 }
 

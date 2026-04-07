@@ -59,7 +59,7 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260407-26">
+    <link rel="stylesheet" href="css/style.css?v=20260407-27">
     <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
     <link rel="stylesheet" href="css/calendar.css?v=20260407-6">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
@@ -1448,7 +1448,12 @@
                                                 <div class="converter-card-head">
                                                     <div>
                                                         <span class="converter-card-eyebrow">Import</span>
-                                                        <h3 class="converter-card-title">PDF importieren</h3>
+                                                        <div class="converter-card-title-row">
+                                                            <h3 class="converter-card-title">PDF importieren</h3>
+                                                            <button type="button" class="btn btn-secondary btn-sm converter-help-button" onclick="UI.openModal('chordproHelpModal')">
+                                                                ❔ Was ist ChordPro?
+                                                            </button>
+                                                        </div>
                                                         <p class="converter-card-subtitle">PDF wählen und direkt als ChordPro bearbeiten.</p>
                                                     </div>
                                                 </div>
@@ -3743,6 +3748,70 @@
             <div class="modal-actions" style="padding: var(--spacing-md); border-top: 1px solid var(--color-border);">
                 <a id="pdfPreviewDownload" href="#" download class="btn btn-secondary">📥 Jetzt herunterladen</a>
                 <button type="button" class="btn cancel" id="pdfPreviewCancel">Schließen</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ChordPro Help Modal -->
+    <div id="chordproHelpModal" class="modal">
+        <div class="modal-content chordpro-help-modal-content">
+            <div class="modal-header">
+                <div class="chordpro-help-title-group">
+                    <span class="chordpro-help-kicker">ChordPro Hilfe</span>
+                    <h2>Was ist ChordPro und wofür ist es gut?</h2>
+                </div>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body chordpro-help-body">
+                <div class="chordpro-help-intro">
+                    <p><strong>ChordPro</strong> ist ein Textformat für Songs mit Akkorden und Songstruktur. Programme wie <strong>OnSong</strong>, <strong>Songbook Pro</strong> oder andere Sheet-Apps mit ChordPro-Unterstützung können diese Dateien lesen und daraus flexible Leadsheets machen.</p>
+                </div>
+
+                <div class="chordpro-help-grid">
+                    <section class="chordpro-help-card">
+                        <h3>Warum ist das besser als ein PDF?</h3>
+                        <p>Bei einer <strong>ChordPro-Datei</strong> kann die Tonart in unterstützten Apps direkt geändert werden. Das ist praktisch, wenn ein Song für die Band höher oder tiefer gebraucht wird. Bei einem <strong>PDF</strong> geht das nicht sauber und ist im Alltag oft lästig.</p>
+                    </section>
+
+                    <section class="chordpro-help-card">
+                        <h3>Warum ist die Umwandlung hier cool?</h3>
+                        <p>Du kannst hier ein bestehendes PDF in eine <strong>bearbeitbare ChordPro-Datei</strong> umwandeln, direkt prüfen, korrigieren und danach in deiner Band weiterverwenden.</p>
+                    </section>
+
+                    <section class="chordpro-help-card">
+                        <h3>So funktioniert der Editor</h3>
+                        <ul class="chordpro-help-list">
+                            <li>PDF hochladen oder direkt eine neue ChordPro-Datei anlegen.</li>
+                            <li>Im <strong>Editor</strong> den Text prüfen und anpassen.</li>
+                            <li>Über die <strong>Tonart</strong> und die Buttons oben passende Akkorde einfügen.</li>
+                            <li>Mit <strong>Intro</strong>, <strong>Vers</strong>, <strong>Chorus</strong>, <strong>Bridge</strong> oder <strong>Ending</strong> Überschriften einsetzen.</li>
+                        </ul>
+                    </section>
+
+                    <section class="chordpro-help-card">
+                        <h3>Was bedeuten die Klammern?</h3>
+                        <div class="chordpro-help-example">
+                            <code>[C] [G] [Am]</code>
+                            <p>Die <strong>eckigen Klammern</strong> sind die Akkorde. Genau diese Akkorde können in OnSong, Songbook Pro oder anderen ChordPro-Apps später in andere Tonarten transponiert werden.</p>
+                        </div>
+                        <div class="chordpro-help-example">
+                            <code>{c: Intro}</code>
+                            <p>Solche <strong>geschweiften Klammern</strong> sind Befehle oder Hinweise für den Song, zum Beispiel Abschnittsüberschriften wie Intro oder Vers.</p>
+                        </div>
+                        <div class="chordpro-help-example">
+                            <code>{title: Mein Song} &nbsp; {key: G}</code>
+                            <p>Damit setzt du zum Beispiel Titel, Tonart oder andere Song-Infos.</p>
+                        </div>
+                    </section>
+
+                    <section class="chordpro-help-card chordpro-help-card-wide">
+                        <h3>Am Ende direkt in den Song legen</h3>
+                        <p>Unten im <strong>Workflow</strong> kannst du deine fertige ChordPro-Datei direkt einem Song zuweisen. So kann jeder in der Band die Datei später wieder herunterladen und in einer passenden App weiterverwenden.</p>
+                    </section>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="UI.closeModal('chordproHelpModal')">Verstanden</button>
             </div>
         </div>
     </div>
