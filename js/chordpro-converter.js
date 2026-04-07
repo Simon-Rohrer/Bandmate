@@ -8,6 +8,8 @@ const ChordProConverter = {
     LOADING_TIMEOUT_MS: 90000,
     loadingTimeoutHandle: null,
     isConverting: false,
+    previewScrollElement: null,
+    previewScrollHandlers: null,
     editorSelectedKey: '',
     lastEditorSelection: { start: 0, end: 0 },
     SECTION_INSERTIONS: [
@@ -95,25 +97,32 @@ const ChordProConverter = {
     scrollToEditor() {
         const editor = document.getElementById('chordproResultArea');
         if (editor) {
-            const editorPane = editor.closest('.converter-pane-editor') || editor.closest('.split-column') || editor;
-            editorPane.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            // Keep caret at the top and prevent auto-scroll to the end
-            if (typeof editor.setSelectionRange === 'function') {
-                editor.setSelectionRange(0, 0);
-            } else {
-                editor.selectionStart = 0;
-                editor.selectionEnd = 0;
-            }
-            editor.scrollTop = 0;
-            editor.scrollLeft = 0;
-            try {
-                editor.focus({ preventScroll: true });
-            } catch (err) {
-                editor.focus();
-            }
             requestAnimationFrame(() => {
+                const editorPane = document.getElementById('converterResultStep')
+                    || editor.closest('.converter-pane-editor')
+                    || editor.closest('.split-column')
+                    || editor;
+
+                editorPane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                if (typeof editor.setSelectionRange === 'function') {
+                    editor.setSelectionRange(0, 0);
+                } else {
+                    editor.selectionStart = 0;
+                    editor.selectionEnd = 0;
+                }
                 editor.scrollTop = 0;
                 editor.scrollLeft = 0;
+
+                setTimeout(() => {
+                    try {
+                        editor.focus({ preventScroll: true });
+                    } catch (err) {
+                        editor.focus();
+                    }
+                    editor.scrollTop = 0;
+                    editor.scrollLeft = 0;
+                }, 140);
             });
         }
     },
@@ -283,6 +292,222 @@ const ChordProConverter = {
         this.syncActionState();
     },
 
+    getPreviewMessage() {
+        return 'Lade oben eine PDF hoch, die Vorschau erscheint dann im iPad-Format.';
+    },
+
+    getMetadataDirectiveNames() {
+        return ['title', 't', 'artist', 'st', 'subtitle', 'key', 'time', 'tempo', 'bpm', 'copyright'];
+    },
+
+    getLeadingMetadataDirectiveCount(text = '') {
+        if (!text) return 0;
+
+        const metadataNames = new Set(this.getMetadataDirectiveNames());
+        const lines = String(text).split('\n');
+        let count = 0;
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) break;
+
+            const match = trimmed.match(/^\{([^:}]+)\s*:/);
+            const directiveName = match ? match[1].trim().toLowerCase() : '';
+
+            if (!metadataNames.has(directiveName)) {
+                break;
+            }
+
+            count++;
+        }
+
+        return count;
+    },
+
+    updateEditorDivider(text = '') {
+        const editor = document.getElementById('chordproResultArea');
+        if (!editor) return;
+
+        const directiveCount = this.getLeadingMetadataDirectiveCount(text);
+        if (directiveCount === 0) {
+            editor.style.setProperty('--editor-divider-offset', '-999px');
+            editor.style.setProperty('--editor-divider-opacity', '0');
+            return;
+        }
+
+        const styles = window.getComputedStyle(editor);
+        const paddingTop = parseFloat(styles.paddingTop) || 16;
+        const lineHeight = parseFloat(styles.lineHeight) || 25.6;
+        const dividerOffset = paddingTop + (directiveCount * lineHeight) + Math.max(4, lineHeight * 0.18);
+
+        editor.style.setProperty('--editor-divider-offset', `${dividerOffset}px`);
+        editor.style.setProperty('--editor-divider-opacity', '1');
+    },
+
+    renderPreviewLineContent(line = '') {
+        return line.split(/(\[[^\]]+\])/g).map(token => {
+            if (!token) return '';
+            if (token.startsWith('[') && token.endsWith(']')) {
+                return `<span class="cp-inline-chord">${this.escapeHtml(token.slice(1, -1))}</span>`;
+            }
+            return this.escapeHtml(token);
+        }).join('');
+    },
+
+    getPreviewChordTokens(line = '') {
+        const rawTokens = String(line).split(/(\[[^\]]+\])/g);
+        const tokens = [];
+
+        for (let index = 0; index < rawTokens.length; index++) {
+            const token = rawTokens[index];
+            if (!token) continue;
+
+            if (token.startsWith('[') && token.endsWith(']')) {
+                const lyric = rawTokens[index + 1] || '';
+                tokens.push({
+                    chord: token.slice(1, -1),
+                    lyric
+                });
+                index++;
+                continue;
+            }
+
+            tokens.push({
+                chord: '',
+                lyric: token
+            });
+        }
+
+        return tokens;
+    },
+
+    renderPreviewChordLine(line = '') {
+        const tokens = this.getPreviewChordTokens(line);
+        const tokenMarkup = tokens.map(token => {
+            const chordMarkup = token.chord ? this.escapeHtml(token.chord) : '&nbsp;';
+            const lyricMarkup = token.lyric ? this.escapeHtml(token.lyric) : '&nbsp;';
+            const tokenClassName = token.chord ? 'cp-token has-chord' : 'cp-token is-plain';
+
+            return `
+                <span class="${tokenClassName}">
+                    <span class="cp-chord">${chordMarkup}</span>
+                    <span class="cp-lyric">${lyricMarkup}</span>
+                </span>
+            `;
+        }).join('');
+
+        return `<div class="cp-line">${tokenMarkup}</div>`;
+    },
+
+    getPreviewFrameMarkup(content) {
+        return `
+            <div class="cp-ipad-stage">
+                <div class="cp-ipad-device">
+                    <div class="cp-ipad-screen">${content}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    getPreviewPlaceholderMarkup(message = this.getPreviewMessage()) {
+        return this.getPreviewFrameMarkup(`
+            <div class="preview-placeholder cp-ipad-placeholder">
+                ${this.escapeHtml(message)}
+            </div>
+        `);
+    },
+
+    getPreviewScrollElement() {
+        const previewArea = document.getElementById('chordproPreviewArea');
+        if (!previewArea) return null;
+        return previewArea.querySelector('.cp-ipad-screen') || previewArea;
+    },
+
+    bindPreviewScrollTarget() {
+        const nextTarget = this.getPreviewScrollElement();
+        const handlers = this.previewScrollHandlers;
+        if (!handlers || !handlers.onPreviewScroll || this.previewScrollElement === nextTarget) return;
+
+        if (this.previewScrollElement) {
+            this.previewScrollElement.removeEventListener('scroll', handlers.onPreviewScroll);
+        }
+
+        this.previewScrollElement = nextTarget;
+
+        if (this.previewScrollElement) {
+            this.previewScrollElement.addEventListener('scroll', handlers.onPreviewScroll);
+        }
+    },
+
+    ensurePreviewScrollSync() {
+        const editor = document.getElementById('chordproResultArea');
+        if (!editor) return;
+
+        if (!this.previewScrollHandlers) {
+            const syncState = { suppressEditor: false, suppressPreview: false };
+
+            this.previewScrollHandlers = {
+                onEditorScroll: () => {
+                    const previewTarget = this.getPreviewScrollElement();
+                    if (!previewTarget) {
+                        return;
+                    }
+
+                    if (syncState.suppressEditor) {
+                        return;
+                    }
+
+                    const editorScrollable = Math.max(editor.scrollHeight - editor.clientHeight, 1);
+                    const previewScrollable = Math.max(previewTarget.scrollHeight - previewTarget.clientHeight, 1);
+                    const percentage = editor.scrollTop / editorScrollable;
+                    const nextPreviewScrollTop = percentage * previewScrollable;
+
+                    if (Math.abs(previewTarget.scrollTop - nextPreviewScrollTop) < 1) {
+                        return;
+                    }
+
+                    syncState.suppressPreview = true;
+                    previewTarget.scrollTop = nextPreviewScrollTop;
+                    requestAnimationFrame(() => {
+                        syncState.suppressPreview = false;
+                    });
+                },
+                onPreviewScroll: () => {
+                    const previewTarget = this.getPreviewScrollElement();
+                    if (!previewTarget) {
+                        return;
+                    }
+
+                    if (syncState.suppressPreview) {
+                        return;
+                    }
+
+                    const previewScrollable = Math.max(previewTarget.scrollHeight - previewTarget.clientHeight, 1);
+                    const editorScrollable = Math.max(editor.scrollHeight - editor.clientHeight, 1);
+                    const percentage = previewTarget.scrollTop / previewScrollable;
+                    const nextEditorScrollTop = percentage * editorScrollable;
+
+                    if (Math.abs(editor.scrollTop - nextEditorScrollTop) < 1) {
+                        return;
+                    }
+
+                    syncState.suppressEditor = true;
+                    editor.scrollTop = nextEditorScrollTop;
+                    requestAnimationFrame(() => {
+                        syncState.suppressEditor = false;
+                    });
+                }
+            };
+        }
+
+        if (!editor.hasAttribute('data-scroll-synced')) {
+            editor.addEventListener('scroll', this.previewScrollHandlers.onEditorScroll);
+            editor.setAttribute('data-scroll-synced', 'true');
+        }
+
+        this.bindPreviewScrollTarget();
+    },
+
     setupEventListeners() {
         const dropzone = document.getElementById('converterDropzone');
         const fileInput = document.getElementById('converterFileInput');
@@ -365,6 +590,7 @@ const ChordProConverter = {
         if (editor) {
             editor.addEventListener('input', () => {
                 this.cacheEditorSelection();
+                this.updateEditorDivider(editor.value);
                 this.renderPreview(editor.value);
                 this.syncActionState();
             });
@@ -372,6 +598,8 @@ const ChordProConverter = {
             ['focus', 'click', 'keyup', 'mouseup', 'select', 'blur'].forEach(eventName => {
                 editor.addEventListener(eventName, () => this.cacheEditorSelection());
             });
+
+            window.addEventListener('resize', () => this.updateEditorDivider(editor.value));
         }
 
         if (keySelect) {
@@ -400,6 +628,7 @@ const ChordProConverter = {
 
         if (editor) {
             this.cacheEditorSelection();
+            this.updateEditorDivider(editor.value);
         }
 
         const newFileBtn = document.getElementById('createNewChordProBtn');
@@ -484,6 +713,7 @@ const ChordProConverter = {
             if (resultArea) {
                 resultArea.value = this.convertedChordPro;
                 this.cacheEditorSelection();
+                this.updateEditorDivider(this.convertedChordPro);
                 this.renderPreview(this.convertedChordPro);
             }
 
@@ -913,11 +1143,15 @@ const ChordProConverter = {
 
         const previewArea = document.getElementById('chordproPreviewArea');
         if (previewArea) {
-            previewArea.innerHTML = '<div class="preview-placeholder">Lade oben eine PDF hoch und starte die Konvertierung. Die Vorschau erscheint danach hier.</div>';
+            previewArea.innerHTML = this.getPreviewPlaceholderMarkup();
+            this.bindPreviewScrollTarget();
         }
 
         const resultArea = document.getElementById('chordproResultArea');
-        if (resultArea) resultArea.value = '';
+        if (resultArea) {
+            resultArea.value = '';
+            this.updateEditorDivider('');
+        }
 
         this.lastEditorSelection = { start: 0, end: 0 };
         this.setEditorSelectedKey('');
@@ -976,34 +1210,13 @@ const ChordProConverter = {
         const editor = document.getElementById('chordproResultArea');
         if (!previewArea) return;
 
-        // Synchronized Scrolling Setup (Idempotent)
-        if (editor && !editor.hasAttribute('data-scroll-synced')) {
-            let isSyncingLeft = false;
-            let isSyncingRight = false;
-
-            editor.addEventListener('scroll', () => {
-                if (!isSyncingLeft) {
-                    isSyncingRight = true;
-                    // Map scroll percentage
-                    const percentage = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
-                    previewArea.scrollTop = percentage * (previewArea.scrollHeight - previewArea.clientHeight);
-                }
-                isSyncingLeft = false;
-            });
-
-            previewArea.addEventListener('scroll', () => {
-                if (!isSyncingRight) {
-                    isSyncingLeft = true;
-                    const percentage = previewArea.scrollTop / (previewArea.scrollHeight - previewArea.clientHeight);
-                    editor.scrollTop = percentage * (editor.scrollHeight - editor.clientHeight);
-                }
-                isSyncingRight = false;
-            });
-            editor.setAttribute('data-scroll-synced', 'true');
+        if (editor) {
+            this.ensurePreviewScrollSync();
         }
 
         if (!chordProText.trim()) {
-            previewArea.innerHTML = '<div class="preview-placeholder">Lade oben eine PDF hoch und starte die Konvertierung. Die Vorschau erscheint danach hier.</div>';
+            previewArea.innerHTML = this.getPreviewPlaceholderMarkup();
+            this.bindPreviewScrollTarget();
             return;
         }
 
@@ -1047,6 +1260,10 @@ const ChordProConverter = {
             }
         });
 
+        while (bodyLines.length > 0 && !bodyLines[0].trim()) {
+            bodyLines.shift();
+        }
+
         // Construct Header Block
         let headerHtml = '<div class="cp-metadata-block">';
         if (meta.title) headerHtml += `<h1 class="cp-title">${meta.title}</h1>`;
@@ -1068,6 +1285,8 @@ const ChordProConverter = {
 
         html += headerHtml;
 
+        html += '<div class="cp-preview-body">';
+
         // Render Body
         bodyLines.forEach(line => {
             const trimmed = line.trim();
@@ -1080,71 +1299,23 @@ const ChordProConverter = {
                 const value = parts.slice(1).join(':').trim();
 
                 if (key === 'c' || key === 'comment' || key === 'soc' || key === 'eoc' || isSectionHeader(key)) {
-                    // Render Section Header
-                    html += `<div class="cp-section-header">${value || key}</div>`;
+                    html += `<div class="cp-preview-line is-section">${this.escapeHtml(value || key)}</div>`;
                 }
                 return;
             }
 
-            // Lyric line with Chords (Stack Layout)
-            if (line.includes('[')) {
-                let lineHtml = '<div class="cp-line">';
-
-                // Tokenizer logic:
-                // We want to group [Chord]Syllable together.
-                // Example: [Am]He[C]llo -> Token([Am], He), Token([C], llo)
-
-                // Split by chords but keep delimiters
-                // "Hello [Am]World [C]" -> ["Hello ", "[Am]", "World ", "[C]", ""]
-                const tokens = line.split(/(\[[^\]]+\])/);
-
-                let currentChord = '';
-                let currentLyric = '';
-
-                // Helper to flush current token
-                const flushToken = (chord, lyric) => {
-                    const ch = chord ? chord.slice(1, -1) : '&nbsp;'; // Remove []
-                    const ly = lyric || '&nbsp;';
-                    // Check if empty (only non-breaking space)
-                    if (ch === '&nbsp;' && ly.trim() === '') return '';
-
-                    return `<div class="cp-token">
-                        <span class="cp-chord">${ch}</span>
-                        <span class="cp-lyric">${ly}</span>
-                    </div>`;
-                };
-
-                // Processing strategy:
-                // Pair each chord with ONLY the immediately following text (until next chord)
-                // Example: "e[F]wi[G]gli" -> Token("","e"), Token("[F]","wi"), Token("[G]","gli")
-
-                for (let i = 0; i < tokens.length; i++) {
-                    const token = tokens[i];
-                    if (token.startsWith('[') && token.endsWith(']')) {
-                        // It is a chord. Grab ONLY the next token
-                        const nextToken = tokens[i + 1] || '';
-                        lineHtml += flushToken(token, nextToken);
-                        i++; // Skip next since we consumed it
-                    } else {
-                        // It is text WITHOUT a preceding chord
-                        if (token.trim()) {
-                            lineHtml += flushToken('', token);
-                        }
-                    }
-                }
-
-                lineHtml += '</div>';
-                html += lineHtml;
+            if (trimmed === '') {
+                html += '<div class="cp-preview-line is-empty">&nbsp;</div>';
+            } else if (line.includes('[')) {
+                html += this.renderPreviewChordLine(line);
             } else {
-                if (trimmed === '') {
-                    html += '<br>';
-                } else {
-                    html += `<div class="cp-line"><div class="cp-token"><span class="cp-chord">&nbsp;</span><span class="cp-lyric">${line}</span></div></div>`;
-                }
+                html += `<div class="cp-preview-line">${this.escapeHtml(line)}</div>`;
             }
         });
+        html += '</div>';
 
-        previewArea.innerHTML = html;
+        previewArea.innerHTML = this.getPreviewFrameMarkup(`<div class="cp-ipad-page">${html}</div>`);
+        this.bindPreviewScrollTarget();
 
         function isSectionHeader(k) {
             return ['chorus', 'verse', 'bridge', 'intro', 'outro', 'pre-chorus'].includes(k);
@@ -1181,7 +1352,7 @@ const ChordProConverter = {
         statusEl.innerHTML = `
             <div class="converter-file-status-row">
                 <span class="converter-file-pill is-muted">Warten auf PDF</span>
-                <span>Wähle oben eine PDF-Datei aus, um die Konvertierung zu starten.</span>
+                <span>PDF wählen oder ablegen.</span>
             </div>
         `;
     },
@@ -1227,15 +1398,17 @@ const ChordProConverter = {
         const hasSong = Boolean(songSelect && songSelect.value);
 
         if (startBtn) {
+            startBtn.hidden = !hasFile && !this.isConverting && !this.hasConverted;
+
             if (this.isConverting) {
                 startBtn.disabled = true;
-                startBtn.innerHTML = '⏳ PDF wird konvertiert...';
+                startBtn.innerHTML = '⏳ Wird konvertiert...';
             } else if (hasFile && this.hasConverted) {
                 startBtn.disabled = false;
-                startBtn.innerHTML = '🔁 PDF erneut konvertieren';
+                startBtn.innerHTML = '🔁 Neu konvertieren';
             } else if (hasFile) {
                 startBtn.disabled = false;
-                startBtn.innerHTML = '🚀 PDF jetzt konvertieren';
+                startBtn.innerHTML = '🚀 Jetzt konvertieren';
             } else {
                 startBtn.disabled = true;
                 startBtn.innerHTML = '🚀 PDF konvertieren';

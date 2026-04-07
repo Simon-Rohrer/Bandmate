@@ -59,7 +59,7 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260407">
+    <link rel="stylesheet" href="css/style.css?v=20260407-6">
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/calendar.css">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
@@ -1448,39 +1448,46 @@
                             <div class="converter-workspace">
                                 <div class="converter-top-grid">
                                     <div id="converterUploadStep" class="converter-step converter-upload-panel action-card converter-surface-card">
-                                        <div class="converter-card-head">
-                                            <div>
-                                                <span class="converter-card-eyebrow">Import</span>
-                                                <h3 class="converter-card-title">PDF importieren</h3>
-                                                <p class="converter-card-subtitle">PDF auswählen, konvertieren und den ChordPro-Text direkt daneben bearbeiten.</p>
-                                            </div>
-                                        </div>
-                                        <div class="converter-info-note">
-                                            <span class="converter-info-icon">♪</span>
-                                            <p>ChordPro-Dateien kannst du in Apps wie <strong>OnSong</strong> oder <strong>Songbook Pro</strong> nutzen, um Songs sauber zu importieren und zum Beispiel Tonarten schnell zu transponieren.</p>
-                                        </div>
-                                        <div class="upload-dropzone" id="converterDropzone">
-                                            <div class="dropzone-inner">
-                                                <div class="dropzone-icon-wrapper">
-                                                    <span class="dropzone-icon">📄</span>
+                                        <div class="converter-upload-shell">
+                                            <div class="converter-upload-copy">
+                                                <div class="converter-card-head">
+                                                    <div>
+                                                        <span class="converter-card-eyebrow">Import</span>
+                                                        <h3 class="converter-card-title">PDF importieren</h3>
+                                                        <p class="converter-card-subtitle">PDF wählen und direkt als ChordPro bearbeiten.</p>
+                                                    </div>
                                                 </div>
-                                                <h3 class="dropzone-title">PDF hier ablegen</h3>
-                                                <p class="dropzone-subtitle">oder klicken zum Auswählen</p>
-                                                <button class="btn btn-secondary btn-sm converter-upload-trigger"
-                                                    style="pointer-events: none; margin-top: 1rem;">Datei wählen</button>
-                                                <input type="file" id="converterFileInput" accept=".pdf" style="display: none;">
+                                                <div class="converter-info-note">
+                                                    <span class="converter-info-icon">♪</span>
+                                                    <p>Ideal für <strong>OnSong</strong> oder <strong>Songbook Pro</strong>.</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div id="converterFileStatus" class="converter-file-status">
-                                            Noch keine PDF ausgewählt.
-                                        </div>
-                                        <div class="converter-upload-actions" style="display: flex; flex-direction: column; gap: 0.75rem; align-items: stretch;">
-                                            <button id="startConversionAreaBtn" class="btn btn-primary btn-lg" disabled>
-                                                🚀 PDF konvertieren
-                                            </button>
-                                            <button id="createNewChordProBtn" class="btn btn-secondary">
-                                                📝 ChordPro Datei neu anlegen
-                                            </button>
+                                            <div class="converter-upload-dropzone-stack">
+                                                <div class="upload-dropzone" id="converterDropzone">
+                                                    <div class="dropzone-inner">
+                                                        <div class="dropzone-icon-wrapper">
+                                                            <span class="dropzone-icon">📄</span>
+                                                        </div>
+                                                        <h3 class="dropzone-title">PDF hier ablegen</h3>
+                                                        <p class="dropzone-subtitle">oder auswählen</p>
+                                                        <button class="btn btn-secondary btn-sm converter-upload-trigger" style="pointer-events: none;">Datei wählen</button>
+                                                        <input type="file" id="converterFileInput" accept=".pdf" style="display: none;">
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="converter-upload-side">
+                                                <div id="converterFileStatus" class="converter-file-status">
+                                                    Noch keine PDF ausgewählt.
+                                                </div>
+                                                <div class="converter-upload-actions">
+                                                    <button id="startConversionAreaBtn" class="btn btn-primary btn-lg" disabled>
+                                                        🚀 PDF konvertieren
+                                                    </button>
+                                                    <button id="createNewChordProBtn" class="btn btn-secondary">
+                                                        📝 ChordPro Datei neu anlegen
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -1504,8 +1511,10 @@
                                                     <div id="converterStructureButtons" class="converter-toolbar-row converter-toolbar-row-sections"></div>
                                                     <div id="converterChordButtons" class="converter-toolbar-row converter-toolbar-row-chords" hidden></div>
                                                 </div>
-                                                <textarea id="chordproResultArea" class="chordpro-editor" spellcheck="false"
-                                                    placeholder="Nach der Konvertierung erscheint der ChordPro-Inhalt hier. Du kannst den Text danach direkt bearbeiten."></textarea>
+                                                <div class="converter-editor-surface">
+                                                    <textarea id="chordproResultArea" class="chordpro-editor" spellcheck="false"
+                                                        placeholder="Nach der Konvertierung erscheint der ChordPro-Inhalt hier. Du kannst den Text danach direkt bearbeiten."></textarea>
+                                                </div>
                                             </div>
 
                                             <!-- Draggable Gutter -->
@@ -3871,7 +3880,7 @@
     <script src="js/musikpool.js?v=20260311"></script>
     <script src="js/ui.js?v=20260311"></script>
     <script src="js/feedback-service.js?v=20260311"></script>
-    <script src="js/chordpro-converter.js?v=20260407-2"></script>
+    <script src="js/chordpro-converter.js?v=20260407-8"></script>
     <script src="js/notifications.js?v=20260328"></script>
     <script src="js/app.js?v=20260323"></script>
 
