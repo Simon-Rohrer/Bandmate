@@ -1175,17 +1175,28 @@ const Bands = {
     },
 
     // Remove member from band
-    removeMember(bandId, userId) {
-        const user = Storage.getById('users', userId);
+    async removeMember(bandId, userId) {
+        const user = await Storage.getById('users', userId);
         if (!user) return;
 
-        UI.showConfirm(`Möchtest du ${user.name} wirklich aus der Band entfernen?`, () => {
-            Storage.removeBandMember(bandId, userId);
-            this.invalidateCache();
-            UI.showToast('Mitglied entfernt', 'success');
-            this.renderBandMembers(bandId);
-            this.renderBands(true);
-        });
+        const displayName = UI.getUserDisplayName(user);
+
+        UI.showConfirm(
+            `Möchtest du ${displayName} wirklich aus der Band entfernen?`, 
+            async () => {
+                await Storage.removeBandMember(bandId, userId);
+                this.invalidateCache();
+                UI.showToast('Mitglied entfernt', 'success');
+                await this.renderBandMembers(bandId);
+                await this.renderBands(true);
+            },
+            null,
+            {
+                title: 'Mitglied entfernen',
+                confirmText: 'Entfernen',
+                confirmClass: 'btn-danger'
+            }
+        );
     },
 
     // Delete band

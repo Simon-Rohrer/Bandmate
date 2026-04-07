@@ -2050,6 +2050,10 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: 0.025em; /* Luftigeres Design für Überschriften */
+}
+
 html {
     height: 100%;
     overflow: hidden;
@@ -3033,6 +3037,7 @@ input:checked+.slider:before {
 .modal-header h2 {
     font-size: 1.5rem;
     font-weight: 700;
+    letter-spacing: 0.02em;
     color: var(--color-text);
 }
 
@@ -4427,6 +4432,7 @@ input:checked+.slider:before {
 .view-header h2 {
     font-size: 2rem;
     font-weight: 800;
+    letter-spacing: 0.025em;
     color: var(--color-text);
 }
 
@@ -4484,6 +4490,7 @@ input:checked+.slider:before {
     font-size: 1.75rem;
     /* Restored size */
     font-weight: 800;
+    letter-spacing: 0.03em; /* Etwas mehr Spacing für die Begrüßung */
     margin-bottom: var(--spacing-xs);
     color: inherit;
 }
@@ -4706,6 +4713,7 @@ input:checked+.slider:before {
     margin: 0;
     font-size: 1.1rem;
     font-weight: 700;
+    letter-spacing: 0.02em;
 }
 
 .section-header-actions {
@@ -5285,6 +5293,7 @@ input:checked+.slider:before {
     .welcome-text {
         font-size: 1.5rem;
         word-wrap: break-word;
+        letter-spacing: 0.025em;
         /* Prevent long names from breaking layout */
     }
 
@@ -5302,6 +5311,7 @@ input:checked+.slider:before {
 
     .welcome-text {
         font-size: 1.3rem;
+        letter-spacing: 0.02em;
     }
 
     .dashboard-hero {
@@ -11868,7 +11878,7 @@ body.no-scroll {
 #newsDetailTitle {
     font-size: clamp(1.75rem, 2.8vw, 2.6rem);
     font-weight: 800;
-    letter-spacing: -0.03em;
+    letter-spacing: 0.015em;
     line-height: 1.08;
     margin: 0;
     color: var(--color-text);
@@ -12735,7 +12745,7 @@ html[data-theme="light"] .modal-import-songs .modal-content.import-songs-modal,
     font-weight: 600;
     color: var(--text-primary);
     font-size: 1rem;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.01em;
 }
 
 @keyframes spin {
@@ -13326,7 +13336,7 @@ html[data-theme="light"] .modal-import-songs .modal-content.import-songs-modal,
     font-size: 1rem;
     line-height: 1.1;
     font-weight: 600;
-    letter-spacing: -0.02em;
+    letter-spacing: 0.01em;
     color: var(--text-primary);
 }
 
@@ -13815,7 +13825,7 @@ html[data-theme="light"] .loader-container,
     font-weight: 800;
     margin-bottom: 0.5rem;
     color: var(--color-text);
-    letter-spacing: -0.02em;
+    letter-spacing: 0.015em;
 }
 
 .absence-view-header p {
@@ -20362,6 +20372,12 @@ html[data-theme="light"] #landingPage .landing-phone-device,
 #landingPage .landing-copy-column {
     max-width: 490px;
     gap: 15px;
+}
+.stat-card .card-content h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
 }
 
 #landingPage .landing-hero-eyebrow {
