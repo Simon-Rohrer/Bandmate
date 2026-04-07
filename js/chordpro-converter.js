@@ -7,6 +7,82 @@ const ChordProConverter = {
     songLoadRequestId: 0,
     LOADING_TIMEOUT_MS: 90000,
     loadingTimeoutHandle: null,
+    isConverting: false,
+    editorSelectedKey: '',
+    lastEditorSelection: { start: 0, end: 0 },
+    SECTION_INSERTIONS: [
+        { label: 'Intro', insertValue: '{c: Intro}' },
+        { label: 'Vers', insertValue: '{c: Vers}' },
+        { label: 'Chorus', insertValue: '{c: Chorus}' },
+        { label: 'Bridge', insertValue: '{c: Bridge}' },
+        { label: 'Interlude', insertValue: '{c: Interlude}' },
+        { label: 'Ending', insertValue: '{c: Ending}' }
+    ],
+    EDITOR_KEY_OPTIONS: [
+        { value: '', label: '— Tonart —' },
+        { value: 'C', label: 'C' },
+        { value: 'C#', label: 'C#' },
+        { value: 'Db', label: 'Db' },
+        { value: 'D', label: 'D' },
+        { value: 'D#', label: 'D#' },
+        { value: 'Eb', label: 'Eb' },
+        { value: 'E', label: 'E' },
+        { value: 'F', label: 'F' },
+        { value: 'F#', label: 'F#' },
+        { value: 'Gb', label: 'Gb' },
+        { value: 'G', label: 'G' },
+        { value: 'G#', label: 'G#' },
+        { value: 'Ab', label: 'Ab' },
+        { value: 'A', label: 'A' },
+        { value: 'A#', label: 'A#' },
+        { value: 'Bb', label: 'Bb' },
+        { value: 'B', label: 'B' },
+        { value: 'Cm', label: 'Cm' },
+        { value: 'C#m', label: 'C#m' },
+        { value: 'Dbm', label: 'Dbm' },
+        { value: 'Dm', label: 'Dm' },
+        { value: 'D#m', label: 'D#m' },
+        { value: 'Ebm', label: 'Ebm' },
+        { value: 'Em', label: 'Em' },
+        { value: 'Fm', label: 'Fm' },
+        { value: 'F#m', label: 'F#m' },
+        { value: 'Gbm', label: 'Gbm' },
+        { value: 'Gm', label: 'Gm' },
+        { value: 'G#m', label: 'G#m' },
+        { value: 'Abm', label: 'Abm' },
+        { value: 'Am', label: 'Am' },
+        { value: 'A#m', label: 'A#m' },
+        { value: 'Bbm', label: 'Bbm' },
+        { value: 'Bm', label: 'Bm' }
+    ],
+    NOTE_INDEX_MAP: {
+        C: 0,
+        'B#': 0,
+        'C#': 1,
+        Db: 1,
+        D: 2,
+        'D#': 3,
+        Eb: 3,
+        E: 4,
+        Fb: 4,
+        'E#': 5,
+        F: 5,
+        'F#': 6,
+        Gb: 6,
+        G: 7,
+        'G#': 8,
+        Ab: 8,
+        A: 9,
+        'A#': 10,
+        Bb: 10,
+        B: 11,
+        H: 11,
+        Cb: 11
+    },
+    SHARP_NOTES: ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+    FLAT_NOTES: ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
+    FLAT_MAJOR_KEYS: new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']),
+    FLAT_MINOR_KEYS: new Set(['Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm', 'Abm', 'Dbm', 'Gbm']),
 
     init() {
         console.log('💎 [ChordProConverter] Initializing converter engine...');
@@ -19,7 +95,8 @@ const ChordProConverter = {
     scrollToEditor() {
         const editor = document.getElementById('chordproResultArea');
         if (editor) {
-            editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            const editorPane = editor.closest('.converter-pane-editor') || editor.closest('.split-column') || editor;
+            editorPane.scrollIntoView({ behavior: 'smooth', block: 'start' });
             // Keep caret at the top and prevent auto-scroll to the end
             if (typeof editor.setSelectionRange === 'function') {
                 editor.setSelectionRange(0, 0);
@@ -41,6 +118,171 @@ const ChordProConverter = {
         }
     },
 
+    renderEditorToolbar() {
+        const keySelect = document.getElementById('converterKeySelect');
+        const sectionButtons = document.getElementById('converterStructureButtons');
+        const chordButtons = document.getElementById('converterChordButtons');
+
+        if (keySelect) {
+            keySelect.innerHTML = this.EDITOR_KEY_OPTIONS.map(option => {
+                const selected = option.value === this.editorSelectedKey ? ' selected' : '';
+                return `<option value="${this.escapeHtml(option.value)}"${selected}>${this.escapeHtml(option.label)}</option>`;
+            }).join('');
+        }
+
+        if (sectionButtons) {
+            sectionButtons.innerHTML = this.SECTION_INSERTIONS.map(item => this.buildEditorInsertButtonMarkup(item.label, item.insertValue, 'section')).join('');
+        }
+
+        if (chordButtons) {
+            const chords = this.getChordsForKey(this.editorSelectedKey);
+            chordButtons.hidden = chords.length === 0;
+            chordButtons.innerHTML = chords.map(chord => this.buildEditorInsertButtonMarkup(chord, `[${chord}]`, 'chord')).join('');
+        }
+    },
+
+    buildEditorInsertButtonMarkup(label, insertValue, type) {
+        return `
+            <button type="button" class="converter-toolbar-btn ${type === 'chord' ? 'is-chord' : 'is-section'}" data-insert-value="${this.escapeHtml(insertValue)}">
+                ${this.escapeHtml(label)}
+            </button>
+        `;
+    },
+
+    setEditorSelectedKey(value = '') {
+        const normalizedKey = this.normalizeEditorKey(value);
+        const isSupported = this.EDITOR_KEY_OPTIONS.some(option => option.value === normalizedKey);
+        this.editorSelectedKey = isSupported ? normalizedKey : '';
+        this.renderEditorToolbar();
+    },
+
+    normalizeEditorKey(rawValue = '') {
+        if (!rawValue) return '';
+
+        const cleaned = String(rawValue)
+            .trim()
+            .replace(/[\[\]\{\}]/g, '')
+            .replace(/♯/g, '#')
+            .replace(/♭/g, 'b')
+            .replace(/\s+/g, '')
+            .replace(/major$/i, '')
+            .replace(/minor$/i, 'm');
+
+        const match = cleaned.match(/^([A-Ha-h])([#b]?)(m?)$/);
+        if (!match) return '';
+
+        let [, note, accidental, minor] = match;
+        note = note.toUpperCase();
+        accidental = accidental || '';
+        minor = minor || '';
+
+        if (note === 'H') {
+            note = 'B';
+        }
+
+        const normalized = `${note}${accidental}${minor}`;
+        const aliases = {
+            Cb: 'B',
+            Hm: 'Bm',
+            Cbm: 'Bm',
+            'B#': 'C',
+            'B#m': 'Cm',
+            Fb: 'E',
+            Fbm: 'Em',
+            'E#': 'F',
+            'E#m': 'Fm'
+        };
+
+        return aliases[normalized] || normalized;
+    },
+
+    detectKeyFromChordProText(text = '') {
+        if (!text) return '';
+
+        const keyDirectiveMatch = text.match(/^\s*\{key:\s*([^}\n]*)\}/im);
+        if (keyDirectiveMatch) {
+            return this.normalizeEditorKey(keyDirectiveMatch[1]);
+        }
+
+        const inlineMatch = text.match(/(?:^|\n)\s*(?:key|tonart)\s*[:\-]\s*(\[?[A-H][#b♯♭]?m?\]?)/i);
+        if (!inlineMatch) return '';
+
+        return this.normalizeEditorKey(inlineMatch[1]);
+    },
+
+    getChordsForKey(keyValue = '') {
+        const normalizedKey = this.normalizeEditorKey(keyValue);
+        if (!normalizedKey) return [];
+
+        const isMinor = normalizedKey.endsWith('m');
+        const baseKey = isMinor ? normalizedKey.slice(0, -1) : normalizedKey;
+        const rootIndex = this.NOTE_INDEX_MAP[baseKey];
+        if (!Number.isInteger(rootIndex)) return [];
+
+        const intervals = isMinor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11];
+        const qualities = isMinor ? ['m', 'dim', '', 'm', 'm', '', ''] : ['', 'm', 'm', '', '', 'm', 'dim'];
+        const noteNames = this.prefersFlatNotation(normalizedKey) ? this.FLAT_NOTES : this.SHARP_NOTES;
+
+        return intervals.map((interval, index) => `${noteNames[(rootIndex + interval) % 12]}${qualities[index]}`);
+    },
+
+    prefersFlatNotation(keyValue = '') {
+        const normalizedKey = this.normalizeEditorKey(keyValue);
+        if (!normalizedKey) return false;
+        if (normalizedKey.includes('b')) return true;
+        if (normalizedKey.includes('#')) return false;
+        return normalizedKey.endsWith('m')
+            ? this.FLAT_MINOR_KEYS.has(normalizedKey)
+            : this.FLAT_MAJOR_KEYS.has(normalizedKey);
+    },
+
+    cacheEditorSelection() {
+        const editor = document.getElementById('chordproResultArea');
+        if (!editor) return;
+
+        const start = typeof editor.selectionStart === 'number' ? editor.selectionStart : editor.value.length;
+        const end = typeof editor.selectionEnd === 'number' ? editor.selectionEnd : start;
+        this.lastEditorSelection = { start, end };
+    },
+
+    insertIntoEditorAtCursor(insertValue) {
+        const editor = document.getElementById('chordproResultArea');
+        if (!editor) return;
+
+        const hasLiveSelection = document.activeElement === editor && typeof editor.selectionStart === 'number';
+        const currentLength = editor.value.length;
+        let start = hasLiveSelection ? editor.selectionStart : this.lastEditorSelection.start;
+        let end = hasLiveSelection ? editor.selectionEnd : this.lastEditorSelection.end;
+
+        if (!Number.isInteger(start) || start < 0) start = currentLength;
+        if (!Number.isInteger(end) || end < start) end = start;
+
+        const scrollTop = editor.scrollTop;
+        const scrollLeft = editor.scrollLeft;
+
+        try {
+            editor.focus({ preventScroll: true });
+        } catch (err) {
+            editor.focus();
+        }
+
+        if (typeof editor.setRangeText === 'function') {
+            editor.setRangeText(insertValue, start, end, 'end');
+        } else {
+            editor.value = `${editor.value.slice(0, start)}${insertValue}${editor.value.slice(end)}`;
+        }
+
+        const nextCaretPosition = start + insertValue.length;
+        editor.selectionStart = nextCaretPosition;
+        editor.selectionEnd = nextCaretPosition;
+        editor.scrollTop = scrollTop;
+        editor.scrollLeft = scrollLeft;
+
+        this.cacheEditorSelection();
+        this.renderPreview(editor.value);
+        this.syncActionState();
+    },
+
     setupEventListeners() {
         const dropzone = document.getElementById('converterDropzone');
         const fileInput = document.getElementById('converterFileInput');
@@ -51,6 +293,9 @@ const ChordProConverter = {
         const songSelect = document.getElementById('converterSongSelect');
         const saveToSongBtn = document.getElementById('converterSaveToSongBtn');
         const editor = document.getElementById('chordproResultArea');
+        const keySelect = document.getElementById('converterKeySelect');
+        const sectionButtons = document.getElementById('converterStructureButtons');
+        const chordButtons = document.getElementById('converterChordButtons');
 
         if (dropzone) {
             dropzone.onclick = () => fileInput.click();
@@ -119,9 +364,42 @@ const ChordProConverter = {
 
         if (editor) {
             editor.addEventListener('input', () => {
+                this.cacheEditorSelection();
                 this.renderPreview(editor.value);
                 this.syncActionState();
             });
+
+            ['focus', 'click', 'keyup', 'mouseup', 'select', 'blur'].forEach(eventName => {
+                editor.addEventListener(eventName, () => this.cacheEditorSelection());
+            });
+        }
+
+        if (keySelect) {
+            keySelect.addEventListener('change', (event) => {
+                this.setEditorSelectedKey(event.target.value);
+            });
+        }
+
+        [sectionButtons, chordButtons].forEach(container => {
+            if (!container) return;
+
+            container.addEventListener('mousedown', (event) => {
+                if (event.target.closest('button[data-insert-value]')) {
+                    event.preventDefault();
+                }
+            });
+
+            container.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-insert-value]');
+                if (!button) return;
+                this.insertIntoEditorAtCursor(button.dataset.insertValue || '');
+            });
+        });
+
+        this.renderEditorToolbar();
+
+        if (editor) {
+            this.cacheEditorSelection();
         }
 
         const newFileBtn = document.getElementById('createNewChordProBtn');
@@ -152,6 +430,7 @@ const ChordProConverter = {
         this.updateFileStatus('selected');
         this.updateDisclaimer('ready');
         this.syncActionState();
+        this.startConversion();
         console.log('✅ [ChordProConverter] Start button enabled');
     },
 
@@ -161,7 +440,14 @@ const ChordProConverter = {
             return;
         }
 
+        if (this.isConverting) {
+            console.warn('⚠️ [ChordProConverter] Conversion already in progress');
+            return;
+        }
+
         const startTime = performance.now();
+        this.isConverting = true;
+        this.syncActionState();
         console.log('🏗️ [ChordProConverter] Beginning conversion pipeline...');
         this.showLoading(true, 'PDF wird analysiert...');
 
@@ -192,10 +478,12 @@ const ChordProConverter = {
 
             console.log('🎼 [ChordProConverter] Step 2: Applying ChordPro heuristics...');
             this.convertedChordPro = this.convertToChordPro(text);
+            this.setEditorSelectedKey(this.detectKeyFromChordProText(this.convertedChordPro));
 
             const resultArea = document.getElementById('chordproResultArea');
             if (resultArea) {
                 resultArea.value = this.convertedChordPro;
+                this.cacheEditorSelection();
                 this.renderPreview(this.convertedChordPro);
             }
 
@@ -211,7 +499,9 @@ const ChordProConverter = {
             this.updateDisclaimer('error', err.message);
             alert('Fehler bei der Konvertierung: ' + err.message);
         } finally {
+            this.isConverting = false;
             this.showLoading(false);
+            this.syncActionState();
         }
     },
 
@@ -607,6 +897,7 @@ const ChordProConverter = {
         this.extractedText = '';
         this.convertedChordPro = '';
         this.hasConverted = false;
+        this.isConverting = false;
 
         const fileInput = document.getElementById('converterFileInput');
         if (fileInput) fileInput.value = '';
@@ -627,6 +918,9 @@ const ChordProConverter = {
 
         const resultArea = document.getElementById('chordproResultArea');
         if (resultArea) resultArea.value = '';
+
+        this.lastEditorSelection = { start: 0, end: 0 };
+        this.setEditorSelectedKey('');
 
         this.updateFileStatus('idle');
         this.updateDisclaimer('idle');
@@ -901,7 +1195,7 @@ const ChordProConverter = {
 
         if (state === 'ready') {
             disclaimer.classList.add('is-ready');
-            textEl.innerHTML = '<strong>Status:</strong> PDF gewählt. Du kannst die Konvertierung jetzt starten.';
+            textEl.innerHTML = '<strong>Status:</strong> PDF gewählt. Die Konvertierung startet automatisch.';
             return;
         }
 
@@ -918,7 +1212,7 @@ const ChordProConverter = {
         }
 
         disclaimer.classList.add('is-idle');
-        textEl.innerHTML = '<strong>Status:</strong> PDF hochladen und konvertieren, dann werden Editor und Vorschau direkt befüllt.';
+        textEl.innerHTML = '<strong>Status:</strong> PDF hochladen, die Konvertierung startet dann automatisch und befüllt Editor und Vorschau.';
     },
 
     syncActionState() {
@@ -933,7 +1227,19 @@ const ChordProConverter = {
         const hasSong = Boolean(songSelect && songSelect.value);
 
         if (startBtn) {
-            startBtn.disabled = !hasFile;
+            if (this.isConverting) {
+                startBtn.disabled = true;
+                startBtn.innerHTML = '⏳ PDF wird konvertiert...';
+            } else if (hasFile && this.hasConverted) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '🔁 PDF erneut konvertieren';
+            } else if (hasFile) {
+                startBtn.disabled = false;
+                startBtn.innerHTML = '🚀 PDF jetzt konvertieren';
+            } else {
+                startBtn.disabled = true;
+                startBtn.innerHTML = '🚀 PDF konvertieren';
+            }
         }
 
         if (downloadBtn) {

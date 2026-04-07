@@ -59,7 +59,7 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=1769686135">
+    <link rel="stylesheet" href="css/style.css?v=20260407">
     <link rel="stylesheet" href="css/sidebar.css">
     <link rel="stylesheet" href="css/calendar.css">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
@@ -1491,8 +1491,18 @@
                                         <div class="converter-split-container">
                                             <!-- Left Column: Editor -->
                                             <div class="split-column converter-pane converter-pane-editor">
-                                                <div class="column-header">
+                                                <div class="column-header converter-pane-header">
                                                     <span>📝 Editor</span>
+                                                    <div class="converter-editor-key-control">
+                                                        <label class="converter-toolbar-label" for="converterKeySelect">Tonart</label>
+                                                        <select id="converterKeySelect" class="converter-editor-key-select" aria-label="Tonart im ChordPro-Editor auswählen">
+                                                            <option value="">— Tonart —</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                                <div id="converterEditorToolbar" class="converter-editor-toolbar">
+                                                    <div id="converterStructureButtons" class="converter-toolbar-row converter-toolbar-row-sections"></div>
+                                                    <div id="converterChordButtons" class="converter-toolbar-row converter-toolbar-row-chords" hidden></div>
                                                 </div>
                                                 <textarea id="chordproResultArea" class="chordpro-editor" spellcheck="false"
                                                     placeholder="Nach der Konvertierung erscheint der ChordPro-Inhalt hier. Du kannst den Text danach direkt bearbeiten."></textarea>
@@ -3861,7 +3871,7 @@
     <script src="js/musikpool.js?v=20260311"></script>
     <script src="js/ui.js?v=20260311"></script>
     <script src="js/feedback-service.js?v=20260311"></script>
-    <script src="js/chordpro-converter.js?v=20260311"></script>
+    <script src="js/chordpro-converter.js?v=20260407-2"></script>
     <script src="js/notifications.js?v=20260328"></script>
     <script src="js/app.js?v=20260323"></script>
 
