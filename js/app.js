@@ -548,6 +548,8 @@ const RichTextEditor = {
 
 const App = {
     currentView: null,
+    navigationStateStorageKey: 'bandmate.app.navigationState',
+    statePersistenceBound: false,
 
     // Sorting state for band songs
     bandSongSort: {
@@ -571,6 +573,219 @@ const App = {
         this.allBandsCache = null;
         this.absencesCache = null;
         Logger.info('[App] Settings cache invalidated.');
+    },
+
+    getPersistedNavigationState() {
+        try {
+            return JSON.parse(sessionStorage.getItem(this.navigationStateStorageKey) || 'null') || {};
+        } catch (error) {
+            console.warn('[App] Could not parse persisted navigation state:', error);
+            return {};
+        }
+    },
+
+    setPersistedNavigationState(patch = {}) {
+        try {
+            const currentState = this.getPersistedNavigationState();
+            const nextState = {
+                ...currentState,
+                ...patch,
+                updatedAt: Date.now()
+            };
+            sessionStorage.setItem(this.navigationStateStorageKey, JSON.stringify(nextState));
+        } catch (error) {
+            console.warn('[App] Could not persist navigation state:', error);
+        }
+    },
+
+    clearPersistedNavigationState() {
+        try {
+            sessionStorage.removeItem(this.navigationStateStorageKey);
+        } catch (error) {
+            console.warn('[App] Could not clear persisted navigation state:', error);
+        }
+    },
+
+    getActiveBaseView() {
+        const activeView = document.querySelector('.view.active');
+        if (!activeView || !activeView.id) return 'dashboard';
+
+        const viewMap = {
+            dashboardView: 'dashboard',
+            bandsView: 'bands',
+            eventsView: 'events',
+            rehearsalsView: 'rehearsals',
+            statisticsView: 'statistics',
+            newsView: 'news',
+            probeorteView: 'probeorte',
+            pdftochordproView: 'pdftochordpro',
+            kalenderView: 'kalender',
+            musikpoolView: 'musikpool',
+            settingsView: 'settings'
+        };
+
+        return viewMap[activeView.id] || 'dashboard';
+    },
+
+    rememberCurrentView(view = this.getActiveBaseView()) {
+        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool']);
+        if (!restorableViews.has(view)) return;
+        this.setPersistedNavigationState({ view });
+    },
+
+    getCurrentSettingsTab() {
+        const activeTab = document.querySelector('#settingsModal .settings-tab-btn.active');
+        return activeTab?.dataset?.tab || 'profile';
+    },
+
+    getRestorableModalState(modalId) {
+        const restorableModalIds = new Set([
+            'settingsModal',
+            'absenceModal',
+            'createRehearsalModal',
+            'createEventModal',
+            'createBandModal',
+            'joinBandModal',
+            'feedbackModal',
+            'onboardingModal',
+            'calendarModal',
+            'quickAddCalendarModal'
+        ]);
+
+        if (!restorableModalIds.has(modalId)) {
+            return null;
+        }
+
+        let context = null;
+        if (modalId === 'settingsModal') {
+            context = { tab: this.getCurrentSettingsTab() };
+        }
+
+        return {
+            id: modalId,
+            context
+        };
+    },
+
+    handleModalOpened(modalId) {
+        const modalState = this.getRestorableModalState(modalId);
+        if (!modalState) return;
+
+        this.setPersistedNavigationState({
+            view: this.getActiveBaseView(),
+            modal: modalState
+        });
+    },
+
+    handleModalClosed(modalId) {
+        const state = this.getPersistedNavigationState();
+        if (!state?.modal?.id || state.modal.id !== modalId) return;
+
+        this.setPersistedNavigationState({
+            view: this.getActiveBaseView(),
+            modal: null
+        });
+    },
+
+    persistCurrentScrollPosition() {
+        const appMain = document.querySelector('.app-main');
+        if (!appMain) return;
+        this.setPersistedNavigationState({ scrollTop: appMain.scrollTop || 0 });
+    },
+
+    setupStatePersistence() {
+        if (this.statePersistenceBound) return;
+
+        const appMain = document.querySelector('.app-main');
+        if (appMain) {
+            let scrollFrame = null;
+            appMain.addEventListener('scroll', () => {
+                if (scrollFrame) cancelAnimationFrame(scrollFrame);
+                scrollFrame = requestAnimationFrame(() => {
+                    this.persistCurrentScrollPosition();
+                    scrollFrame = null;
+                });
+            }, { passive: true });
+        }
+
+        window.addEventListener('beforeunload', () => {
+            this.rememberCurrentView();
+            this.persistCurrentScrollPosition();
+        });
+
+        this.statePersistenceBound = true;
+    },
+
+    restoreScrollPosition(scrollTop = 0) {
+        const normalizedScrollTop = Number.isFinite(Number(scrollTop)) ? Number(scrollTop) : 0;
+        const appMain = document.querySelector('.app-main');
+        if (!appMain) return;
+
+        const applyScroll = () => {
+            appMain.scrollTop = normalizedScrollTop;
+        };
+
+        applyScroll();
+        requestAnimationFrame(applyScroll);
+        setTimeout(applyScroll, 80);
+        setTimeout(applyScroll, 220);
+    },
+
+    async restoreModalState(modalState) {
+        if (!modalState?.id) return false;
+
+        try {
+            switch (modalState.id) {
+                case 'settingsModal':
+                    await this.openSettingsModal();
+                    if (modalState.context?.tab) {
+                        setTimeout(() => this.switchSettingsTab(modalState.context.tab), 70);
+                    }
+                    return true;
+                case 'absenceModal':
+                    await this.openAbsenceModal();
+                    return true;
+                case 'createRehearsalModal':
+                    this.openCreateRehearsalModal();
+                    return true;
+                case 'createEventModal':
+                    this.openCreateEventModal();
+                    return true;
+                case 'createBandModal':
+                case 'joinBandModal':
+                case 'feedbackModal':
+                case 'onboardingModal':
+                case 'quickAddCalendarModal':
+                    UI.openModal(modalState.id);
+                    return true;
+                case 'calendarModal':
+                    await this.openCalendarModal();
+                    return true;
+                default:
+                    return false;
+            }
+        } catch (error) {
+            console.warn('[App] Could not restore modal state:', modalState.id, error);
+            return false;
+        }
+    },
+
+    async restoreLastAppState() {
+        const state = this.getPersistedNavigationState();
+        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool']);
+        const viewToRestore = restorableViews.has(state?.view) ? state.view : 'dashboard';
+
+        await this.navigateTo(viewToRestore, state?.view ? 'session-restore' : 'login-success');
+
+        if (Number.isFinite(Number(state?.scrollTop)) && Number(state.scrollTop) > 0) {
+            this.restoreScrollPosition(state.scrollTop);
+        }
+
+        if (state?.modal?.id) {
+            await this.restoreModalState(state.modal);
+        }
+
+        return true;
     },
 
     getSongKeyOptionsMarkup(selectedValue = '') {
@@ -715,7 +930,7 @@ const App = {
         const optionsDiv = document.getElementById('quickAccessOptions');
         const cancelBtn = document.getElementById('cancelQuickAccessBtn');
         const quickLinks = [
-            { key: 'kalender', label: 'Mein Kalender', view: 'kalender' },
+            { key: 'kalender', label: 'Meine Termine', view: 'kalender' },
             { key: 'news', label: 'News', view: 'news' },
             { key: 'musikpool', label: 'Musikerpool', view: 'musikpool' },
             { key: 'bands', label: 'Meine Bands', view: 'bands' },
@@ -807,7 +1022,7 @@ const App = {
         const appleStatusBarMeta = document.getElementById('appleStatusBarMeta');
 
         if (themeColorMeta) {
-            themeColorMeta.setAttribute('content', resolvedMode === 'dark' ? '#0B1220' : '#F8FAFC');
+            themeColorMeta.setAttribute('content', resolvedMode === 'dark' ? '#08111F' : '#F6F8FC');
         }
 
         if (appleStatusBarMeta) {
@@ -958,7 +1173,7 @@ const App = {
             musikpool: { label: 'Musikerpool', description: 'Kontakte, Musiker und Verbindungen' },
             rehearsals: { label: 'Probetermine', description: 'Abstimmungen und bestätigte Proben' },
             probeorte: { label: 'Probeorte', description: 'Kalender und Belegungen der Locations' },
-            kalender: { label: 'Mein Kalender', description: 'Synchronisation und Terminansicht' },
+            kalender: { label: 'Meine Termine', description: 'Synchronisation und Terminansicht' },
             events: { label: 'Auftritte', description: 'Anfragen, Zusagen und feste Termine' },
             statistics: { label: 'Statistiken', description: 'Auswertungen und Kennzahlen' },
             news: { label: 'News', description: 'Updates und Ankündigungen' },
@@ -1891,6 +2106,7 @@ const App = {
         }
 
         this.initializeThemeSystem();
+        this.setupStatePersistence();
 
         // Initialisierung
         this.setupDashboardFeatures();
@@ -2693,6 +2909,7 @@ const App = {
                 }
 
                 UI.openModal('createRehearsalModal');
+                this.applyPendingCreateRehearsalDefaults();
             });
         }
 
@@ -2814,6 +3031,7 @@ const App = {
             const copyBtn = document.getElementById('copyBandSongsBtn');
             if (copyBtn) copyBtn.style.display = 'none';
             UI.openModal('createEventModal');
+            this.applyPendingCreateEventDefaults();
         });
 
         // Create event form
@@ -3442,6 +3660,8 @@ const App = {
                     UI.showView(viewId);
                     this.updateHeaderSubmenu(view);
                     this.resetMainContentScroll(viewId);
+                    this.rememberCurrentView(view);
+                    this.setPersistedNavigationState({ scrollTop: 0 });
                 } catch (uiErr) {
                     console.error('[navigateTo] UI.showView error:', uiErr);
                 }
@@ -4022,6 +4242,7 @@ const App = {
 
         // 2. Clear any lingering modal/overlay states
         document.body.classList.remove('modal-open');
+        this.clearPersistedNavigationState();
 
         Auth.logout();
         UI.showToast('Erfolgreich abgemeldet', 'success');
@@ -6384,6 +6605,7 @@ const App = {
         const lPage = document.getElementById('landingPage');
         const mApp = document.getElementById('mainApp');
         this.clearAuthStatusNotice();
+        this.clearPersistedNavigationState();
 
         if (lPage) {
             lPage.style.display = 'flex';
@@ -6572,8 +6794,8 @@ const App = {
 
         // Run in background for faster login
         this.updateDashboard();
-        this.updateNavigationVisibility();
-        this.navigateTo('dashboard', 'login-success');
+        await this.updateNavigationVisibility();
+        await this.restoreLastAppState();
 
         const shouldOpenOnboarding = await this.consumePostActivationOnboardingFlag();
         if (shouldOpenOnboarding) {
@@ -7341,6 +7563,10 @@ const App = {
             // Handling for bands/locations if standard ID isn't matching
             // Just trying to be safe if I don't see all IDs
         }
+
+        if (settingsModal.classList.contains('active')) {
+            this.handleModalOpened('settingsModal');
+        }
     },
 
     async handleCreateAbsenceFromSettings() {
@@ -7515,22 +7741,115 @@ const App = {
 
     // ── Calendar quick-action helpers ─────────────────────────────────────────
 
-    openCreateRehearsalModal() {
+    formatPrefilledModalDate(value) {
+        if (!value) return '';
+
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            return value.slice(0, 10);
+        }
+
+        const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+
+    formatPrefilledModalDateTime(value, fallbackTime = '19:00') {
+        if (!value) return '';
+
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+            return value.slice(0, 16);
+        }
+
+        const date = this.formatPrefilledModalDate(value);
+        if (!date) return '';
+
+        const time = typeof fallbackTime === 'string' && /^\d{2}:\d{2}$/.test(fallbackTime) ? fallbackTime : '19:00';
+        return `${date}T${time}`;
+    },
+
+    setPrefilledModalControlValue(element, value) {
+        if (!element || !value) return;
+
+        element.value = value;
+        element.dispatchEvent(new Event('input', { bubbles: true }));
+        element.dispatchEvent(new Event('change', { bubbles: true }));
+    },
+
+    applyPendingCreateRehearsalDefaults() {
+        const defaults = this.pendingCreateRehearsalDefaults;
+        this.pendingCreateRehearsalDefaults = null;
+
+        if (!defaults?.date && !defaults?.locationId) return;
+
+        if (typeof Rehearsals !== 'undefined' && typeof Rehearsals.setScheduleMode === 'function') {
+            Rehearsals.setScheduleMode('fixed', { lockMode: false, refreshAvailability: false });
+        }
+
+        const fixedDateInput = document.getElementById('rehearsalFixedDate');
+        if (defaults?.date) {
+            const formattedDate = this.formatPrefilledModalDate(defaults.date);
+            this.setPrefilledModalControlValue(fixedDateInput, formattedDate);
+        }
+
+        const locationSelect = document.getElementById('rehearsalLocation');
+        if (locationSelect && defaults?.locationId) {
+            this.setPrefilledModalControlValue(locationSelect, defaults.locationId);
+        }
+
+        if (typeof Rehearsals !== 'undefined' && typeof Rehearsals.updateAvailabilityIndicators === 'function') {
+            Promise.resolve(Rehearsals.updateAvailabilityIndicators()).catch(error => {
+                console.warn('[applyPendingCreateRehearsalDefaults] Could not refresh availability', error);
+            });
+        }
+    },
+
+    applyPendingCreateEventDefaults() {
+        const defaults = this.pendingCreateEventDefaults;
+        this.pendingCreateEventDefaults = null;
+
+        if (!defaults?.date && !defaults?.dateTime) return;
+
+        if (typeof Events !== 'undefined' && typeof Events.setScheduleMode === 'function') {
+            Events.setScheduleMode('fixed', { lockMode: false, refreshAvailability: false });
+        }
+
+        const eventDateInput = document.getElementById('eventDate');
+        const formattedDateTime = this.formatPrefilledModalDateTime(defaults.dateTime || defaults.date, defaults.time || '19:00');
+        this.setPrefilledModalControlValue(eventDateInput, formattedDateTime);
+
+        if (typeof Events !== 'undefined' && typeof Events.updateAvailabilityIndicators === 'function') {
+            Promise.resolve(Events.updateAvailabilityIndicators()).catch(error => {
+                console.warn('[applyPendingCreateEventDefaults] Could not refresh availability', error);
+            });
+        }
+    },
+
+    openCreateRehearsalModal(options = null) {
+        this.pendingCreateRehearsalDefaults = options && typeof options === 'object' ? { ...options } : null;
+
         // Trigger the same logic as clicking the "Probe erstellen" button
         const btn = document.getElementById('createRehearsalBtn');
         if (btn) {
             btn.click();
         } else {
+            this.pendingCreateRehearsalDefaults = null;
             console.warn('[openCreateRehearsalModal] createRehearsalBtn not found');
         }
     },
 
-    openCreateEventModal() {
+    openCreateEventModal(options = null) {
+        this.pendingCreateEventDefaults = options && typeof options === 'object' ? { ...options } : null;
+
         // Trigger the same logic as clicking the "Auftritt erstellen" button
         const btn = document.getElementById('createEventBtn');
         if (btn) {
             btn.click();
         } else {
+            this.pendingCreateEventDefaults = null;
             console.warn('[openCreateEventModal] createEventBtn not found');
         }
     },
@@ -9197,7 +9516,7 @@ const App = {
             const quickLinksDiv = document.getElementById('dashboardQuickLinks');
             if (quickLinksDiv) {
                 const quickLinks = [
-                    { key: 'kalender', label: 'Mein Kalender', view: 'kalender', meta: 'Persönliche Termine und Abo', accent: '#38bdf8' },
+                    { key: 'kalender', label: 'Meine Termine', view: 'kalender', meta: 'Persönliche Termine und Abo', accent: '#38bdf8' },
                     { key: 'news', label: 'News', view: 'news', meta: 'Updates und Ankündigungen', accent: '#5b8cff' },
                     { key: 'musikpool', label: 'Musikerpool', view: 'musikpool', meta: 'Kontakte und Musiker', accent: '#f59e0b' },
                     { key: 'bands', label: 'Meine Bands', view: 'bands', meta: 'Bands, Rollen und Mitglieder', accent: '#8b5cf6' },

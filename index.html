@@ -8,7 +8,7 @@
 
     <!-- PWA Meta Tags -->
     <meta name="description" content="Bandmate hilft Bands, Proben, Auftritte, Mitglieder, Songs und Organisation an einem Ort klar und einfach zu planen.">
-    <meta name="theme-color" content="#0B1220" id="themeColorMeta">
+    <meta name="theme-color" content="#08111F" id="themeColorMeta">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="appleStatusBarMeta">
     <meta name="apple-mobile-web-app-title" content="Bandmate">
@@ -16,8 +16,8 @@
     <script>
         (function () {
             const STORAGE_KEY = 'theme';
-            const DARK_THEME_COLOR = '#0B1220';
-            const LIGHT_THEME_COLOR = '#F8FAFC';
+            const DARK_THEME_COLOR = '#08111F';
+            const LIGHT_THEME_COLOR = '#F6F8FC';
 
             let resolvedTheme = 'light';
 
@@ -59,11 +59,11 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260407-22">
+    <link rel="stylesheet" href="css/style.css?v=20260407-25">
     <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
-    <link rel="stylesheet" href="css/calendar.css?v=20260407-1">
+    <link rel="stylesheet" href="css/calendar.css?v=20260407-6">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
-    <link rel="stylesheet" href="css/settings_modal.css">
+    <link rel="stylesheet" href="css/settings_modal.css?v=20260407-2">
     <link rel="stylesheet" href="css/statistics.css">
 
     <!-- Quill Rich Text Editor -->
@@ -639,7 +639,7 @@
                                         <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path>
                                     </svg>
                                 </span>
-                                <span class="sidebar-label">Mein Kalender</span>
+                                <span class="sidebar-label">Meine Termine</span>
                             </button>
                             <button class="sidebar-subitem" data-view="probeorte">
                                 <span class="sidebar-icon" aria-hidden="true">
@@ -789,7 +789,7 @@
                                 <span aria-hidden="true">➕</span>
                                 <span>Probe hier anlegen</span>
                             </button>
-                            <button id="dashboardOpenCalendarShortcut" class="btn btn-primary header-dashboard-shortcut" type="button" title="Direkt zu Mein Kalender wechseln">
+                            <button id="dashboardOpenCalendarShortcut" class="btn btn-primary header-dashboard-shortcut" type="button" title="Direkt zu Meine Termine wechseln">
                                 <span aria-hidden="true">🗓️</span>
                                 <span>Zur Terminübersicht</span>
                             </button>
@@ -931,7 +931,7 @@
                                             <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path>
                                         </svg>
                                     </span>
-                                    <span class="nav-label">Mein Kalender</span>
+                                    <span class="nav-label">Meine Termine</span>
                                 </button>
                             </div>
                         </div>
@@ -1608,52 +1608,55 @@
                     <!-- Probeorte View -->
                     <div id="probeorteView" class="view probeorte-view">
                         <div class="view-page-shell">
-                            <section class="page-overview-card">
-                                <div class="page-overview-copy">
-                                    <span class="page-overview-kicker">Planung</span>
-                                    <h2>Probeorte</h2>
-                                    <p>Prüfe Belegungen, wechsle zwischen Räumen und behalte freie Zeiten in einer ruhigen Kalenderansicht im Blick.</p>
-                                </div>
-                                <div class="page-overview-meta">
-                                    <span class="page-overview-caption">Kalender, Räume und Verfügbarkeiten in einer Ansicht</span>
-                                </div>
-                            </section>
-
-                            <!-- Submenu for calendar selection -->
-                            <div class="calendar-submenu probeorte-submenu">
-                                <button id="probeorteBtnTonstudio" class="calendar-tab active" data-calendar="tonstudio">
-                                    <span class="calendar-tab-icon" aria-hidden="true">🎙️</span>
-                                    <span class="calendar-tab-label">Tonstudio</span>
-                                </button>
-                                <button id="probeorteBtnFesthalle" class="calendar-tab" data-calendar="festhalle">
-                                    <span class="calendar-tab-icon" aria-hidden="true">🏛️</span>
-                                    <span class="calendar-tab-label">JMS Festhalle</span>
-                                </button>
-                                <button id="probeorteBtnAnkersaal" class="calendar-tab" data-calendar="ankersaal">
-                                    <span class="calendar-tab-icon" aria-hidden="true">⚓</span>
-                                    <span class="calendar-tab-label">Ankersaal</span>
-                                </button>
-                            </div>
-
                             <div class="section page-section-card probeorte-calendar-section">
-                                <!-- Tonstudio Calendar -->
-                                <div id="tonstudioCalendar" class="calendar-container active">
-                                    <div id="tonstudioEventsContainer" style="min-height: 400px;">
-                                        <!-- Events will be rendered here -->
-                                    </div>
-                                </div>
+                                <div class="probeorte-calendar-panel">
+                                    <div class="probeorte-calendar-head">
+                                        <div class="probeorte-calendar-head-top">
+                                            <div class="probeorte-calendar-head-copy">
+                                                <span class="probeorte-calendar-head-kicker">Planung</span>
+                                                <p>Prüfe Belegungen, wechsle zwischen Räumen und behalte freie Zeiten in einer ruhigen Kalenderansicht im Blick.</p>
+                                            </div>
+                                            <span class="probeorte-calendar-head-caption">Kalender, Räume und Verfügbarkeiten in einer Ansicht</span>
+                                        </div>
 
-                                <!-- Festhalle Calendar -->
-                                <div id="festhalleCalendar" class="calendar-container">
-                                    <div id="festhalleEventsContainer" style="min-height: 400px;">
-                                        <!-- Events will be rendered here -->
+                                        <div class="probeorte-calendar-toolbar">
+                                            <div class="calendar-submenu probeorte-submenu probeorte-calendar-tabs">
+                                                <button id="probeorteBtnTonstudio" class="calendar-tab active" data-calendar="tonstudio">
+                                                    <span class="calendar-tab-icon" aria-hidden="true">🎙️</span>
+                                                    <span class="calendar-tab-label">Tonstudio</span>
+                                                </button>
+                                                <button id="probeorteBtnFesthalle" class="calendar-tab" data-calendar="festhalle">
+                                                    <span class="calendar-tab-icon" aria-hidden="true">🏛️</span>
+                                                    <span class="calendar-tab-label">JMS Festhalle</span>
+                                                </button>
+                                                <button id="probeorteBtnAnkersaal" class="calendar-tab" data-calendar="ankersaal">
+                                                    <span class="calendar-tab-icon" aria-hidden="true">⚓</span>
+                                                    <span class="calendar-tab-label">Ankersaal</span>
+                                                </button>
+                                            </div>
+                                            <div id="probeorteCalendarToolbarHost" class="probeorte-calendar-toolbar-host"></div>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <!-- Ankersaal Calendar -->
-                                <div id="ankersaalCalendar" class="calendar-container">
-                                    <div id="ankersaalEventsContainer" style="min-height: 400px;">
-                                        <!-- Events will be rendered here -->
+                                    <!-- Tonstudio Calendar -->
+                                    <div id="tonstudioCalendar" class="calendar-container active">
+                                        <div id="tonstudioEventsContainer" style="min-height: 400px;">
+                                            <!-- Events will be rendered here -->
+                                        </div>
+                                    </div>
+
+                                    <!-- Festhalle Calendar -->
+                                    <div id="festhalleCalendar" class="calendar-container">
+                                        <div id="festhalleEventsContainer" style="min-height: 400px;">
+                                            <!-- Events will be rendered here -->
+                                        </div>
+                                    </div>
+
+                                    <!-- Ankersaal Calendar -->
+                                    <div id="ankersaalCalendar" class="calendar-container">
+                                        <div id="ankersaalEventsContainer" style="min-height: 400px;">
+                                            <!-- Events will be rendered here -->
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1975,6 +1978,8 @@
                                         <div class="settings-meta-links">
                                             <a href="privacy.html" class="privacy-link"
                                                 >Datenschutzerklärung</a>
+                                            <a href="impressum.html" class="privacy-link"
+                                                >Impressum</a>
                                         </div>
                                     </div>
                                 </div>
@@ -3839,6 +3844,7 @@
 
     <script src="js/logger.js?v=20260311"></script>
     <script src="js/proxy-service.js?v=20260311"></script>
+    <script src="js/config.js"></script>
     <script src="js/supabase.js?v=20260407-17"></script>
     <script src="js/storage.js?v=20260311"></script>
     <script src="js/auth.js?v=20260407-19"></script>
@@ -3848,15 +3854,15 @@
     <script src="js/events.js?v=20260311"></script>
     <script src="js/rehearsals.js?v=20260311"></script>
     <script src="js/statistics.js?v=20260311"></script>
-    <script src="js/calendar.js?v=20260311"></script>
-    <script src="js/personal-calendar.js?v=20260407-1"></script>
+    <script src="js/calendar.js?v=20260407-3"></script>
+    <script src="js/personal-calendar.js?v=20260407-4"></script>
     <script src="js/churchtools-api.js?v=20260311"></script>
     <script src="js/musikpool.js?v=20260311"></script>
-    <script src="js/ui.js?v=20260311"></script>
+    <script src="js/ui.js?v=20260407-1"></script>
     <script src="js/feedback-service.js?v=20260311"></script>
     <script src="js/chordpro-converter.js?v=20260407-8"></script>
     <script src="js/notifications.js?v=20260328"></script>
-    <script src="js/app.js?v=20260407-11"></script>
+    <script src="js/app.js?v=20260407-16"></script>
 
     <!-- Skip duplicated pdf.js block -->
 

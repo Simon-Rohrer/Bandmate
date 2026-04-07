@@ -132,15 +132,16 @@ const SupabaseClient = {
 
     init() {
         try {
-            // Prefill defaults if missing
-            if (!localStorage.getItem('supabase.url')) {
-                localStorage.setItem('supabase.url', 'https://brkapsnrdewuualhsmcr.supabase.co');
+            // Use CONFIG if available, fallback to localStorage or defaults
+            let url = (typeof CONFIG !== 'undefined' && CONFIG.SUPABASE_URL) ? CONFIG.SUPABASE_URL : localStorage.getItem('supabase.url');
+            let key = (typeof CONFIG !== 'undefined' && CONFIG.SUPABASE_ANON_KEY) ? CONFIG.SUPABASE_ANON_KEY : localStorage.getItem('supabase.anonKey');
+
+            // Prefill defaults if both are missing
+            if (!url && !key) {
+                url = 'https://brkapsnrdewuualhsmcr.supabase.co';
+                key = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJya2Fwc25yZGV3dXVhbGhzbWNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjgyNTEsImV4cCI6MjA4MDI0NDI1MX0.X78zASumSTzTa1n3tk9BdwMuQSvXIWTDLUiBTg--FCs';
             }
-            if (!localStorage.getItem('supabase.anonKey')) {
-                localStorage.setItem('supabase.anonKey', 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJya2Fwc25yZGV3dXVhbGhzbWNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ2NjgyNTEsImV4cCI6MjA4MDI0NDI1MX0.X78zASumSTzTa1n3tk9BdwMuQSvXIWTDLUiBTg--FCs');
-            }
-            const url = localStorage.getItem('supabase.url');
-            const key = localStorage.getItem('supabase.anonKey');
+
             if (url && key && window.supabase) {
                 this.client = window.supabase.createClient(url, key, {
                     auth: {

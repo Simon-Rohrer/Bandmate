@@ -1325,6 +1325,8 @@
     margin-left: auto;
     display: flex;
     align-items: center;
+    gap: 0.85rem;
+    flex-wrap: wrap;
 }
 
 #settingsModal .privacy-link {
@@ -2155,6 +2157,80 @@ html[data-theme="light"] #settingsModal .multiselect-menu,
     background: #ffffff;
     border-color: rgba(148, 163, 184, 0.34);
     box-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
+}
+
+html[data-theme="light"] #settingsModal .multiselect-trigger,
+:root:not(.theme-dark) #settingsModal .multiselect-trigger {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 255, 0.98)),
+        var(--settings-input-bg);
+    border-color: rgba(148, 163, 184, 0.28);
+    color: #1e293b;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+html[data-theme="light"] #settingsModal .multiselect-trigger:hover,
+html[data-theme="light"] #settingsModal .multiselect-trigger.active,
+:root:not(.theme-dark) #settingsModal .multiselect-trigger:hover,
+:root:not(.theme-dark) #settingsModal .multiselect-trigger.active {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(244, 247, 255, 0.98)),
+        var(--settings-input-bg);
+    border-color: rgba(129, 140, 248, 0.38);
+}
+
+html[data-theme="light"] #settingsModal .multiselect-badge,
+:root:not(.theme-dark) #settingsModal .multiselect-badge {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: rgba(99, 102, 241, 0.16);
+    color: #312e81;
+}
+
+html[data-theme="light"] #settingsModal .multiselect-placeholder,
+html[data-theme="light"] #settingsModal .multiselect-arrow,
+:root:not(.theme-dark) #settingsModal .multiselect-placeholder,
+:root:not(.theme-dark) #settingsModal .multiselect-arrow {
+    color: #64748b;
+}
+
+html[data-theme="light"] #settingsModal .multiselect-option,
+:root:not(.theme-dark) #settingsModal .multiselect-option {
+    background: #f8fafc;
+    border: 1px solid rgba(226, 232, 240, 0.9);
+    color: #0f172a;
+}
+
+html[data-theme="light"] #settingsModal .multiselect-option:hover,
+:root:not(.theme-dark) #settingsModal .multiselect-option:hover {
+    background: #eef4ff;
+    border-color: rgba(129, 140, 248, 0.32);
+}
+
+html[data-theme="light"] #settingsModal .multiselect-option:has(input[type="checkbox"]:checked),
+:root:not(.theme-dark) #settingsModal .multiselect-option:has(input[type="checkbox"]:checked) {
+    background:
+        linear-gradient(180deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.02)),
+        #ffffff;
+    border-color: rgba(99, 102, 241, 0.34);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] #settingsModal .multiselect-option-indicator,
+:root:not(.theme-dark) #settingsModal .multiselect-option-indicator {
+    background: #ffffff;
+    border-color: rgba(148, 163, 184, 0.38);
+}
+
+html[data-theme="light"] #settingsModal .multiselect-option:has(input[type="checkbox"]:checked) .multiselect-option-indicator,
+:root:not(.theme-dark) #settingsModal .multiselect-option:has(input[type="checkbox"]:checked) .multiselect-option-indicator {
+    background: #1d4ed8;
+    border-color: #1d4ed8;
+    box-shadow: 0 0 0 1px rgba(29, 78, 216, 0.12);
+}
+
+html[data-theme="light"] #settingsModal .multiselect-option-label,
+:root:not(.theme-dark) #settingsModal .multiselect-option-label {
+    color: #0f172a;
 }
 
 html[data-theme="dark"] #settingsModal .multiselect-menu,

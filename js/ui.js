@@ -10,6 +10,13 @@ const UI = {
             modal.classList.add('active');
             document.body.classList.add('modal-open');
             document.documentElement.classList.add('modal-open'); // Robust lock
+            if (typeof App !== 'undefined' && typeof App.handleModalOpened === 'function') {
+                try {
+                    App.handleModalOpened(modalId);
+                } catch (error) {
+                    console.warn('[UI.openModal] Could not persist modal state:', error);
+                }
+            }
 
             // Add click outside to close (only if not already added)
             if (!modal.dataset.hasClickOutside) {
@@ -216,6 +223,13 @@ const UI = {
             }
 
             modal.classList.remove('active');
+            if (typeof App !== 'undefined' && typeof App.handleModalClosed === 'function') {
+                try {
+                    App.handleModalClosed(modalId);
+                } catch (error) {
+                    console.warn('[UI.closeModal] Could not clear modal state:', error);
+                }
+            }
 
             // Check if any other modals are open before removing scroll lock
             const activeModals = document.querySelectorAll('.modal.active');
@@ -262,6 +276,13 @@ const UI = {
             }
             if (modal.id !== 'authModal') {
                 modal.classList.remove('active');
+                if (typeof App !== 'undefined' && typeof App.handleModalClosed === 'function') {
+                    try {
+                        App.handleModalClosed(modal.id);
+                    } catch (error) {
+                        console.warn('[UI.closeAllModals] Could not clear modal state:', error);
+                    }
+                }
             }
         });
         // Remove scroll lock if authModal is also not active (or if closing all means ALL)

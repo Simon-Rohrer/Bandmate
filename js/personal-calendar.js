@@ -8,6 +8,7 @@ const PersonalCalendar = {
     currentMonth: new Date(),
     isLoading: false,
     hasLoaded: false,
+    dayCreateMenuListenersBound: false,
 
     // Clear all cached data (called during logout)
     clearCache() {
@@ -442,14 +443,25 @@ const PersonalCalendar = {
 
                 const isToday = currentDate.getTime() === today.getTime();
                 const dayItems = this.getItemsForDate(currentDate);
+                const canQuickCreate = canCreate && dayItems.length === 0;
+                const dateValue = this.formatDateForInput(currentDate);
 
                 let dayClass = 'calendar-day';
                 if (isToday) dayClass += ' today';
                 if (dayItems.length > 0) dayClass += ' has-events';
+                if (canQuickCreate) dayClass += ' can-create';
 
                 html += `
-                    <div class="${dayClass}">
-                        <div class="calendar-day-number">${currentDate.getDate()}</div>
+                    <div class="${dayClass}"${canQuickCreate ? ` data-date="${dateValue}" onclick="PersonalCalendar.toggleDayCreateMenu(event, '${dateValue}')"` : ''}>
+                        <div class="calendar-day-top">
+                            <div class="calendar-day-number">${currentDate.getDate()}</div>
+                        </div>
+                        ${canQuickCreate ? `
+                            <div class="calendar-day-quick-create-menu" data-date="${dateValue}" hidden onclick="event.stopPropagation()">
+                                <button type="button" class="calendar-day-quick-create-option" onclick="PersonalCalendar.createItemForDate(event, 'rehearsal', '${dateValue}')">Probe anlegen</button>
+                                <button type="button" class="calendar-day-quick-create-option" onclick="PersonalCalendar.createItemForDate(event, 'event', '${dateValue}')">Auftritt anlegen</button>
+                            </div>
+                        ` : ''}
                         <div class="calendar-day-events">
                             ${dayItems.map(item => this.renderCalendarItem(item)).join('')}
                         </div>
@@ -468,6 +480,102 @@ const PersonalCalendar = {
             </div>
         `;
         container.innerHTML = html;
+        this.ensureDayCreateMenuListeners();
+    },
+
+    formatDateForInput(value) {
+        if (!value) return '';
+
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            return value.slice(0, 10);
+        }
+
+        const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+
+    ensureDayCreateMenuListeners() {
+        if (this.dayCreateMenuListenersBound) return;
+
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('#personalCalendarContainer .calendar-day.can-create')) {
+                return;
+            }
+            this.closeDayCreateMenus();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                this.closeDayCreateMenus();
+            }
+        });
+
+        this.dayCreateMenuListenersBound = true;
+    },
+
+    closeDayCreateMenus() {
+        const container = document.getElementById('personalCalendarContainer');
+        if (!container) return;
+
+        container.querySelectorAll('.calendar-day.can-create').forEach(day => {
+            day.classList.remove('is-open');
+        });
+
+        container.querySelectorAll('.calendar-day-quick-create-menu').forEach(menu => {
+            menu.hidden = true;
+        });
+
+        container.querySelectorAll('.calendar-day-quick-create-trigger').forEach(trigger => {
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+    },
+
+    toggleDayCreateMenu(event, dateValue) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+
+        const container = document.getElementById('personalCalendarContainer');
+        if (!container || !dateValue) return;
+
+        const menu = container.querySelector(`.calendar-day-quick-create-menu[data-date="${dateValue}"]`);
+        const trigger = container.querySelector(`.calendar-day[data-date="${dateValue}"] .calendar-day-quick-create-trigger`);
+        const day = container.querySelector(`.calendar-day[data-date="${dateValue}"]`);
+
+        if (!menu || !day) return;
+
+        const shouldOpen = menu.hidden;
+        this.closeDayCreateMenus();
+
+        if (!shouldOpen) return;
+
+        menu.hidden = false;
+        day.classList.add('is-open');
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'true');
+        }
+    },
+
+    createItemForDate(event, itemType, dateValue) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+
+        this.closeDayCreateMenus();
+
+        if (itemType === 'rehearsal') {
+            App.openCreateRehearsalModal({ date: dateValue });
+            return;
+        }
+
+        App.openCreateEventModal({ date: dateValue, time: '19:00' });
     },
 
     getItemsForDate(date) {

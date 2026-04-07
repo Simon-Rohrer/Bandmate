@@ -13284,9 +13284,12 @@ html[data-theme="light"] .modal-import-songs .modal-content.import-songs-modal,
     width: 100%;
     height: 100%;
     background:
-        radial-gradient(circle at 50% 35%, rgba(91, 140, 255, 0.16), transparent 24%),
-        radial-gradient(circle at 50% 100%, rgba(2, 6, 23, 0.32), transparent 42%),
-        var(--app-bg);
+        radial-gradient(circle at 50% 30%, var(--bg-accent), transparent 20%),
+        radial-gradient(circle at 18% 18%, var(--bg-glow-primary), transparent 28%),
+        radial-gradient(circle at 82% 14%, var(--bg-glow-secondary), transparent 24%),
+        linear-gradient(180deg, var(--bg-top-sheen) 0%, transparent 28%),
+        radial-gradient(circle at 50% 100%, var(--bg-depth-shadow), transparent 52%),
+        var(--bg-base);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -13389,8 +13392,10 @@ html[data-theme="light"] .modal-import-songs .modal-content.import-songs-modal,
 html[data-theme="light"] .loader-container,
 :root:not(.theme-dark) .loader-container {
     background:
-        radial-gradient(circle at 50% 34%, rgba(91, 140, 255, 0.16), transparent 26%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(241, 245, 249, 0.96));
+        radial-gradient(circle at 50% 30%, rgba(91, 140, 255, 0.12), transparent 20%),
+        radial-gradient(circle at 18% 18%, var(--bg-glow-primary), transparent 30%),
+        radial-gradient(circle at 82% 12%, var(--bg-glow-secondary), transparent 24%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.98));
 }
 
 /* Landing Footer - Stats Bar */
@@ -17480,6 +17485,13 @@ body:has(#landingPage.active):not(.modal-open) {
 :root,
 html[data-theme="light"] {
     color-scheme: light;
+    --bg-base: #F6F8FC;
+    --bg-accent: rgba(80, 120, 255, 0.08);
+    --bg-glow-primary: rgba(80, 120, 255, 0.14);
+    --bg-glow-secondary: rgba(56, 189, 248, 0.08);
+    --bg-depth-shadow: rgba(148, 163, 184, 0.14);
+    --bg-top-sheen: rgba(255, 255, 255, 0.72);
+    --bg-line-accent: rgba(148, 163, 184, 0.12);
     --app-bg: #F8FAFC;
     --surface: #FFFFFF;
     --surface-secondary: #F1F5F9;
@@ -17539,9 +17551,25 @@ html[data-theme="light"] {
     --shadow-card-hover: var(--shadow-md);
 }
 
+@media (min-width: 1025px) {
+    :root,
+    html[data-theme="light"],
+    html[data-theme="dark"],
+    :root.theme-dark {
+        --page-padding: 40px;
+    }
+}
+
 html[data-theme="dark"],
 :root.theme-dark {
     color-scheme: dark;
+    --bg-base: #08111F;
+    --bg-accent: rgba(91, 140, 255, 0.09);
+    --bg-glow-primary: rgba(91, 140, 255, 0.12);
+    --bg-glow-secondary: rgba(45, 212, 191, 0.05);
+    --bg-depth-shadow: rgba(2, 6, 23, 0.68);
+    --bg-top-sheen: rgba(255, 255, 255, 0.025);
+    --bg-line-accent: rgba(148, 163, 184, 0.04);
     --app-bg: #0B1220;
     --surface: #111827;
     --surface-secondary: #172033;
@@ -17584,11 +17612,77 @@ body {
 }
 
 body {
-    background:
-        radial-gradient(circle at top right, rgba(29, 78, 216, 0.08), transparent 28%),
-        radial-gradient(circle at bottom left, rgba(22, 58, 95, 0.07), transparent 26%),
-        var(--app-bg);
+    margin: 0;
+    position: relative;
+    isolation: isolate;
+    overflow-x: hidden;
+    background-color: var(--bg-base);
+    background-image:
+        linear-gradient(180deg, var(--bg-top-sheen) 0%, transparent 28%),
+        radial-gradient(circle at 16% 18%, var(--bg-glow-primary), transparent 28%),
+        radial-gradient(circle at 82% 12%, var(--bg-glow-secondary), transparent 24%),
+        radial-gradient(circle at 52% 100%, var(--bg-depth-shadow), transparent 50%);
+    background-attachment: fixed;
     color: var(--text-primary);
+}
+
+body:not(.landing-active)::before,
+body:not(.landing-active)::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    will-change: transform;
+}
+
+body:not(.landing-active)::before {
+    background:
+        radial-gradient(circle at 18% 22%, var(--bg-accent), transparent 34%),
+        radial-gradient(circle at 70% 82%, var(--bg-line-accent), transparent 42%);
+    opacity: 0.46;
+    filter: blur(18px);
+    animation: appBackgroundMoveOne 52s ease-in-out infinite;
+}
+
+body:not(.landing-active)::after {
+    background:
+        radial-gradient(circle at 78% 16%, var(--bg-accent), transparent 28%),
+        linear-gradient(120deg, transparent 0%, var(--bg-line-accent) 50%, transparent 100%);
+    opacity: 0.3;
+    filter: blur(24px);
+    animation: appBackgroundMoveTwo 68s ease-in-out infinite;
+}
+
+@keyframes appBackgroundMoveOne {
+    0% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(60px, 40px);
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+
+@keyframes appBackgroundMoveTwo {
+    0% {
+        transform: translate(0, 0);
+    }
+    50% {
+        transform: translate(-60px, -40px);
+    }
+    100% {
+        transform: translate(0, 0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body:not(.landing-active)::before,
+    body:not(.landing-active)::after {
+        animation: none;
+    }
 }
 
 body:not(.landing-active) .main-app,

@@ -22,6 +22,7 @@ const Calendar = {
         }
     },
     currentCalendar: 'tonstudio',
+    dayCreateMenuListenersBound: false,
 
     // Getter for backwards compatibility
     get calendarUrl() {
@@ -228,6 +229,7 @@ const Calendar = {
     renderMonthView() {
         const calendar = this.calendars[this.currentCalendar];
         const container = document.getElementById(calendar.containerId);
+        const toolbarHost = document.getElementById('probeorteCalendarToolbarHost');
 
         if (!container) {
             Logger.error(`Container "${calendar.containerId}" not found in DOM!`);
@@ -251,14 +253,6 @@ const Calendar = {
 
         // Build calendar HTML
         let html = `
-            <div class="calendar-header probeorte-calendar-header">
-                <button onclick="Calendar.previousMonth()" class="btn btn-icon probeorte-calendar-nav" aria-label="Vorheriger Monat">‹</button>
-                <div class="probeorte-calendar-heading">
-                    <h3 class="probeorte-calendar-title">${monthName}</h3>
-                    <button onclick="Calendar.goToToday()" class="btn btn-secondary probeorte-calendar-today">📅 Heute</button>
-                </div>
-                <button onclick="Calendar.nextMonth()" class="btn btn-icon probeorte-calendar-nav" aria-label="Nächster Monat">›</button>
-            </div>
             <div class="probeorte-calendar-grid-scroll">
                 <div class="probeorte-calendar-mobile-hint">Seitlich wischen, um alle Wochentage bequem zu sehen.</div>
                 <div class="calendar-grid probeorte-calendar-grid">
@@ -279,6 +273,20 @@ const Calendar = {
         // Add actual days
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        const canQuickCreate = this.canQuickCreate();
+
+        if (toolbarHost) {
+            toolbarHost.innerHTML = `
+                <div class="probeorte-calendar-toolbar-nav">
+                    <button onclick="Calendar.previousMonth()" class="btn btn-icon probeorte-calendar-nav" type="button" aria-label="Vorheriger Monat">‹</button>
+                    <div class="probeorte-calendar-toolbar-title">
+                        <h3 class="probeorte-calendar-title">${monthName}</h3>
+                        <button onclick="Calendar.goToToday()" class="btn btn-secondary probeorte-calendar-today" type="button">📅 Heute</button>
+                    </div>
+                    <button onclick="Calendar.nextMonth()" class="btn btn-icon probeorte-calendar-nav" type="button" aria-label="Nächster Monat">›</button>
+                </div>
+            `;
+        }
 
         for (let day = 1; day <= daysInMonth; day++) {
             const currentDate = new Date(year, month, day);
@@ -286,14 +294,35 @@ const Calendar = {
 
             const isToday = currentDate.getTime() === today.getTime();
             const dayEvents = this.getEventsForDate(currentDate);
+            const canDayQuickCreate = canQuickCreate && dayEvents.length === 0;
+            const dateValue = this.formatDateForInput(currentDate);
 
             let dayClass = 'calendar-day';
             if (isToday) dayClass += ' today';
             if (dayEvents.length > 0) dayClass += ' has-events';
+            if (canDayQuickCreate) dayClass += ' can-create';
 
             html += `
-                <div class="${dayClass}">
-                    <div class="calendar-day-number">${day}</div>
+                <div class="${dayClass}"${canDayQuickCreate ? ` data-date="${dateValue}" onclick="Calendar.toggleDayCreateMenu(event, '${dateValue}')"` : ''}>
+                    <div class="calendar-day-top">
+                        <div class="calendar-day-number">${day}</div>
+                        ${canDayQuickCreate ? `
+                            <button
+                                type="button"
+                                class="calendar-day-quick-create-trigger"
+                                aria-label="Probe am ${dateValue} anlegen"
+                                aria-expanded="false"
+                                onclick="Calendar.toggleDayCreateMenu(event, '${dateValue}')"
+                            >
+                                +
+                            </button>
+                        ` : ''}
+                    </div>
+                    ${canDayQuickCreate ? `
+                        <div class="calendar-day-quick-create-menu" data-date="${dateValue}" hidden onclick="event.stopPropagation()">
+                            <button type="button" class="calendar-day-quick-create-option" onclick="Calendar.createRehearsalForDate(event, '${dateValue}')">Probe hier anlegen</button>
+                        </div>
+                    ` : ''}
                     <div class="calendar-day-events">
                         ${dayEvents.map(event => this.renderCalendarEvent(event)).join('')}
                     </div>
@@ -311,6 +340,159 @@ const Calendar = {
                 e.stopPropagation();
                 this.showEventDetails(eventElement);
             });
+        });
+
+        this.ensureDayCreateMenuListeners();
+    },
+
+    canQuickCreate() {
+        return false;
+    },
+
+    formatDateForInput(value) {
+        if (!value) return '';
+
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
+            return value.slice(0, 10);
+        }
+
+        const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+
+    ensureDayCreateMenuListeners() {
+        if (this.dayCreateMenuListenersBound) return;
+
+        document.addEventListener('click', (event) => {
+            if (event.target.closest('#probeorteView .calendar-day.can-create')) {
+                return;
+            }
+            this.closeDayCreateMenus();
+        });
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key === 'Escape') {
+                this.closeDayCreateMenus();
+            }
+        });
+
+        this.dayCreateMenuListenersBound = true;
+    },
+
+    closeDayCreateMenus() {
+        document.querySelectorAll('#probeorteView .calendar-day.can-create').forEach(day => {
+            day.classList.remove('is-open');
+        });
+
+        document.querySelectorAll('#probeorteView .calendar-day-quick-create-menu').forEach(menu => {
+            menu.hidden = true;
+        });
+
+        document.querySelectorAll('#probeorteView .calendar-day-quick-create-trigger').forEach(trigger => {
+            trigger.setAttribute('aria-expanded', 'false');
+        });
+    },
+
+    toggleDayCreateMenu(event, dateValue) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+
+        if (!dateValue) return;
+
+        const day = document.querySelector(`#probeorteView .calendar-day[data-date="${dateValue}"]`);
+        const menu = document.querySelector(`#probeorteView .calendar-day-quick-create-menu[data-date="${dateValue}"]`);
+        const trigger = day?.querySelector('.calendar-day-quick-create-trigger');
+
+        if (!day || !menu) return;
+
+        const shouldOpen = menu.hidden;
+        this.closeDayCreateMenus();
+
+        if (!shouldOpen) return;
+
+        day.classList.add('is-open');
+        menu.hidden = false;
+        if (trigger) {
+            trigger.setAttribute('aria-expanded', 'true');
+        }
+    },
+
+    getCalendarAliases(calendarType = this.currentCalendar) {
+        const normalized = String(calendarType || '').toLowerCase();
+        const aliasMap = {
+            tonstudio: ['tonstudio'],
+            festhalle: ['festhalle', 'jms-festhalle', 'jms festhalle'],
+            ankersaal: ['ankersaal']
+        };
+
+        return aliasMap[normalized] || [normalized];
+    },
+
+    normalizeLocationValue(value) {
+        return String(value || '')
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+    },
+
+    async resolveLocationIdForCurrentCalendar() {
+        if (typeof Storage === 'undefined' || typeof Storage.getLocations !== 'function') {
+            return '';
+        }
+
+        const aliases = this.getCalendarAliases();
+        const normalizedAliases = aliases.map(alias => this.normalizeLocationValue(alias));
+        const locations = await Storage.getLocations();
+        if (!Array.isArray(locations) || locations.length === 0) {
+            return '';
+        }
+
+        const matchesCalendar = (location) => {
+            const linkedCalendar = this.normalizeLocationValue(location.linkedCalendar);
+            if (linkedCalendar && normalizedAliases.includes(linkedCalendar)) {
+                return true;
+            }
+
+            const linkedToCalendar = this.normalizeLocationValue(location.linkedToCalendar);
+            if (linkedToCalendar && normalizedAliases.includes(linkedToCalendar)) {
+                return true;
+            }
+
+            if (location.linkedCalendars && typeof location.linkedCalendars === 'object') {
+                return normalizedAliases.some(alias => Boolean(
+                    location.linkedCalendars[alias] ||
+                    location.linkedCalendars[alias.replace(/\s+/g, '-')] ||
+                    location.linkedCalendars[alias.replace(/\s+/g, '')]
+                ));
+            }
+
+            const locationName = this.normalizeLocationValue(location.name);
+            return normalizedAliases.some(alias => locationName === alias);
+        };
+
+        const match = locations.find(matchesCalendar);
+        return match?.id || '';
+    },
+
+    async createRehearsalForDate(event, dateValue) {
+        if (event) {
+            event.stopPropagation();
+            event.preventDefault();
+        }
+
+        this.closeDayCreateMenus();
+
+        const locationId = await this.resolveLocationIdForCurrentCalendar();
+        App.openCreateRehearsalModal({
+            date: dateValue,
+            locationId: locationId || ''
         });
     },
 
