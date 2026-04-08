@@ -604,15 +604,17 @@ const Calendar = {
         const calendarName = currentCalendar.name || currentFallback.name || 'Probeort';
         const calendarIcon = currentCalendar.icon || currentFallback.icon || '📅';
 
+        const iconEl = document.getElementById('calendarEventDetailIcon');
         const titleEl = document.getElementById('calendarEventDetailTitle');
         const subtitleEl = document.getElementById('calendarEventDetailSubtitle');
         const metaEl = document.getElementById('calendarEventDetailMeta');
         const dateEl = document.getElementById('calendarEventDetailDate');
         const timeEl = document.getElementById('calendarEventDetailTime');
 
+        if (iconEl) iconEl.textContent = calendarIcon;
         if (titleEl) titleEl.textContent = summary || 'Kalendereintrag';
         if (subtitleEl) {
-            subtitleEl.textContent = `Details zur Belegung in ${calendarName}`;
+            subtitleEl.textContent = `Alle Details zur Belegung in ${calendarName} auf einen Blick.`;
         }
         if (dateEl) dateEl.textContent = date || 'Datum unbekannt';
         if (timeEl) timeEl.textContent = time || 'Zeit unbekannt';

@@ -4008,6 +4008,13 @@ const App = {
                 content.classList.remove('active');
             }
         });
+
+        this.refreshBandSetlistScrollbarDockVisibility();
+
+        if (tabName === 'setlist' && typeof this.syncBandSetlistScrollbarMetrics === 'function') {
+            requestAnimationFrame(() => this.syncBandSetlistScrollbarMetrics());
+            setTimeout(() => this.syncBandSetlistScrollbarMetrics(), 60);
+        }
     },
 
     // Settings tab switching
@@ -6303,18 +6310,18 @@ const App = {
                         <input type="checkbox" id="selectAllBandSongs">
                     </th>
                     <th style="padding: var(--spacing-sm); text-align: center; width: 108px;">Aktionen</th>
-                    <th class="sortable-header ${getSortClass('title')}" data-field="title" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Titel</th>
-                    <th class="sortable-header ${getSortClass('artist')}" data-field="artist" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Interpret</th>
-                    <th class="sortable-header ${getSortClass('bpm')}" data-field="bpm" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">BPM</th>
-                    <th class="sortable-header ${getSortClass('timeSignature')}" data-field="timeSignature" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Time</th>
-                    <th class="sortable-header ${getSortClass('key')}" data-field="key" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Tonart</th>
-                    <th class="sortable-header ${getSortClass('originalKey')}" data-field="originalKey" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Orig.</th>
-                    <th class="sortable-header ${getSortClass('leadVocal')}" data-field="leadVocal" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Lead</th>
-                    <th class="sortable-header ${getSortClass('language')}" data-field="language" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Sprache</th>
-                    <th class="sortable-header ${getSortClass('tracks')}" data-field="tracks" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">Tracks</th>
+                    <th class="sortable-header sortable-col-title ${getSortClass('title')}" data-field="title" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Titel</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-artist ${getSortClass('artist')}" data-field="artist" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Interpret</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-bpm ${getSortClass('bpm')}" data-field="bpm" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">BPM</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-time ${getSortClass('timeSignature')}" data-field="timeSignature" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Time</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-key ${getSortClass('key')}" data-field="key" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Tonart</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-original-key ${getSortClass('originalKey')}" data-field="originalKey" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Orig.</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-lead ${getSortClass('leadVocal')}" data-field="leadVocal" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Lead</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-language ${getSortClass('language')}" data-field="language" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Sprache</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                    <th class="sortable-header sortable-col-tracks ${getSortClass('tracks')}" data-field="tracks" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Tracks</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                     <th style="padding: var(--spacing-sm); text-align: center;">PDF</th>
                     <th style="padding: var(--spacing-sm); text-align: left; min-width: 250px;">Infos</th>
-                    <th class="sortable-header ${getSortClass('ccli')}" data-field="ccli" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;">CCLI</th>
+                    <th class="sortable-header sortable-col-ccli ${getSortClass('ccli')}" data-field="ccli" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">CCLI</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                 </tr>
             </thead>
             <tbody id="bandSongsTableBody">
@@ -6324,6 +6331,8 @@ const App = {
             </div>
         </div>
 `;
+
+        this.setupBandSetlistHorizontalScroll(container);
 
         // Wire up Sort Headers
         container.querySelectorAll('.sortable-header').forEach(header => {
@@ -6482,6 +6491,107 @@ const App = {
         };
 
         attachSongListeners();
+    },
+
+    setupBandSetlistHorizontalScroll(container) {
+        const scrollbarDock = document.getElementById('bandSetlistScrollbarDock');
+        const topScrollbar = document.getElementById('bandSetlistScrollbar');
+        const topScrollbarInner = document.getElementById('bandSetlistScrollbarInner');
+        const tableWrap = container.querySelector('.band-setlist-table-wrap');
+        const table = container.querySelector('.band-setlist-table');
+
+        if (!scrollbarDock || !topScrollbar || !topScrollbarInner || !tableWrap || !table) return;
+
+        if (typeof this.bandSetlistScrollCleanup === 'function') {
+            this.bandSetlistScrollCleanup();
+        }
+
+        if (this.bandSetlistResizeObserver) {
+            this.bandSetlistResizeObserver.disconnect();
+            this.bandSetlistResizeObserver = null;
+        }
+
+        let syncingScroll = false;
+
+        const syncMetrics = () => {
+            const contentWidth = Math.max(table.scrollWidth, table.offsetWidth, tableWrap.scrollWidth);
+            const hasOverflow = contentWidth > tableWrap.clientWidth + 1;
+
+            topScrollbarInner.style.width = `${contentWidth}px`;
+            scrollbarDock.dataset.hasOverflow = hasOverflow ? 'true' : 'false';
+            this.refreshBandSetlistScrollbarDockVisibility();
+
+            if (!hasOverflow) {
+                topScrollbar.scrollLeft = 0;
+                tableWrap.scrollLeft = 0;
+                return;
+            }
+
+            if (Math.abs(topScrollbar.scrollLeft - tableWrap.scrollLeft) > 1) {
+                topScrollbar.scrollLeft = tableWrap.scrollLeft;
+            }
+        };
+
+        const onScrollbarScroll = () => {
+            if (syncingScroll) return;
+            syncingScroll = true;
+            tableWrap.scrollLeft = topScrollbar.scrollLeft;
+            requestAnimationFrame(() => {
+                syncingScroll = false;
+            });
+        };
+
+        const onTableScroll = () => {
+            if (syncingScroll) return;
+            syncingScroll = true;
+            topScrollbar.scrollLeft = tableWrap.scrollLeft;
+            requestAnimationFrame(() => {
+                syncingScroll = false;
+            });
+        };
+
+        topScrollbar.addEventListener('scroll', onScrollbarScroll, { passive: true });
+        tableWrap.addEventListener('scroll', onTableScroll, { passive: true });
+
+        if (typeof ResizeObserver !== 'undefined') {
+            this.bandSetlistResizeObserver = new ResizeObserver(() => {
+                syncMetrics();
+            });
+            this.bandSetlistResizeObserver.observe(tableWrap);
+            this.bandSetlistResizeObserver.observe(table);
+        }
+
+        this.syncBandSetlistScrollbarMetrics = syncMetrics;
+        this.bandSetlistScrollCleanup = () => {
+            topScrollbar.removeEventListener('scroll', onScrollbarScroll);
+            tableWrap.removeEventListener('scroll', onTableScroll);
+            if (this.bandSetlistResizeObserver) {
+                this.bandSetlistResizeObserver.disconnect();
+                this.bandSetlistResizeObserver = null;
+            }
+            scrollbarDock.dataset.hasOverflow = 'false';
+            this.refreshBandSetlistScrollbarDockVisibility();
+            if (this.syncBandSetlistScrollbarMetrics === syncMetrics) {
+                this.syncBandSetlistScrollbarMetrics = null;
+            }
+            this.bandSetlistScrollCleanup = null;
+        };
+
+        requestAnimationFrame(() => {
+            syncMetrics();
+            setTimeout(syncMetrics, 0);
+        });
+    },
+
+    refreshBandSetlistScrollbarDockVisibility() {
+        const dock = document.getElementById('bandSetlistScrollbarDock');
+        const setlistTab = document.getElementById('setlistTab');
+        if (!dock || !setlistTab) return;
+
+        const hasOverflow = dock.dataset.hasOverflow === 'true';
+        const isSetlistActive = setlistTab.classList.contains('active');
+
+        dock.classList.toggle('is-visible', hasOverflow && isSetlistActive);
     },
 
     async renderDraftEventSongs() {

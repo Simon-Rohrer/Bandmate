@@ -59,9 +59,9 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260408-3">
+    <link rel="stylesheet" href="css/style.css?v=20260408-6">
     <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
-    <link rel="stylesheet" href="css/calendar.css?v=20260408-2">
+    <link rel="stylesheet" href="css/calendar.css?v=20260408-4">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
     <link rel="stylesheet" href="css/settings_modal.css?v=20260408-1">
     <link rel="stylesheet" href="css/statistics.css">
@@ -2464,8 +2464,11 @@
                         </div>
                     </div>
                 </div>
-
-
+            </div>
+            <div id="bandSetlistScrollbarDock" class="band-setlist-scrollbar-dock" aria-hidden="true">
+                <div id="bandSetlistScrollbar" class="band-setlist-scrollbar-top">
+                    <div id="bandSetlistScrollbarInner" class="band-setlist-scrollbar-top-inner"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -3692,28 +3695,33 @@
         <div class="modal-content calendar-event-detail-content">
             <div class="modal-header calendar-event-detail-header">
                 <div class="calendar-event-detail-hero">
-                    <span class="calendar-event-detail-eyebrow">Kalendereintrag</span>
-                    <h2 id="calendarEventDetailTitle">Termin</h2>
-                    <p id="calendarEventDetailSubtitle" class="calendar-event-detail-subtitle"></p>
+                    <div class="calendar-event-detail-topline">
+                        <div id="calendarEventDetailIcon" class="calendar-event-detail-icon" aria-hidden="true">📅</div>
+                        <div class="calendar-event-detail-title-group">
+                            <span class="calendar-event-detail-eyebrow">Kalendereintrag</span>
+                            <h2 id="calendarEventDetailTitle">Termin</h2>
+                            <p id="calendarEventDetailSubtitle" class="calendar-event-detail-subtitle"></p>
+                        </div>
+                    </div>
                     <div id="calendarEventDetailMeta" class="calendar-event-detail-meta"></div>
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body calendar-event-detail-body">
                 <div class="calendar-event-detail-grid">
-                    <div class="calendar-event-detail-card">
+                    <div class="calendar-event-detail-card calendar-event-detail-card-date">
                         <span class="calendar-event-detail-label">Datum</span>
                         <p id="calendarEventDetailDate" class="calendar-event-detail-value"></p>
                     </div>
-                    <div class="calendar-event-detail-card">
+                    <div class="calendar-event-detail-card calendar-event-detail-card-time">
                         <span class="calendar-event-detail-label">Zeit</span>
                         <p id="calendarEventDetailTime" class="calendar-event-detail-value"></p>
                     </div>
-                    <div id="calendarEventDetailLocationContainer" class="calendar-event-detail-card" hidden>
+                    <div id="calendarEventDetailLocationContainer" class="calendar-event-detail-card calendar-event-detail-card-location" hidden>
                         <span class="calendar-event-detail-label">Ort</span>
                         <p id="calendarEventDetailLocation" class="calendar-event-detail-value"></p>
                     </div>
-                    <div id="calendarEventDetailDescriptionContainer" class="calendar-event-detail-card calendar-event-detail-card-full" hidden>
+                    <div id="calendarEventDetailDescriptionContainer" class="calendar-event-detail-card calendar-event-detail-card-description calendar-event-detail-card-full" hidden>
                         <span class="calendar-event-detail-label">Beschreibung</span>
                         <p id="calendarEventDetailDescription" class="calendar-event-detail-value calendar-event-detail-description"></p>
                     </div>
@@ -3928,7 +3936,7 @@
     <script src="js/events.js?v=20260408-2"></script>
     <script src="js/rehearsals.js?v=20260408-2"></script>
     <script src="js/statistics.js?v=20260407-1"></script>
-    <script src="js/calendar.js?v=20260408-1"></script>
+    <script src="js/calendar.js?v=20260408-2"></script>
     <script src="js/personal-calendar.js?v=20260407-4"></script>
     <script src="js/churchtools-api.js?v=20260311"></script>
     <script src="js/musikpool.js?v=20260311"></script>
@@ -3936,7 +3944,7 @@
     <script src="js/feedback-service.js?v=20260311"></script>
     <script src="js/chordpro-converter.js?v=20260407-8"></script>
     <script src="js/notifications.js?v=20260328"></script>
-    <script src="js/app.js?v=20260408-5"></script>
+    <script src="js/app.js?v=20260408-8"></script>
 
     <!-- Skip duplicated pdf.js block -->
 

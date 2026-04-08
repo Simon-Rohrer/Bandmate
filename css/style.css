@@ -12461,8 +12461,7 @@ body.no-scroll {
     user-select: none;
     transition: background-color 0.2s;
     position: relative;
-    padding-right: 1.5rem !important;
-    /* Make room for arrow */
+    padding-right: 2.25rem !important;
 }
 
 .sortable-header:hover {
@@ -12472,22 +12471,48 @@ body.no-scroll {
 .sortable-header::after {
     content: '↕';
     position: absolute;
-    right: 0.5rem;
-    opacity: 0.3;
-    font-size: 1.1em;
-    transition: all 0.2s;
     top: 50%;
     transform: translateY(-50%);
+    right: 0.55rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.3rem;
+    height: 1.3rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent);
+    background: color-mix(in srgb, var(--color-surface-hover) 38%, transparent);
+    color: var(--color-text-secondary);
+    opacity: 0.82;
+    font-size: 0.72rem;
+    font-weight: 800;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+.sortable-header:hover::after {
+    opacity: 1;
+    color: var(--color-text);
+    border-color: color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-hover));
 }
 
 .sortable-header.sort-asc::after {
     content: '▲';
     opacity: 1;
-    color: var(--color-accent);
+    color: var(--color-primary);
+    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-hover));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 .sortable-header.sort-desc::after {
-    color: var(--color-accent);
+    content: '▼';
+    opacity: 1;
+    color: var(--color-primary);
+    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-hover));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
 /* ===== Song Selection Modal Styles ===== */
@@ -24486,11 +24511,62 @@ html[data-theme="dark"] .schedule-card-user-state.is-confirmed,
     gap: 10px;
 }
 
+#bandDetailsModal .band-setlist-scrollbar-dock {
+    display: none;
+    flex-shrink: 0;
+    padding: 0 24px 18px;
+    background:
+        linear-gradient(180deg, rgba(15, 23, 42, 0), color-mix(in srgb, var(--surface) 96%, transparent) 48%);
+}
+
+#bandDetailsModal .band-setlist-scrollbar-dock.is-visible {
+    display: block;
+}
+
+#bandDetailsModal .band-setlist-scrollbar-top {
+    overflow-x: auto;
+    overflow-y: hidden;
+    height: 18px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--surface-secondary) 70%, transparent), transparent),
+        color-mix(in srgb, var(--surface) 92%, transparent);
+    box-shadow: 0 -10px 24px -22px rgba(15, 23, 42, 0.72);
+    scrollbar-gutter: stable;
+}
+
+#bandDetailsModal .band-setlist-scrollbar-top-inner {
+    height: 1px;
+}
+
+#bandDetailsModal .band-setlist-scrollbar-top::-webkit-scrollbar,
+#bandDetailsModal .band-setlist-table-wrap::-webkit-scrollbar {
+    height: 10px;
+}
+
+#bandDetailsModal .band-setlist-scrollbar-top::-webkit-scrollbar-track,
+#bandDetailsModal .band-setlist-table-wrap::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#bandDetailsModal .band-setlist-scrollbar-top::-webkit-scrollbar-thumb,
+#bandDetailsModal .band-setlist-table-wrap::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--color-primary) 24%, var(--border));
+}
+
+#bandDetailsModal .band-setlist-scrollbar-top::-webkit-scrollbar-thumb:hover,
+#bandDetailsModal .band-setlist-table-wrap::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--color-primary) 34%, var(--border));
+}
+
 #bandDetailsModal .band-setlist-table-wrap {
     overflow: auto;
     border-radius: 18px;
     border: 1px solid var(--border);
     background: var(--surface);
+    scrollbar-gutter: stable both-edges;
 }
 
 #bandDetailsModal .band-setlist-table {
@@ -24513,6 +24589,94 @@ html[data-theme="dark"] .schedule-card-user-state.is-confirmed,
 
 #bandDetailsModal .band-setlist-table th {
     font-size: 0.76rem;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header {
+    padding-right: 12px !important;
+    white-space: nowrap;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header::after {
+    display: none;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header-content {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    min-width: 0;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header-label {
+    display: inline-block;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.22rem;
+    height: 1.22rem;
+    flex: 0 0 1.22rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent);
+    background: color-mix(in srgb, var(--color-surface-hover) 38%, transparent);
+    color: var(--color-text-secondary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header .sortable-header-icon::before {
+    content: '↕';
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header:hover .sortable-header-icon {
+    color: var(--color-text);
+    border-color: color-mix(in srgb, var(--color-primary) 20%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface-hover));
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header.sort-asc .sortable-header-icon,
+#bandDetailsModal .band-setlist-table .sortable-header.sort-desc .sortable-header-icon {
+    color: var(--color-primary);
+    border-color: color-mix(in srgb, var(--color-primary) 28%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 14%, var(--color-surface-hover));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header.sort-asc .sortable-header-icon::before {
+    content: '▲';
+}
+
+#bandDetailsModal .band-setlist-table .sortable-header.sort-desc .sortable-header-icon::before {
+    content: '▼';
+}
+
+#bandDetailsModal .band-setlist-table .sortable-col-title {
+    min-width: 280px;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-col-artist {
+    min-width: 120px;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-col-bpm,
+#bandDetailsModal .band-setlist-table .sortable-col-time,
+#bandDetailsModal .band-setlist-table .sortable-col-original-key,
+#bandDetailsModal .band-setlist-table .sortable-col-ccli {
+    min-width: 88px;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-col-key,
+#bandDetailsModal .band-setlist-table .sortable-col-tracks {
+    min-width: 96px;
+}
+
+#bandDetailsModal .band-setlist-table .sortable-col-lead,
+#bandDetailsModal .band-setlist-table .sortable-col-language {
+    min-width: 112px;
 }
 
 #bandDetailsModal .band-setlist-table td {
