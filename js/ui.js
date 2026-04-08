@@ -3,6 +3,31 @@
 const UI = {
     LOADING_TIMEOUT_MS: 25000,
 
+    _bindBackdropClose(element, onClose) {
+        if (!element || element.dataset.hasBackdropCloseBinding === 'true') return;
+
+        element.addEventListener('mousedown', (event) => {
+            element._backdropMouseDownOnSelf = event.target === element;
+        });
+
+        element.addEventListener('mouseup', (event) => {
+            element._backdropMouseUpOnSelf = event.target === element;
+        });
+
+        element.addEventListener('click', (event) => {
+            const startedOnBackdrop = element._backdropMouseDownOnSelf === true;
+            const endedOnBackdrop = event.target === element && element._backdropMouseUpOnSelf === true;
+
+            element._backdropMouseDownOnSelf = false;
+            element._backdropMouseUpOnSelf = false;
+
+            if (!startedOnBackdrop || !endedOnBackdrop) return;
+            onClose(event);
+        });
+
+        element.dataset.hasBackdropCloseBinding = 'true';
+    },
+
     // Modal management
     openModal(modalId) {
         const modal = document.getElementById(modalId);
@@ -20,13 +45,8 @@ const UI = {
 
             // Add click outside to close (only if not already added)
             if (!modal.dataset.hasClickOutside) {
-                modal.addEventListener('mousedown', (e) => {
-                    modal._mouseDownTarget = e.target;
-                });
-                modal.addEventListener('click', (e) => {
-                    if (e.target === modal && modal._mouseDownTarget === modal) {
-                        this.closeModal(modalId);
-                    }
+                this._bindBackdropClose(modal, () => {
+                    this.closeModal(modalId);
                 });
                 modal.dataset.hasClickOutside = 'true';
             }
@@ -64,22 +84,12 @@ const UI = {
                     activeForm.scrollTop = 0;
                 }
 
-                // Add One-Time Click Listener for outside click
-                const mouseDownHandler = (e) => {
-                    overlay._mouseDownTarget = e.target;
-                };
-                const clickHandler = (e) => {
-                    if (e.target === overlay && overlay._mouseDownTarget === overlay) {
+                if (!overlay.dataset.hasClickOutside) {
+                    this._bindBackdropClose(overlay, () => {
                         this.toggleAuthOverlay(false);
-                        overlay.removeEventListener('click', clickHandler);
-                        overlay.removeEventListener('mousedown', mouseDownHandler);
-                    }
-                };
-                overlay.addEventListener('mousedown', mouseDownHandler);
-                overlay.addEventListener('click', clickHandler);
-                // Store reference to remove it if closed via button
-                overlay._clickHandler = clickHandler;
-                overlay._mouseDownHandler = mouseDownHandler;
+                    });
+                    overlay.dataset.hasClickOutside = 'true';
+                }
             } else {
 
                 overlay.classList.remove('active');
@@ -92,15 +102,6 @@ const UI = {
                 window.scrollTo(0, 0);
                 document.documentElement.scrollTop = 0;
                 document.body.scrollTop = 0;
-
-                if (overlay._clickHandler) {
-                    overlay.removeEventListener('click', overlay._clickHandler);
-                    delete overlay._clickHandler;
-                }
-                if (overlay._mouseDownHandler) {
-                    overlay.removeEventListener('mousedown', overlay._mouseDownHandler);
-                    delete overlay._mouseDownHandler;
-                }
             }
         }
     },
@@ -689,12 +690,7 @@ const UI = {
         if (onRetry) {
             modal.querySelector('#errorRetryBtn').addEventListener('click', retry);
         }
-        modal.addEventListener('mousedown', (e) => {
-            modal._mouseDownTarget = e.target;
-        });
-        modal.addEventListener('click', (e) => {
-            if (e.target === modal && modal._mouseDownTarget === modal) close();
-        });
+        this._bindBackdropClose(modal, close);
     },
 
     // Loading spinner: delayed appearance if operation exceeds delayMs (default 0ms for immediate feedback)
@@ -856,12 +852,7 @@ const UI = {
         };
 
         closeBtn.addEventListener('click', closeLightbox);
-        overlay.addEventListener('mousedown', (e) => {
-            overlay._mouseDownTarget = e.target;
-        });
-        overlay.addEventListener('click', (e) => {
-            if (e.target === overlay && overlay._mouseDownTarget === overlay) closeLightbox();
-        });
+        this._bindBackdropClose(overlay, closeLightbox);
 
         // Escape key to close
         const escapeHandler = (e) => {

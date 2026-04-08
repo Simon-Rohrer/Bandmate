@@ -191,7 +191,7 @@
     color: var(--color-text);
 }
 
-.scheduler-modal .required-indicator {
+.required-indicator {
     color: var(--color-danger);
     font-weight: 700;
 }
@@ -25581,6 +25581,105 @@ html[data-theme="light"] .calendar-sync-card,
     grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
 }
 
+.song-editor-autofill-group {
+    position: relative;
+}
+
+.song-autofill-results {
+    position: absolute;
+    top: calc(100% + 0.4rem);
+    left: 0;
+    right: 0;
+    z-index: 24;
+    display: grid;
+    overflow: hidden;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 6%, transparent), transparent 72%),
+        color-mix(in srgb, var(--color-bg-secondary) 94%, transparent);
+    box-shadow: 0 18px 40px rgba(2, 6, 23, 0.22);
+}
+
+.song-autofill-results[hidden] {
+    display: none !important;
+}
+
+.song-autofill-dropdown-state {
+    padding: 0.9rem 1rem;
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.song-autofill-list {
+    display: grid;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.song-autofill-option {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.42rem;
+    width: 100%;
+    padding: 0.9rem 1rem;
+    border: 0;
+    border-radius: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--color-border) 78%, transparent);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.song-autofill-option:hover {
+    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-surface));
+}
+
+.song-autofill-option-copy {
+    display: grid;
+    gap: 0.28rem;
+    min-width: 0;
+}
+
+.song-autofill-option-title {
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--color-text);
+    line-height: 1.28;
+}
+
+.song-autofill-option-subtitle {
+    font-size: 0.88rem;
+    color: var(--color-text-secondary);
+}
+
+.song-autofill-option-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.45rem;
+    margin-top: 0.06rem;
+}
+
+.song-autofill-chip {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0.12rem 0.52rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+    color: var(--color-primary);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+.song-autofill-option:last-child {
+    border-bottom: 0;
+}
+
 .song-editor-file-group {
     display: grid;
     align-content: start;
@@ -25807,6 +25906,10 @@ html[data-theme="light"] .calendar-sync-card,
     .song-editor-file-state {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .song-autofill-option {
+        grid-template-columns: 1fr;
     }
 }
 

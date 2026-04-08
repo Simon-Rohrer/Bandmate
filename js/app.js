@@ -988,12 +988,23 @@ const App = {
             modal.classList.remove('active');
             App.updateDashboard();
         };
-        // Close modal on outside click
-        window.addEventListener('click', function handler(ev) {
-            if (ev.target === modal) {
+        if (modal && modal.dataset.hasStandaloneBackdropClose !== 'true') {
+            modal.addEventListener('mousedown', (event) => {
+                modal._standaloneBackdropMouseDown = event.target === modal;
+            });
+            modal.addEventListener('mouseup', (event) => {
+                modal._standaloneBackdropMouseUp = event.target === modal;
+            });
+            modal.addEventListener('click', (event) => {
+                const startedOnBackdrop = modal._standaloneBackdropMouseDown === true;
+                const endedOnBackdrop = event.target === modal && modal._standaloneBackdropMouseUp === true;
+                modal._standaloneBackdropMouseDown = false;
+                modal._standaloneBackdropMouseUp = false;
+                if (!startedOnBackdrop || !endedOnBackdrop) return;
                 modal.classList.remove('active');
-            }
-        });
+            });
+            modal.dataset.hasStandaloneBackdropClose = 'true';
+        }
     },
 
     // Call this after DOMContentLoaded
@@ -2303,6 +2314,32 @@ const App = {
                     songFormSubmitting = false;
                 }
             });
+
+            const songTitleInput = newSongForm.querySelector('#songTitle');
+            const songAutofillResults = newSongForm.querySelector('#songAutofillResults');
+
+            if (songTitleInput) {
+                songTitleInput.addEventListener('input', () => {
+                    App.scheduleSongAutofillSearch();
+                });
+            }
+
+            if (songAutofillResults) {
+                songAutofillResults.addEventListener('click', (event) => {
+                    const option = event.target.closest('[data-song-autofill-index]');
+                    if (!option) return;
+                    App.applySongAutofillCandidate(option.dataset.songAutofillIndex);
+                });
+            }
+
+            if (!this.songAutofillOutsideClickBound) {
+                document.addEventListener('mousedown', (event) => {
+                    const autofillGroup = document.querySelector('#songModal.active .song-editor-autofill-group');
+                    if (!autofillGroup || autofillGroup.contains(event.target)) return;
+                    App.clearSongAutofillResults();
+                });
+                this.songAutofillOutsideClickBound = true;
+            }
         }
 
         // Zeige Planungs-Buttons nur für Bands, bei denen der Nutzer Leiter oder Co-Leiter ist
@@ -3298,17 +3335,28 @@ const App = {
             }
         });
 
-        // Close modals on background click
-        document.querySelectorAll('.modal').forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    // Don't close auth modal or onboarding modal on background click
-                    if (modal.id === 'authModal' || modal.id === 'onboardingModal') {
-                        return;
-                    }
-                    UI.closeModal(modal.id);
-                }
+        const standaloneBackdropModalIds = ['profileImageModal'];
+        standaloneBackdropModalIds.forEach((modalId) => {
+            const modal = document.getElementById(modalId);
+            if (!modal || modal.dataset.hasStandaloneBackdropClose === 'true') return;
+
+            modal.addEventListener('mousedown', (event) => {
+                modal._standaloneBackdropMouseDown = event.target === modal;
             });
+            modal.addEventListener('mouseup', (event) => {
+                modal._standaloneBackdropMouseUp = event.target === modal;
+            });
+            modal.addEventListener('click', (event) => {
+                const startedOnBackdrop = modal._standaloneBackdropMouseDown === true;
+                const endedOnBackdrop = event.target === modal && modal._standaloneBackdropMouseUp === true;
+                modal._standaloneBackdropMouseDown = false;
+                modal._standaloneBackdropMouseUp = false;
+
+                if (!startedOnBackdrop || !endedOnBackdrop) return;
+                modal.classList.remove('active');
+            });
+
+            modal.dataset.hasStandaloneBackdropClose = 'true';
         });
 
         // Create absence form
@@ -5238,6 +5286,12 @@ const App = {
         if (pdfInput) pdfInput.value = '';
         const currentPdfContainer = document.getElementById('songCurrentPdf');
         const pdfNameSpan = document.getElementById('songPdfName');
+        this.songAutofillCandidates = [];
+        if (this.songAutofillSearchTimer) {
+            clearTimeout(this.songAutofillSearchTimer);
+            this.songAutofillSearchTimer = null;
+        }
+        this.clearSongAutofillResults();
 
         if (songId) {
             // Edit existing song
@@ -5304,6 +5358,155 @@ const App = {
         if (deletePdfBtn) {
             deletePdfBtn.onclick = () => this.handleDeleteSongPdf();
         }
+    },
+
+    scheduleSongAutofillSearch() {
+        const titleInput = document.getElementById('songTitle');
+        if (!titleInput) return;
+
+        const query = String(titleInput.value || '').trim();
+        if (this.songAutofillSearchTimer) {
+            clearTimeout(this.songAutofillSearchTimer);
+        }
+
+        if (query.length < 4) {
+            this.songAutofillCandidates = [];
+            this.clearSongAutofillResults();
+            return;
+        }
+
+        this.songAutofillSearchTimer = setTimeout(() => {
+            this.handleSongAutofillSearch({ silent: true });
+        }, 260);
+    },
+
+    clearSongAutofillResults() {
+        const results = document.getElementById('songAutofillResults');
+        if (!results) return;
+        results.hidden = true;
+        results.innerHTML = '';
+    },
+
+    async handleSongAutofillSearch(options = {}) {
+        const titleInput = document.getElementById('songTitle');
+        const results = document.getElementById('songAutofillResults');
+        const bandId = document.getElementById('songBandId')?.value || null;
+        const query = String(titleInput?.value || '').trim();
+        const silent = options.silent === true;
+
+        if (this.songAutofillSearchTimer) {
+            clearTimeout(this.songAutofillSearchTimer);
+            this.songAutofillSearchTimer = null;
+        }
+
+        if (!titleInput || !results) return;
+        if (query.length < 4) {
+            if (!silent) {
+                UI.showToast('Bitte gib mindestens 4 Zeichen für den Titel ein.', 'info');
+            }
+            this.songAutofillCandidates = [];
+            this.clearSongAutofillResults();
+            return;
+        }
+
+        results.hidden = false;
+        results.innerHTML = `
+            <div class="song-autofill-dropdown-state">
+                Suche in Bandmate und externen Song-Katalogen...
+            </div>
+        `;
+
+        try {
+            const candidates = await Storage.searchSongAutofillCandidates(query, bandId || null);
+            this.songAutofillCandidates = candidates;
+
+            if (!candidates.length) {
+                results.innerHTML = `
+                    <div class="song-autofill-dropdown-state">
+                        Keine Treffer gefunden. Versuche einen anderen Titel.
+                    </div>
+                `;
+                return;
+            }
+
+            const renderChip = (label, value) => value
+                ? `<span class="song-autofill-chip">${this.escapeHtml(label)}: ${this.escapeHtml(String(value))}</span>`
+                : '';
+            const renderSubtitle = (song) => {
+                const parts = [];
+                if (song.artist) parts.push(this.escapeHtml(song.artist));
+                if (song.sourceLabel) parts.push(this.escapeHtml(song.sourceLabel));
+                return parts.join(' • ') || 'Unbekannter Treffer';
+            };
+
+            results.innerHTML = `
+                <div class="song-autofill-list" role="listbox" aria-label="Song-Vorschläge">
+                    ${candidates.map((song, index) => `
+                        <button type="button" class="song-autofill-option" data-song-autofill-index="${index}">
+                            <span class="song-autofill-option-copy">
+                                <span class="song-autofill-option-title">${this.escapeHtml(song.title || 'Ohne Titel')}</span>
+                                <span class="song-autofill-option-subtitle">${renderSubtitle(song)}</span>
+                                <span class="song-autofill-option-meta">
+                                    ${renderChip('Quelle', song.sourceLabel && song.source !== 'bandmate' ? song.sourceLabel : '')}
+                                    ${renderChip('BPM', song.bpm)}
+                                    ${renderChip('Tonart', song.key)}
+                                    ${renderChip('Orig.', song.originalKey)}
+                                    ${renderChip('Time', song.timeSignature)}
+                                </span>
+                            </span>
+                        </button>
+                    `).join('')}
+                </div>
+            `;
+        } catch (error) {
+            results.innerHTML = `
+                <div class="song-autofill-dropdown-state">
+                    ${this.escapeHtml(error.message || 'Die Vorschläge konnten gerade nicht geladen werden.')}
+                </div>
+            `;
+            if (!silent) {
+                UI.showToast(error.message || 'Song-Vorschläge konnten nicht geladen werden.', 'error');
+            }
+        }
+    },
+
+    applySongAutofillCandidate(index) {
+        const candidates = Array.isArray(this.songAutofillCandidates) ? this.songAutofillCandidates : [];
+        const candidate = candidates[Number(index)];
+        if (!candidate) {
+            UI.showToast('Song-Vorschlag konnte nicht übernommen werden.', 'error');
+            return;
+        }
+
+        const normalizeSongKeyValue = value => {
+            const keyMap = {
+                Db: 'C#',
+                Eb: 'D#',
+                Gb: 'F#',
+                Ab: 'G#',
+                Bb: 'A#'
+            };
+            return keyMap[value] || value;
+        };
+
+        const setValue = (id, value) => {
+            const input = document.getElementById(id);
+            if (!input || value == null || value === '') return;
+            input.value = (id === 'songKey' || id === 'songOriginalKey')
+                ? normalizeSongKeyValue(value)
+                : value;
+        };
+
+        setValue('songTitle', candidate.title);
+        setValue('songArtist', candidate.artist);
+        setValue('songBPM', candidate.bpm);
+        setValue('songKey', candidate.key);
+        setValue('songOriginalKey', candidate.originalKey);
+        setValue('songTimeSignature', candidate.timeSignature);
+        setValue('songLeadVocal', candidate.leadVocal);
+
+        this.clearSongAutofillResults();
+        UI.showToast('Songdaten wurden vorausgefüllt.', 'success');
     },
 
     async handleSaveSong() {

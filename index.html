@@ -59,7 +59,7 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260408-6">
+    <link rel="stylesheet" href="css/style.css?v=20260408-11">
     <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
     <link rel="stylesheet" href="css/calendar.css?v=20260408-4">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
@@ -3237,12 +3237,13 @@
                             <p>Lege Titel, Interpret und musikalische Kerndaten in einem Schritt an.</p>
                         </div>
                         <div class="song-editor-grid song-editor-grid-primary">
-                            <div class="form-group">
-                                <label for="songTitle">Titel</label>
+                            <div class="form-group song-editor-autofill-group">
+                                <label for="songTitle">Titel <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <input type="text" id="songTitle" required>
+                                <div id="songAutofillResults" class="song-autofill-results" hidden></div>
                             </div>
                             <div class="form-group">
-                                <label for="songArtist">Interpret</label>
+                                <label for="songArtist">Interpret <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <input type="text" id="songArtist" required>
                             </div>
                             <div class="form-group">
@@ -3250,7 +3251,7 @@
                                 <input type="number" id="songBPM" min="1" placeholder="z.B. 120">
                             </div>
                             <div class="form-group">
-                                <label for="songTimeSignature">Time (optional)</label>
+                                <label for="songTimeSignature">Taktart</label>
                                 <input type="text" id="songTimeSignature" placeholder="z.B. 4/4">
                             </div>
                             <div class="form-group">
@@ -3285,7 +3286,7 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label for="songOriginalKey">Tonart Original (optional)</label>
+                                <label for="songOriginalKey">Tonart Original</label>
                                 <select id="songOriginalKey">
                                     <option value="">— Auswahl —</option>
                                     <option value="C">C</option>
@@ -3327,11 +3328,11 @@
                         </div>
                         <div class="song-editor-grid song-editor-grid-secondary">
                             <div class="form-group">
-                                <label for="songLanguage">Sprache (optional)</label>
+                                <label for="songLanguage">Sprache</label>
                                 <input type="text" id="songLanguage" placeholder="z.B. Deutsch">
                             </div>
                             <div class="form-group">
-                                <label for="songTracks">Tracks (optional)</label>
+                                <label for="songTracks">Tracks</label>
                                 <select id="songTracks">
                                     <option value="">— Auswahl —</option>
                                     <option value="yes">Ja</option>
@@ -3343,7 +3344,7 @@
                                 <input type="text" id="songLeadVocal" placeholder="Name des Lead-Sängers">
                             </div>
                             <div class="form-group">
-                                <label for="songCcli">Songselect CCLI Nummer (optional)</label>
+                                <label for="songCcli">Songselect CCLI Nummer</label>
                                 <input type="text" id="songCcli" placeholder="CCLI Nummer">
                             </div>
                         </div>
@@ -3359,7 +3360,7 @@
                         </div>
                         <div class="song-editor-grid song-editor-grid-material">
                             <div class="form-group">
-                                <label for="songInfo">Songinfos (optional)</label>
+                                <label for="songInfo">Songinfos</label>
                                 <textarea id="songInfo" rows="5" placeholder="Zusätzliche Infos zum Song..."></textarea>
                             </div>
                             <div class="form-group song-editor-file-group">
@@ -3928,7 +3929,7 @@
     <script src="js/proxy-service.js?v=20260311"></script>
     <script src="js/config.js"></script>
     <script src="js/supabase.js?v=20260407-17"></script>
-    <script src="js/storage.js?v=20260408-1"></script>
+    <script src="js/storage.js?v=20260408-3"></script>
     <script src="js/auth.js?v=20260407-19"></script>
     <script src="js/email-service.js?v=20260311"></script>
     <script src="js/bands.js?v=20260311"></script>
@@ -3940,11 +3941,11 @@
     <script src="js/personal-calendar.js?v=20260407-4"></script>
     <script src="js/churchtools-api.js?v=20260311"></script>
     <script src="js/musikpool.js?v=20260311"></script>
-    <script src="js/ui.js?v=20260407-1"></script>
+    <script src="js/ui.js?v=20260408-1"></script>
     <script src="js/feedback-service.js?v=20260311"></script>
     <script src="js/chordpro-converter.js?v=20260407-8"></script>
     <script src="js/notifications.js?v=20260328"></script>
-    <script src="js/app.js?v=20260408-8"></script>
+    <script src="js/app.js?v=20260408-13"></script>
 
     <!-- Skip duplicated pdf.js block -->
 

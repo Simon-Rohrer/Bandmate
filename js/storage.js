@@ -1307,6 +1307,204 @@ const Storage = {
         }));
     },
 
+    async searchSongAutofillCandidates(query, preferredBandId = null) {
+        const cleanQuery = String(query || '').trim();
+        if (cleanQuery.length < 4) return [];
+
+        const sanitizeSearchTerm = value => value.replace(/[%_]/g, '').trim();
+        const normalizeTerm = value => String(value || '')
+            .toLocaleLowerCase('de-DE')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, ' ')
+            .trim();
+        const metadataScore = song => ([
+            song.artist,
+            song.bpm,
+            song.key,
+            song.originalKey,
+            song.timeSignature,
+            song.leadVocal
+        ].filter(Boolean).length);
+        const searchTerm = sanitizeSearchTerm(cleanQuery);
+        if (searchTerm.length < 4) return [];
+
+        const normalizedQuery = normalizeTerm(searchTerm);
+        const preferredBand = preferredBandId ? String(preferredBandId) : null;
+        const sb = SupabaseClient.getClient();
+
+        const fetchJsonWithFallback = async (url, { timeoutMs = 6000 } = {}) => {
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timeoutId = controller ? setTimeout(() => controller.abort(), timeoutMs) : null;
+
+            const directFetch = async () => {
+                const response = await fetch(url, {
+                    headers: {
+                        Accept: 'application/json'
+                    },
+                    signal: controller ? controller.signal : undefined
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                return await response.json();
+            };
+
+            try {
+                return await directFetch();
+            } catch (directError) {
+                if (typeof ProxyService !== 'undefined' && ProxyService && typeof ProxyService.fetch === 'function') {
+                    const text = await ProxyService.fetch(url);
+                    return JSON.parse(text);
+                }
+                throw directError;
+            } finally {
+                if (timeoutId) clearTimeout(timeoutId);
+            }
+        };
+
+        const fetchExternalCandidates = async () => {
+            const musicBrainzUrl = `https://musicbrainz.org/ws/2/recording?query=${encodeURIComponent(`recording:"${searchTerm}"`)}&fmt=json&limit=6`;
+            const appleUrl = `https://itunes.apple.com/search?term=${encodeURIComponent(searchTerm)}&entity=song&limit=6&country=DE`;
+
+            const [musicBrainzResult, appleResult] = await Promise.allSettled([
+                fetchJsonWithFallback(musicBrainzUrl),
+                fetchJsonWithFallback(appleUrl)
+            ]);
+
+            const externalCandidates = [];
+
+            if (musicBrainzResult.status === 'fulfilled') {
+                const recordings = musicBrainzResult.value?.recordings || [];
+                recordings.forEach(recording => {
+                    const artist = Array.isArray(recording['artist-credit'])
+                        ? recording['artist-credit'].map(entry => entry?.name).filter(Boolean).join(', ')
+                        : '';
+
+                    externalCandidates.push({
+                        id: `mb-${recording.id}`,
+                        title: recording.title || '',
+                        artist,
+                        bpm: null,
+                        key: null,
+                        originalKey: null,
+                        timeSignature: null,
+                        leadVocal: null,
+                        bandId: null,
+                        eventId: null,
+                        createdAt: null,
+                        source: 'musicbrainz',
+                        sourceLabel: 'MusicBrainz',
+                        externalScore: Number(recording.score || 0)
+                    });
+                });
+            }
+
+            if (appleResult.status === 'fulfilled') {
+                const tracks = appleResult.value?.results || [];
+                tracks.forEach(track => {
+                    externalCandidates.push({
+                        id: `itunes-${track.trackId || track.collectionId || this.generateId()}`,
+                        title: track.trackName || '',
+                        artist: track.artistName || '',
+                        bpm: null,
+                        key: null,
+                        originalKey: null,
+                        timeSignature: null,
+                        leadVocal: null,
+                        bandId: null,
+                        eventId: null,
+                        createdAt: null,
+                        source: 'itunes',
+                        sourceLabel: 'Apple Music',
+                        externalScore: 0
+                    });
+                });
+            }
+
+            return externalCandidates;
+        };
+
+        try {
+            const { data, error } = await sb
+                .from('songs')
+                .select('id, title, artist, bpm, key, originalKey, timeSignature, leadVocal, bandId, eventId, createdAt')
+                .not('bandId', 'is', null)
+                .ilike('title', `%${searchTerm}%`)
+                .limit(30);
+
+            if (error) {
+                if (this._isNetworkError(error)) {
+                    throw new Error('Netzwerkproblem bei der Songsuche.');
+                }
+                throw new Error(error.message || 'Song-Vorschläge konnten nicht geladen werden.');
+            }
+
+            const localCandidates = (data || []).map(song => ({
+                ...song,
+                source: 'bandmate',
+                sourceLabel: 'Bandmate'
+            }));
+
+            let externalCandidates = [];
+            try {
+                externalCandidates = await fetchExternalCandidates();
+            } catch (externalError) {
+                console.warn('External song autofill search failed:', externalError);
+            }
+
+            const ranked = [...localCandidates, ...externalCandidates].map(song => {
+                const normalizedTitle = normalizeTerm(song.title);
+                const exactMatch = normalizedTitle === normalizedQuery;
+                const startsWith = normalizedTitle.startsWith(normalizedQuery);
+                return {
+                    ...song,
+                    _rankSource: song.source === 'bandmate' ? 2 : 1,
+                    _rankBand: preferredBand && String(song.bandId) === preferredBand ? 1 : 0,
+                    _rankTitle: exactMatch ? 3 : (startsWith ? 2 : 1),
+                    _rankMeta: metadataScore(song),
+                    _rankExternal: Number(song.externalScore || 0)
+                };
+            });
+
+            ranked.sort((a, b) => {
+                if (b._rankSource !== a._rankSource) return b._rankSource - a._rankSource;
+                if (b._rankBand !== a._rankBand) return b._rankBand - a._rankBand;
+                if (b._rankTitle !== a._rankTitle) return b._rankTitle - a._rankTitle;
+                if (b._rankMeta !== a._rankMeta) return b._rankMeta - a._rankMeta;
+                if (b._rankExternal !== a._rankExternal) return b._rankExternal - a._rankExternal;
+                return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
+            });
+
+            const seen = new Set();
+            const unique = [];
+            ranked.forEach(song => {
+                const dedupeKey = `${normalizeTerm(song.title)}::${normalizeTerm(song.artist)}`;
+                if (!normalizeTerm(song.title) || seen.has(dedupeKey)) return;
+                seen.add(dedupeKey);
+                unique.push(song);
+            });
+
+            return unique.slice(0, 10).map(({
+                _rankSource,
+                _rankBand,
+                _rankTitle,
+                _rankMeta,
+                _rankExternal,
+                externalScore,
+                ...song
+            }) => song);
+        } catch (error) {
+            console.error('Song autofill search failed:', error);
+            if (this._isNetworkError(error)) {
+                throw new Error('Netzwerkproblem bei der Songsuche.');
+            }
+            throw error;
+        }
+    },
+
     async updateSong(songId, updates) {
         return await this.update('songs', songId, updates);
     },
