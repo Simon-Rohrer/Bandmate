@@ -209,6 +209,36 @@ const Storage = {
         );
     },
 
+    _isMissingSongpoolTableError(error) {
+        if (!error) return false;
+        const message = String(error.message || error).toLowerCase();
+        const code = String(error.code || '').toLowerCase();
+        return (
+            code === '42p01' ||
+            code === 'pgrst204' ||
+            code === 'pgrst205' ||
+            message.includes('songpool_songs') && (
+                message.includes('does not exist') ||
+                message.includes('could not find') ||
+                message.includes('not found') ||
+                message.includes('relation')
+            )
+        );
+    },
+
+    _getSongpoolErrorMessage(error, fallback = 'Songpool konnte nicht geladen werden.') {
+        // Log raw error for diagnostics
+        if (error) console.warn('[Songpool] Raw Error Detail:', error);
+
+        if (this._isMissingSongpoolTableError(error)) {
+            return 'Die Songpool-Tabelle fehlt noch. Bitte zuerst das SQL aus "sql/songpool_setup.sql" in Supabase ausführen.';
+        }
+        if (this._isNetworkError(error)) {
+            return 'Netzwerkproblem beim Laden des Songpools.';
+        }
+        return error?.message || fallback;
+    },
+
     async update(key, id, updatedItem) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb.from(key).update(updatedItem).eq('id', id).select('*').maybeSingle();
@@ -1201,7 +1231,16 @@ const Storage = {
     getSongChordPro(songOrInfo) {
         const info = this._getSongInfoString(songOrInfo);
         const markerIndex = info.indexOf(this.SONG_CHORDPRO_MARKER);
-        if (markerIndex === -1) return '';
+        if (markerIndex === -1) {
+            if (songOrInfo && typeof songOrInfo === 'object' && !Array.isArray(songOrInfo)) {
+                const fallbackFields = ['chordpro', 'chord_pro', 'chordPro', 'chordpro_text', 'chordProText'];
+                const directChordPro = fallbackFields.find((field) => typeof songOrInfo[field] === 'string' && songOrInfo[field].trim());
+                if (directChordPro) {
+                    return songOrInfo[directChordPro].trim();
+                }
+            }
+            return '';
+        }
 
         return info
             .slice(markerIndex + this.SONG_CHORDPRO_MARKER.length)
@@ -1237,6 +1276,134 @@ const Storage = {
             createdAt: new Date().toISOString()
         };
         return await this.save('songs', song);
+    },
+
+    async createSongpoolSong(songData) {
+        const sb = SupabaseClient.getClient();
+        const song = {
+            id: this.generateId(),
+            visibility: 'public',
+            ...songData,
+            createdAt: songData.createdAt || new Date().toISOString()
+        };
+
+        const { data, error } = await sb
+            .from('songpool_songs')
+            .insert(song)
+            .select('*')
+            .maybeSingle();
+
+        if (error) {
+            throw new Error(this._getSongpoolErrorMessage(error, 'Song konnte nicht im Songpool gespeichert werden.'));
+        }
+
+        return data || song;
+    },
+
+    async getSongpoolSong(songId) {
+        if (!songId) return null;
+
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('songpool_songs')
+            .select('*')
+            .eq('id', songId)
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Song konnte nicht geladen werden.'));
+        }
+
+        return data || null;
+    },
+
+    async getSongpoolSongs(userId, options = {}) {
+        if (!userId) return [];
+
+        const includeAll = options.includeAll === true;
+        const includePublic = options.includePublic === true;
+        const sb = SupabaseClient.getClient();
+
+        if (includeAll) {
+            const { data, error } = await sb
+                .from('songpool_songs')
+                .select('*');
+
+            if (error) {
+                throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Songs konnten nicht geladen werden.'));
+            }
+
+            return data || [];
+        }
+
+        const ownSongsQuery = sb
+            .from('songpool_songs')
+            .select('*')
+            .eq('createdBy', userId);
+
+        const publicSongsQuery = includePublic
+            ? sb
+                .from('songpool_songs')
+                .select('*')
+                .eq('visibility', 'public')
+                .neq('createdBy', userId)
+            : Promise.resolve({ data: [], error: null });
+
+        const [
+            { data: ownSongs, error: ownSongsError },
+            { data: publicSongs, error: publicSongsError }
+        ] = await Promise.all([ownSongsQuery, publicSongsQuery]);
+
+        if (ownSongsError) {
+            throw new Error(this._getSongpoolErrorMessage(ownSongsError, 'Eigene Songpool-Songs konnten nicht geladen werden.'));
+        }
+
+        if (publicSongsError) {
+            throw new Error(this._getSongpoolErrorMessage(publicSongsError, 'Öffentliche Songpool-Songs konnten nicht geladen werden.'));
+        }
+
+        const merged = [...(ownSongs || [])];
+        const seenIds = new Set(merged.map(song => String(song.id)));
+
+        (publicSongs || []).forEach((song) => {
+            const songId = String(song.id);
+            if (seenIds.has(songId)) return;
+            seenIds.add(songId);
+            merged.push(song);
+        });
+
+        return merged;
+    },
+
+    async updateSongpoolSong(songId, updates) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('songpool_songs')
+            .update(updates)
+            .eq('id', songId)
+            .select('*')
+            .maybeSingle();
+
+        if (error) {
+            throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Song konnte nicht aktualisiert werden.'));
+        }
+
+        return data || null;
+    },
+
+    async deleteSongpoolSong(songId) {
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb
+            .from('songpool_songs')
+            .delete()
+            .eq('id', songId);
+
+        if (error) {
+            throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Song konnte nicht gelöscht werden.'));
+        }
+
+        return true;
     },
 
     async getEventSongs(eventId) {
@@ -1309,7 +1476,7 @@ const Storage = {
 
     async searchSongAutofillCandidates(query, preferredBandId = null) {
         const cleanQuery = String(query || '').trim();
-        if (cleanQuery.length < 4) return [];
+        if (cleanQuery.length < 2) return [];
 
         const sanitizeSearchTerm = value => value.replace(/[%_]/g, '').trim();
         const normalizeTerm = value => String(value || '')
@@ -1324,10 +1491,11 @@ const Storage = {
             song.key,
             song.originalKey,
             song.timeSignature,
-            song.leadVocal
+            song.leadVocal,
+            song.language
         ].filter(Boolean).length);
         const searchTerm = sanitizeSearchTerm(cleanQuery);
-        if (searchTerm.length < 4) return [];
+        if (searchTerm.length < 2) return [];
 
         const normalizedQuery = normalizeTerm(searchTerm);
         const preferredBand = preferredBandId ? String(preferredBandId) : null;
@@ -1392,6 +1560,7 @@ const Storage = {
                         originalKey: null,
                         timeSignature: null,
                         leadVocal: null,
+                        language: null,
                         bandId: null,
                         eventId: null,
                         createdAt: null,
@@ -1414,6 +1583,7 @@ const Storage = {
                         originalKey: null,
                         timeSignature: null,
                         leadVocal: null,
+                        language: null,
                         bandId: null,
                         eventId: null,
                         createdAt: null,
@@ -1430,7 +1600,7 @@ const Storage = {
         try {
             const { data, error } = await sb
                 .from('songs')
-                .select('id, title, artist, bpm, key, originalKey, timeSignature, leadVocal, bandId, eventId, createdAt')
+                .select('id, title, artist, bpm, key, originalKey, timeSignature, leadVocal, language, bandId, eventId, createdAt')
                 .not('bandId', 'is', null)
                 .ilike('title', `%${searchTerm}%`)
                 .limit(30);
@@ -1594,6 +1764,55 @@ const Storage = {
 
     async deleteSong(songId) {
         return await this.delete('songs', songId);
+    },
+
+    // Rundown Template operations
+    async createRundownTemplate(name, templateData, userId) {
+        const sb = SupabaseClient.getClient();
+        const template = {
+            id: this.generateId(),
+            name: name.trim(),
+            data: templateData,
+            created_by: userId,
+            created_at: new Date().toISOString()
+        };
+        const { data, error } = await sb
+            .from('rundown_templates')
+            .insert(template)
+            .select('*')
+            .maybeSingle();
+        if (error) {
+            console.error('Storage.createRundownTemplate error', error);
+            throw new Error(error.message || 'Vorlage konnte nicht gespeichert werden.');
+        }
+        return data || template;
+    },
+
+    async getRundownTemplates(userId) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('rundown_templates')
+            .select('*')
+            .eq('created_by', userId)
+            .order('created_at', { ascending: false });
+        if (error) {
+            console.error('Storage.getRundownTemplates error', error);
+            return [];
+        }
+        return data || [];
+    },
+
+    async deleteRundownTemplate(templateId) {
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb
+            .from('rundown_templates')
+            .delete()
+            .eq('id', templateId);
+        if (error) {
+            console.error('Storage.deleteRundownTemplate error', error);
+            throw new Error(error.message || 'Vorlage konnte nicht gelöscht werden.');
+        }
+        return true;
     },
 
     // Settings operations

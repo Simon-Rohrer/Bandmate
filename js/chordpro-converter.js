@@ -1205,22 +1205,15 @@ const ChordProConverter = {
         }
     },
 
-    renderPreview(chordProText) {
-        const previewArea = document.getElementById('chordproPreviewArea');
-        const editor = document.getElementById('chordproResultArea');
-        if (!previewArea) return;
+    buildPreviewMarkup(chordProText, options = {}) {
+        const text = typeof chordProText === 'string' ? chordProText : '';
+        const placeholderMessage = options.placeholderMessage || this.getPreviewMessage();
 
-        if (editor) {
-            this.ensurePreviewScrollSync();
+        if (!text.trim()) {
+            return this.getPreviewPlaceholderMarkup(placeholderMessage);
         }
 
-        if (!chordProText.trim()) {
-            previewArea.innerHTML = this.getPreviewPlaceholderMarkup();
-            this.bindPreviewScrollTarget();
-            return;
-        }
-
-        const lines = chordProText.split('\n');
+        const lines = text.split('\n');
         let html = '';
 
         // Metadata storage
@@ -1314,7 +1307,19 @@ const ChordProConverter = {
         });
         html += '</div>';
 
-        previewArea.innerHTML = this.getPreviewFrameMarkup(`<div class="cp-ipad-page">${html}</div>`);
+        return this.getPreviewFrameMarkup(`<div class="cp-ipad-page">${html}</div>`);
+    },
+
+    renderPreview(chordProText) {
+        const previewArea = document.getElementById('chordproPreviewArea');
+        const editor = document.getElementById('chordproResultArea');
+        if (!previewArea) return;
+
+        if (editor) {
+            this.ensurePreviewScrollSync();
+        }
+
+        previewArea.innerHTML = this.buildPreviewMarkup(chordProText);
         this.bindPreviewScrollTarget();
 
         function isSectionHeader(k) {

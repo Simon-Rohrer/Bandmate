@@ -556,10 +556,20 @@ const App = {
         field: 'title',
         direction: 'asc' // asc, desc, none
     },
+    songpoolSongSort: {
+        field: 'title',
+        direction: 'asc'
+    },
+    songpoolShowPublicStorageKey: 'bandmate.songpool.showPublic',
+    songpoolImportDrafts: [],
 
     // Track deleted songs for potential rollback
     deletedEventSongs: [],
     draftEventSongOverrides: {},
+    draftEventRundown: { startTime: '', items: [] },
+    EVENT_RUNDOWN_MARKER_START: '[[BANDMATE_EVENT_RUNDOWN]]',
+    EVENT_RUNDOWN_MARKER_END: '[[/BANDMATE_EVENT_RUNDOWN]]',
+    songLanguageAutoValue: '',
 
     // Caching for settings lists
     locationsCache: null,
@@ -624,6 +634,7 @@ const App = {
             rehearsalsView: 'rehearsals',
             statisticsView: 'statistics',
             newsView: 'news',
+            songpoolView: 'songpool',
             probeorteView: 'probeorte',
             pdftochordproView: 'pdftochordpro',
             kalenderView: 'kalender',
@@ -635,7 +646,7 @@ const App = {
     },
 
     rememberCurrentView(view = this.getActiveBaseView()) {
-        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool']);
+        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'songpool', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool']);
         if (!restorableViews.has(view)) return;
         this.setPersistedNavigationState({ view });
     },
@@ -779,7 +790,7 @@ const App = {
 
     async restoreLastAppState() {
         const state = this.getPersistedNavigationState();
-        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool']);
+        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'songpool', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool']);
         const viewToRestore = restorableViews.has(state?.view) ? state.view : 'dashboard';
 
         await this.navigateTo(viewToRestore, state?.view ? 'session-restore' : 'login-success');
@@ -851,6 +862,8 @@ const App = {
         this.draftEventSongIds = [];
         this.draftEventSongOverrides = {};
         this.deletedEventSongs = [];
+        this.draftEventRundown = this.normalizeEventRundownData();
+        this.draftEventSongBlockTargetId = null;
     },
 
     async getPlanningManagerBands() {
@@ -1195,6 +1208,7 @@ const App = {
             events: { label: 'Auftritte', description: 'Anfragen, Zusagen und feste Termine' },
             statistics: { label: 'Statistiken', description: 'Auswertungen und Kennzahlen' },
             news: { label: 'Neuigkeiten', description: 'Updates und Ankündigungen' },
+            songpool: { label: 'Songpool', description: 'Persönliche und öffentliche Songs im Studio' },
             settings: { label: 'Einstellungen', description: 'Profil, Abwesenheiten und Verwaltung' },
             pdftochordpro: { label: 'PDF to ChordPro', description: 'Songs konvertieren und zuordnen' }
         };
@@ -1769,6 +1783,30 @@ const App = {
         }
     },
 
+    cleanupChordProPreview() {
+        const previewArea = document.getElementById('chordproSongPreviewArea');
+        const titleEl = document.getElementById('chordproPreviewTitle');
+        const downloadBtn = document.getElementById('chordproPreviewDownload');
+
+        if (previewArea) {
+            previewArea.innerHTML = '';
+        }
+
+        if (titleEl) {
+            titleEl.textContent = 'ChordPro Vorschau';
+        }
+
+        if (downloadBtn) {
+            downloadBtn.removeAttribute('href');
+            downloadBtn.removeAttribute('download');
+        }
+
+        if (this.currentChordProPreviewBlobUrl) {
+            URL.revokeObjectURL(this.currentChordProPreviewBlobUrl);
+            this.currentChordProPreviewBlobUrl = null;
+        }
+    },
+
     showPDFPreview(pdfData) {
         const iframe = document.getElementById('pdfPreviewFrame');
         if (!iframe) return;
@@ -1781,6 +1819,83 @@ const App = {
         iframe.src = pdfData.blobUrl + viewParams;
 
         UI.openModal('pdfPreviewModal');
+    },
+
+    renderSongDocumentPreviewButtons(song) {
+        if (!song) return '-';
+
+        const buttons = [];
+        const safeSongId = this.escapeHtml(song.id || '');
+        const safeTitle = this.escapeHtml(song.title || 'Song');
+        const chordProText = typeof Storage !== 'undefined' && typeof Storage.getSongChordPro === 'function'
+            ? Storage.getSongChordPro(song)
+            : '';
+
+        if (song.pdf_url) {
+            buttons.push(`
+                <button
+                    type="button"
+                    class="btn-icon open-song-preview-pdf"
+                    data-url="${this.escapeHtml(song.pdf_url)}"
+                    data-title="${safeTitle}"
+                    title="PDF öffnen"
+                    aria-label="PDF öffnen"
+                >📄</button>
+            `);
+        }
+
+        if (chordProText) {
+            buttons.push(`
+                <button
+                    type="button"
+                    class="btn-icon open-song-preview-chordpro"
+                    data-song-id="${safeSongId}"
+                    data-title="${safeTitle}"
+                    title="ChordPro Vorschau öffnen"
+                    aria-label="ChordPro Vorschau öffnen"
+                >🎼</button>
+            `);
+        }
+
+        if (!buttons.length) {
+            return '-';
+        }
+
+        return `<div class="song-document-actions">${buttons.join('')}</div>`;
+    },
+
+    attachSongDocumentPreviewHandlers(container, songLookup = new Map()) {
+        if (!container) return;
+
+        container.querySelectorAll('.open-song-preview-pdf').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const url = button.dataset.url;
+                if (!url) return;
+                this.openPdfPreview(url, button.dataset.title || 'PDF Vorschau');
+            });
+        });
+
+        container.querySelectorAll('.open-song-preview-chordpro').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const songId = String(button.dataset.songId || '');
+                const song = songLookup instanceof Map ? songLookup.get(songId) : null;
+                const chordProText = song && typeof Storage !== 'undefined' && typeof Storage.getSongChordPro === 'function'
+                    ? Storage.getSongChordPro(song)
+                    : '';
+
+                if (!chordProText) {
+                    UI.showToast('Für diesen Song ist keine ChordPro-Vorschau hinterlegt.', 'info');
+                    return;
+                }
+
+                this.openChordProPreview(chordProText, song?.title || button.dataset.title || 'ChordPro Vorschau');
+            });
+        });
     },
 
     setupInstrumentSelector(containerId, inputId, initialValue = "") {
@@ -2153,6 +2268,9 @@ const App = {
                 if (modalId === 'pdfPreviewModal') {
                     this.cleanupPDFPreview();
                 }
+                if (modalId === 'chordproPreviewModal') {
+                    this.cleanupChordProPreview();
+                }
                 UI._originalCloseModal.call(UI, modalId);
             };
         }
@@ -2224,6 +2342,8 @@ const App = {
         // init draft song list for new events
         this.draftEventSongIds = [];
         this.draftEventSongOverrides = {};
+        this.draftEventRundown = this.normalizeEventRundownData();
+        this.draftEventSongBlockTargetId = null;
         this.lastSongModalContext = null; // { eventId, bandId, origin }
 
         // Update absence indicator
@@ -2321,6 +2441,21 @@ const App = {
             if (songTitleInput) {
                 songTitleInput.addEventListener('input', () => {
                     App.scheduleSongAutofillSearch();
+                    App.syncInferredSongLanguage();
+                });
+            }
+
+            const songLanguageInput = newSongForm.querySelector('#songLanguage');
+            if (songLanguageInput) {
+                songLanguageInput.addEventListener('input', () => {
+                    const currentValue = String(songLanguageInput.value || '').trim();
+                    if (!currentValue) {
+                        App.songLanguageAutoValue = '';
+                        return;
+                    }
+                    if (currentValue !== App.songLanguageAutoValue) {
+                        App.songLanguageAutoValue = '';
+                    }
                 });
             }
 
@@ -3116,7 +3251,7 @@ const App = {
             await Events.populateBandSelect();
             // Clear draft song selection and deleted songs for new event
             this.resetDraftEventState();
-            this.renderDraftEventSongs();
+            await this.renderDraftEventSongs();
             const copyBtn = document.getElementById('copyBandSongsBtn');
             if (copyBtn) copyBtn.style.display = 'none';
             UI.openModal('createEventModal');
@@ -3153,8 +3288,40 @@ const App = {
                 if (typeof Events !== 'undefined' && typeof Events.updateAvailabilityIndicators === 'function') {
                     Events.updateAvailabilityIndicators();
                 }
+                this.syncDraftEventRundownStartFromEventDate(true);
+                this.renderEventRundownEditor();
             });
         }
+
+        const eventRundownPdfBtn = document.getElementById('eventRundownPdfBtn');
+        if (eventRundownPdfBtn && !eventRundownPdfBtn.dataset.bound) {
+            eventRundownPdfBtn.dataset.bound = 'true';
+            eventRundownPdfBtn.addEventListener('click', async () => {
+                const songs = await this.getDraftEventSongsInRundownOrder();
+                if (!songs.length) {
+                    UI.showToast('Keine Songs im Ablauf vorhanden.', 'warning');
+                    return;
+                }
+
+                const title = document.getElementById('eventTitle')?.value?.trim() || 'Auftritt';
+                const eventDate = document.getElementById('eventDate')?.value || '';
+                const subtitle = eventDate ? UI.formatDate(eventDate) : 'Ablauf-Setlist';
+                this.downloadSongListPDF(songs, `Setlist: ${title}`, subtitle, true);
+            });
+        }
+
+        const saveTemplateBtn = document.getElementById('eventRundownSaveTemplateBtn');
+        if (saveTemplateBtn && !saveTemplateBtn.dataset.bound) {
+            saveTemplateBtn.dataset.bound = 'true';
+            saveTemplateBtn.addEventListener('click', () => this.saveRundownAsTemplate());
+        }
+
+        const loadTemplateBtn = document.getElementById('eventRundownLoadTemplateBtn');
+        if (loadTemplateBtn && !loadTemplateBtn.dataset.bound) {
+            loadTemplateBtn.dataset.bound = 'true';
+            loadTemplateBtn.addEventListener('click', () => this.openLoadRundownTemplateModal());
+        }
+
 
         document.querySelectorAll('input[name="eventScheduleMode"]').forEach(input => {
             if (input.dataset.initialized) return;
@@ -3720,6 +3887,7 @@ const App = {
                 'rehearsals': 'rehearsalsView',
                 'statistics': 'statisticsView',
                 'news': 'newsView',
+                'songpool': 'songpoolView',
                 'probeorte': 'probeorteView',
                 'tonstudio': 'probeorteView', // Redirect old tonstudio to probeorte
                 'pdftochordpro': 'pdftochordproView',
@@ -3755,6 +3923,7 @@ const App = {
                     rehearsals: '#6366f1', // primary
                     statistics: '#2563eb', // blue
                     news: '#f59e0b', // warning
+                    songpool: '#22c55e', // emerald
                     probeorte: '#9333ea', // purple
                     pdftochordpro: '#4f46e5', // indigo
                     kalender: '#f43f5e', // rose
@@ -3866,6 +4035,8 @@ const App = {
                     if (typeof ChordProConverter !== 'undefined' && typeof ChordProConverter.loadBands === 'function') {
                         await ChordProConverter.loadBands();
                     }
+                } else if (view === 'songpool') {
+                    await this.renderSongpoolView();
                 } else if (view === 'news') {
                     await this.renderNewsView(triggerSource === 'news-refresh');
 
@@ -3965,7 +4136,7 @@ const App = {
 
             const structuralElements = [
                 targetView,
-                ...targetView.querySelectorAll('.view-page-shell, .page-overview-card, .page-section-card, .view-actions-bar, .schedule-board, .schedule-panels, .split-content-grid, .calendar-submenu, .probeorte-submenu, #newsContainer, #bandsList, #musikpoolContainer, #ownMembersContainer, #personalCalendarContainer, #tonstudioCalendar, #festhalleCalendar, #ankersaalCalendar')
+                ...targetView.querySelectorAll('.view-page-shell, .page-overview-card, .page-section-card, .view-actions-bar, .schedule-board, .schedule-panels, .split-content-grid, .calendar-submenu, .probeorte-submenu, #newsContainer, #bandsList, #songpoolList, #musikpoolContainer, #ownMembersContainer, #personalCalendarContainer, #tonstudioCalendar, #festhalleCalendar, #ankersaalCalendar')
             ];
 
             const seen = new Set();
@@ -5086,14 +5257,22 @@ const App = {
     },
 
     // Return array of conflicts for given band and dates (dates = array of ISO strings)
-    async getAbsenceConflicts(bandId, dates) {
+    async getAbsenceConflicts(bandId, dates, selectedMemberIds = null) {
         if (!bandId || !dates || dates.length === 0) return [];
         const members = await Storage.getBandMembers(bandId);
         if (!Array.isArray(members)) return [];
 
+        const selectedIds = Array.isArray(selectedMemberIds)
+            ? new Set(selectedMemberIds.map(id => String(id)).filter(Boolean))
+            : null;
+
+        const relevantMembers = selectedIds
+            ? members.filter(member => selectedIds.has(String(member.userId)))
+            : members;
+
         const conflicts = [];
 
-        for (const m of members) {
+        for (const m of relevantMembers) {
             const user = await Storage.getById('users', m.userId);
             if (!user) continue;
             const badDates = [];
@@ -5109,7 +5288,10 @@ const App = {
                 }
             }
             if (badDates.length > 0) {
-                conflicts.push({ name: user.name, userId: user.id, dates: badDates });
+                const displayName = (typeof UI !== 'undefined' && typeof UI.getUserDisplayName === 'function')
+                    ? UI.getUserDisplayName(user)
+                    : (user.name || user.username || user.email || 'Ein Mitglied');
+                conflicts.push({ name: displayName, userId: user.id, dates: badDates });
             }
         }
 
@@ -5124,6 +5306,1147 @@ const App = {
 
     getSongInfoDisplay(song) {
         return Storage.getSongInfoPreview(song) || '-';
+    },
+
+    getEventRundownPresetDefinitions() {
+        return {
+            countdown: { label: 'Countdown', icon: '⏱️', defaultTitle: 'Countdown', defaultDuration: 3 },
+            songblock: { label: 'Liederblock', icon: '🎵', defaultTitle: 'Liederblock', defaultDuration: 15 },
+            vortrag: { label: 'Vortrag', icon: '🎙️', defaultTitle: 'Vortrag', defaultDuration: 15 },
+            predigt: { label: 'Predigt', icon: '📖', defaultTitle: 'Predigt', defaultDuration: 30 },
+            abendmahl: { label: 'Abendmahl', icon: '🍞', defaultTitle: 'Abendmahl', defaultDuration: 12 },
+            pause: { label: 'Pause', icon: '☕', defaultTitle: 'Pause', defaultDuration: 25 },
+            video: { label: 'Video Vortrag', icon: '🎬', defaultTitle: 'Video Vortrag', defaultDuration: 12 },
+            rede: { label: 'Rede', icon: '🗣️', defaultTitle: 'Rede', defaultDuration: 10 },
+            ankuendigungen: { label: 'Ankündigungen', icon: '📣', defaultTitle: 'Ankündigungen', defaultDuration: 8 },
+            custom: { label: 'Programmpunkt', icon: '🕒', defaultTitle: 'Programmpunkt', defaultDuration: 10 }
+        };
+    },
+
+    getEventRundownTypeMeta(type = 'custom') {
+        const presets = this.getEventRundownPresetDefinitions();
+        return presets[type] || presets.custom;
+    },
+
+    normalizeEventRundownTime(value = '') {
+        const raw = typeof value === 'string' ? value.trim() : '';
+        if (!raw) return '';
+        const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+        if (!match) return '';
+        const hours = Number(match[1]);
+        const minutes = Number(match[2]);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+            return '';
+        }
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    },
+
+    timeStringToMinutes(value = '') {
+        const normalized = this.normalizeEventRundownTime(value);
+        if (!normalized) return null;
+        const [hours, minutes] = normalized.split(':').map(Number);
+        return (hours * 60) + minutes;
+    },
+
+    minutesToTimeString(totalMinutes) {
+        if (!Number.isFinite(totalMinutes)) return '—';
+        let normalized = Math.round(totalMinutes) % 1440;
+        if (normalized < 0) normalized += 1440;
+        const hours = Math.floor(normalized / 60);
+        const minutes = normalized % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    },
+
+    formatRundownDuration(duration = 0) {
+        const safeDuration = Math.max(0, Number(duration) || 0);
+        if (safeDuration >= 60) {
+            const hours = Math.floor(safeDuration / 60);
+            const minutes = safeDuration % 60;
+            return minutes > 0 ? `${hours}h ${minutes}min` : `${hours}h`;
+        }
+        return `${safeDuration}min`;
+    },
+
+    createDraftEventRundownItem(type = 'custom') {
+        const meta = this.getEventRundownTypeMeta(type);
+        return {
+            id: typeof Storage !== 'undefined' && typeof Storage.generateId === 'function'
+                ? Storage.generateId()
+                : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+            type,
+            title: meta.defaultTitle,
+            duration: meta.defaultDuration,
+            notes: '',
+            songIds: [],
+            isPickerOpen: false
+        };
+    },
+
+    normalizeEventRundownData(rundown = null) {
+        const source = (rundown && typeof rundown === 'object') ? rundown : {};
+        const items = Array.isArray(source.items) ? source.items : [];
+
+        return {
+            startTime: this.normalizeEventRundownTime(source.startTime || source.scheduleStart || ''),
+            sourceEventTime: this.normalizeEventRundownTime(source.sourceEventTime || ''),
+            items: items.map((item) => {
+                if (!item || typeof item !== 'object') return null;
+                const type = item.type || 'custom';
+                const meta = this.getEventRundownTypeMeta(type);
+                const duration = Math.max(0, Number(item.duration ?? meta.defaultDuration) || meta.defaultDuration);
+                return {
+                    id: item.id || (typeof Storage !== 'undefined' && typeof Storage.generateId === 'function'
+                        ? Storage.generateId()
+                        : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`),
+                    type,
+                    title: typeof item.title === 'string' && item.title.trim() ? item.title.trim() : meta.defaultTitle,
+                    duration,
+                    notes: typeof item.notes === 'string' ? item.notes : '',
+                    songIds: Array.isArray(item.songIds) ? item.songIds.map(String).filter(Boolean) : [],
+                    isPickerOpen: Boolean(item.isPickerOpen)
+                };
+            }).filter(Boolean)
+        };
+    },
+
+    getPersistableDraftEventRundown() {
+        const normalized = this.normalizeEventRundownData(this.draftEventRundown);
+        return {
+            startTime: normalized.startTime,
+            sourceEventTime: this.getEventRundownEventTime() || normalized.sourceEventTime || '',
+            items: normalized.items.map((item) => ({
+                id: item.id,
+                type: item.type,
+                title: item.title,
+                duration: item.duration,
+                notes: item.notes,
+                songIds: [...item.songIds]
+            }))
+        };
+    },
+
+    extractEventVisibleInfo(rawInfo = '') {
+        const text = typeof rawInfo === 'string' ? rawInfo : '';
+        const markerIndex = text.indexOf(this.EVENT_RUNDOWN_MARKER_START);
+        return markerIndex === -1 ? text.trim() : text.slice(0, markerIndex).trim();
+    },
+
+    extractEventRundown(rawInfo = '') {
+        const text = typeof rawInfo === 'string' ? rawInfo : '';
+        const startIndex = text.indexOf(this.EVENT_RUNDOWN_MARKER_START);
+        const endIndex = text.indexOf(this.EVENT_RUNDOWN_MARKER_END);
+        if (startIndex === -1 || endIndex === -1 || endIndex <= startIndex) {
+            return this.normalizeEventRundownData();
+        }
+
+        const jsonPayload = text
+            .slice(startIndex + this.EVENT_RUNDOWN_MARKER_START.length, endIndex)
+            .trim();
+
+        if (!jsonPayload) {
+            return this.normalizeEventRundownData();
+        }
+
+        try {
+            return this.normalizeEventRundownData(JSON.parse(jsonPayload));
+        } catch (error) {
+            console.warn('[App] Event rundown could not be parsed:', error);
+            return this.normalizeEventRundownData();
+        }
+    },
+
+    composeEventInfoWithRundown(visibleInfo = '', rundown = null) {
+        const cleanInfo = typeof visibleInfo === 'string' ? visibleInfo.trim() : '';
+        const normalizedRundown = this.normalizeEventRundownData(rundown);
+        const hasRundown = normalizedRundown.startTime || normalizedRundown.items.length > 0;
+
+        if (!hasRundown) {
+            return cleanInfo;
+        }
+
+        const payload = JSON.stringify({
+            startTime: normalizedRundown.startTime,
+            sourceEventTime: this.getEventRundownEventTime() || normalizedRundown.sourceEventTime || '',
+            items: normalizedRundown.items.map((item) => ({
+                id: item.id,
+                type: item.type,
+                title: item.title,
+                duration: item.duration,
+                notes: item.notes,
+                songIds: [...item.songIds]
+            }))
+        });
+
+        return cleanInfo
+            ? `${cleanInfo}\n\n${this.EVENT_RUNDOWN_MARKER_START}${payload}${this.EVENT_RUNDOWN_MARKER_END}`
+            : `${this.EVENT_RUNDOWN_MARKER_START}${payload}${this.EVENT_RUNDOWN_MARKER_END}`;
+    },
+
+    getEventRundownFallbackStartTime() {
+        const eventDateInput = document.getElementById('eventDate');
+        const eventDateValue = eventDateInput?.value || '';
+        if (eventDateValue.includes('T')) {
+            return this.normalizeEventRundownTime(eventDateValue.split('T')[1].slice(0, 5));
+        }
+        return '';
+    },
+
+    getEventRundownEventTime() {
+        return this.getEventRundownFallbackStartTime();
+    },
+
+    syncDraftEventRundownStartFromEventDate(force = false) {
+        if (!this.draftEventRundown || typeof this.draftEventRundown !== 'object') {
+            this.draftEventRundown = this.normalizeEventRundownData();
+        }
+
+        const eventTime = this.getEventRundownEventTime();
+        if (!eventTime) return;
+
+        if (force || !this.draftEventRundown.startTime) {
+            this.draftEventRundown.startTime = eventTime;
+        }
+
+        this.draftEventRundown.sourceEventTime = eventTime;
+    },
+
+    getEventRundownTimeline(rundown = null, fallbackStartTime = '') {
+        const normalized = this.normalizeEventRundownData(rundown || this.draftEventRundown);
+        const baseStartTime = normalized.startTime || this.normalizeEventRundownTime(fallbackStartTime) || '';
+        let cursor = this.timeStringToMinutes(baseStartTime);
+        const hasTimelineStart = Number.isFinite(cursor);
+
+        return normalized.items.map((item, index) => {
+            const startLabel = hasTimelineStart ? this.minutesToTimeString(cursor) : '—';
+            const endMinutes = hasTimelineStart ? cursor + item.duration : null;
+            const endLabel = hasTimelineStart ? this.minutesToTimeString(endMinutes) : '—';
+            if (hasTimelineStart) {
+                cursor = endMinutes;
+            }
+            return {
+                ...item,
+                index,
+                startLabel,
+                endLabel,
+                durationLabel: this.formatRundownDuration(item.duration),
+                typeMeta: this.getEventRundownTypeMeta(item.type)
+            };
+        });
+    },
+
+    async getCurrentEventSongsForRundown() {
+        if (!Array.isArray(this.draftEventSongIds) || this.draftEventSongIds.length === 0) {
+            return [];
+        }
+
+        const songs = await Promise.all(
+            this.draftEventSongIds.map(async (songId, index) => {
+                const song = await Storage.getById('songs', songId);
+                if (!song) return null;
+                return {
+                    ...this.getDraftEventSong(song),
+                    orderIndex: index + 1
+                };
+            })
+        );
+
+        return songs.filter(Boolean);
+    },
+
+    async getDraftEventSongsInRundownOrder() {
+        if (!Array.isArray(this.draftEventSongIds) || this.draftEventSongIds.length === 0) {
+            return [];
+        }
+
+        const songs = await Promise.all(
+            this.draftEventSongIds.map(async (songId) => {
+                const song = await Storage.getById('songs', songId);
+                if (!song) return null;
+                return this.getDraftEventSong(song);
+            })
+        );
+
+        return songs.filter(Boolean);
+    },
+
+    async renderEventRundownEditor() {
+        const container = document.getElementById('eventRundownList');
+        const startInput = document.getElementById('eventRundownStart');
+        const presetToolbar = document.getElementById('eventRundownPresetToolbar');
+        const pdfButton = document.getElementById('eventRundownPdfBtn');
+        if (!container || !startInput || !presetToolbar) return;
+
+        if (!this.draftEventRundown || typeof this.draftEventRundown !== 'object') {
+            this.draftEventRundown = this.normalizeEventRundownData();
+        }
+
+        if (!presetToolbar.dataset.bound) {
+            presetToolbar.dataset.bound = 'true';
+            
+            const dropdownBtn = document.getElementById('eventRundownDropdownBtn');
+            const dropdownMenu = document.getElementById('eventRundownDropdownMenu');
+            
+            if (dropdownBtn && dropdownMenu) {
+                dropdownBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropdownMenu.classList.toggle('active');
+                });
+                
+                document.addEventListener('click', (e) => {
+                    if (!dropdownMenu.contains(e.target) && e.target !== dropdownBtn) {
+                        dropdownMenu.classList.remove('active');
+                    }
+                });
+            }
+
+            presetToolbar.querySelectorAll('.event-rundown-preset-btn').forEach((button) => {
+                button.addEventListener('click', () => {
+                    this.addDraftEventRundownItem(button.dataset.rundownType || 'custom');
+                    if (dropdownMenu) dropdownMenu.classList.remove('active');
+                });
+            });
+        }
+
+        if (!startInput.dataset.bound) {
+            startInput.dataset.bound = 'true';
+            startInput.addEventListener('change', () => {
+                this.draftEventRundown.startTime = this.normalizeEventRundownTime(startInput.value);
+                this.renderEventRundownEditor();
+            });
+        }
+
+        const availableSongs = await this.getCurrentEventSongsForRundown();
+        const availableSongMap = new Map(availableSongs.map((song) => [String(song.id), song]));
+        const normalized = this.normalizeEventRundownData(this.draftEventRundown);
+        let rundownMutated = false;
+
+        normalized.items = normalized.items.map((item) => {
+            const nextSongIds = item.songIds.filter((songId) => availableSongMap.has(String(songId)));
+            if (nextSongIds.length !== item.songIds.length) {
+                rundownMutated = true;
+            }
+            return {
+                ...item,
+                songIds: nextSongIds
+            };
+        });
+
+        if (rundownMutated || JSON.stringify(normalized) !== JSON.stringify(this.normalizeEventRundownData(this.draftEventRundown))) {
+            this.draftEventRundown = normalized;
+        }
+
+        this.syncDraftEventSongIdsFromRundown();
+        if (pdfButton) {
+            pdfButton.disabled = this.draftEventSongIds.length === 0;
+        }
+
+        const fallbackStart = this.getEventRundownFallbackStartTime();
+        startInput.value = normalized.startTime || fallbackStart || '';
+
+        const timeline = this.getEventRundownTimeline(normalized, fallbackStart);
+
+        if (timeline.length === 0) {
+            container.innerHTML = `
+                <div class="event-rundown-empty">
+                    <strong>Noch kein Ablauf hinterlegt.</strong>
+                    <p>Nutze oben die Schnellbausteine, um Countdown, Predigt, Liederblöcke oder Pausen direkt einzufügen.</p>
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = `
+            <div class="event-rundown-items">
+                ${timeline.map((item, index) => {
+                    const selectedSongs = item.songIds
+                        .map((songId) => availableSongMap.get(String(songId)))
+                        .filter(Boolean);
+
+                    return `
+                        <article class="event-rundown-item" draggable="true" data-rundown-id="${item.id}">
+                            <div class="event-rundown-item-head">
+                                <button type="button" class="btn-icon event-rundown-drag-handle" title="Ziehen zum Verschieben" aria-label="Ziehen zum Verschieben">
+                                    <span aria-hidden="true">⋮⋮</span>
+                                </button>
+                                <span class="event-rundown-type-chip" data-rundown-type="${this.escapeHtml(item.type)}">
+                                    <span class="event-rundown-type-icon" aria-hidden="true">${item.typeMeta.icon}</span>
+                                    <span>${this.escapeHtml(item.typeMeta.label)}</span>
+                                </span>
+                                <div class="event-rundown-note-inline-field">
+                                    <input type="text" class="event-rundown-notes-input" value="${this.escapeHtml(item.notes || '')}" placeholder="Notiz">
+                                </div>
+                                <div class="event-rundown-duration-field">
+                                    <div class="event-rundown-duration-input-wrap">
+                                        <input type="number" min="1" max="240" class="event-rundown-duration-input" value="${Number(item.duration) || 0}">
+                                        <span>min</span>
+                                    </div>
+                                </div>
+                                <div class="event-rundown-time-stack">
+                                    <span class="event-rundown-time-main">${item.startLabel}</span>
+                                    <span class="event-rundown-time-sub">bis ${item.endLabel}</span>
+                                </div>
+                                <div class="event-rundown-row-actions">
+                                    <button type="button" class="btn-icon event-rundown-delete" title="Baustein entfernen">
+                                        <span aria-hidden="true">🗑️</span>
+                                    </button>
+                                </div>
+                            </div>
+                            ${item.type === 'songblock' ? `
+                            <div class="event-rundown-item-body">
+                                <div class="event-rundown-song-block">
+                                    <div class="event-rundown-song-block-top">
+                                        <button type="button" class="btn btn-secondary btn-sm event-rundown-song-pool">📋 Band-Pool</button>
+                                        <button type="button" class="btn btn-secondary btn-sm event-rundown-songpool-pool">🎧 Songpool</button>
+                                        <button type="button" class="btn btn-secondary btn-sm event-rundown-song-new">+ Neuer Song</button>
+                                        <span class="event-rundown-song-hint">${selectedSongs.length > 0 ? `${selectedSongs.length} Song${selectedSongs.length === 1 ? '' : 's'} in diesem Block.` : 'Füge Songs direkt hier (z.B. aus dem Band-Pool) hinzu.'}</span>
+                                    </div>
+                                    ${selectedSongs.length > 0 ? `
+                                        <div class="event-rundown-song-table-wrap">
+                                            <table class="songs-table band-setlist-table event-setlist-table event-rundown-song-table">
+                                                <thead>
+                                                    <tr>
+                                                        <th style="text-align: center; width: 40px;">Pos.</th>
+                                                        <th style="text-align: center; width: 108px;">Aktionen</th>
+                                                        <th>Titel</th>
+                                                        <th>Interpret</th>
+                                                        <th>BPM</th>
+                                                        <th>Time</th>
+                                                        <th>Tonart</th>
+                                                        <th>Orig.</th>
+                                                        <th>Lead</th>
+                                                        <th>Sprache</th>
+                                                        <th>Tracks</th>
+                                                        <th style="text-align: center;">PDF</th>
+                                                        <th>Infos</th>
+                                                        <th>CCLI</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody data-rundown-song-table-body="${item.id}">
+                                                    ${selectedSongs.map((song) => `
+                                                        <tr draggable="true" data-rundown-song-id="${song.id}" data-rundown-item-id="${item.id}">
+                                                            <td class="drag-handle" data-label="Pos.">☰</td>
+                                                            <td class="band-setlist-actions-cell event-setlist-actions-cell" data-label="Aktionen">
+                                                                <div class="event-setlist-actions">
+                                                                    <button type="button" class="btn-icon event-rundown-song-edit" title="Song bearbeiten">
+                                                                        <span aria-hidden="true">✏️</span>
+                                                                    </button>
+                                                                    <button type="button" class="btn-icon event-rundown-song-remove" title="Song aus Liedblock entfernen">
+                                                                        <span aria-hidden="true">🗑️</span>
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                            <td class="event-setlist-title-cell" data-label="Titel">${this.escapeHtml(song.title)}</td>
+                                                            <td data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
+                                                            <td data-label="BPM">${song.bpm || '-'}</td>
+                                                            <td data-label="Time">${song.timeSignature || '-'}</td>
+                                                            <td class="event-setlist-key-cell" data-label="Tonart">${song.key || '-'}</td>
+                                                            <td data-label="Orig.">${song.originalKey || '-'}</td>
+                                                            <td data-label="Lead">${song.leadVocal || '-'}</td>
+                                                            <td data-label="Sprache">${song.language || '-'}</td>
+                                                            <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
+                                                            <td style="text-align: center;" data-label="PDF">
+                                                                ${song.pdf_url ? `
+                                                                    <button type="button" class="btn-icon event-rundown-song-pdf" title="PDF öffnen">
+                                                                        <span aria-hidden="true">📄</span>
+                                                                    </button>
+                                                                ` : '-'}
+                                                            </td>
+                                                            <td data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
+                                                            <td data-label="CCLI">${song.ccli || '-'}</td>
+                                                        </tr>
+                                                    `).join('')}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ` : '<div class="event-rundown-song-empty">Noch keine Songs für diesen Block ausgewählt.</div>'}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </article>
+                    `;
+                }).join('')}
+            </div>
+        `;
+
+        container.querySelectorAll('.event-rundown-notes-input').forEach((input) => {
+            input.addEventListener('input', (event) => {
+                const itemId = event.target.closest('.event-rundown-item')?.dataset?.rundownId;
+                const item = this.draftEventRundown.items.find((entry) => entry.id === itemId);
+                if (item) item.notes = event.target.value;
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-duration-input').forEach((input) => {
+            input.addEventListener('change', (event) => {
+                const itemId = event.target.closest('.event-rundown-item')?.dataset?.rundownId;
+                const nextDuration = Math.max(1, Number(event.target.value) || 1);
+                const item = this.draftEventRundown.items.find((entry) => entry.id === itemId);
+                if (item) {
+                    item.duration = nextDuration;
+                    this.renderEventRundownEditor();
+                }
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-delete').forEach((button) => {
+            button.addEventListener('click', () => {
+                const itemId = button.closest('.event-rundown-item')?.dataset?.rundownId;
+                this.deleteDraftEventRundownItem(itemId);
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-song-pool').forEach((button) => {
+            button.addEventListener('click', () => {
+                const itemId = button.closest('.event-rundown-item')?.dataset?.rundownId;
+                this.openBandSongSelectorForRundownItem(itemId);
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-songpool-pool').forEach((button) => {
+            button.addEventListener('click', () => {
+                const itemId = button.closest('.event-rundown-item')?.dataset?.rundownId;
+                this.openSongpoolSelectorForRundownItem(itemId);
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-song-new').forEach((button) => {
+            button.addEventListener('click', () => {
+                const itemId = button.closest('.event-rundown-item')?.dataset?.rundownId;
+                this.openNewSongModalForRundownItem(itemId);
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-song-edit').forEach((button) => {
+            button.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const songId = button.closest('[data-rundown-song-id]')?.dataset?.rundownSongId;
+                if (!songId) return;
+                this.lastSongModalContext = {
+                    origin: 'draftEventSong',
+                    draftSongId: songId
+                };
+                await this.openSongModal(null, null, songId);
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-song-remove').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const songId = button.closest('[data-rundown-song-id]')?.dataset?.rundownSongId;
+                const itemId = button.closest('.event-rundown-item')?.dataset?.rundownId;
+                this.removeSongFromDraftEventSongBlock(itemId, songId);
+            });
+        });
+
+        container.querySelectorAll('.event-rundown-song-pdf').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const songId = button.closest('[data-rundown-song-id]')?.dataset?.rundownSongId;
+                const song = availableSongMap.get(String(songId));
+                if (song?.pdf_url) {
+                    this.openPdfPreview(song.pdf_url, song.title);
+                }
+            });
+        });
+
+        let dragSourceItem = null;
+        const draggableItems = container.querySelectorAll('.event-rundown-item[draggable="true"]');
+
+        const clearRundownDragClasses = () => {
+            draggableItems.forEach((item) => {
+                item.classList.remove('dragging');
+                item.classList.remove('drag-over');
+            });
+        };
+
+        draggableItems.forEach((item) => {
+            item.addEventListener('dragstart', (event) => {
+                dragSourceItem = item;
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', item.dataset.rundownId || '');
+                item.classList.add('dragging');
+            });
+
+            item.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            });
+
+            item.addEventListener('dragenter', () => {
+                if (dragSourceItem && dragSourceItem !== item) {
+                    item.classList.add('drag-over');
+                }
+            });
+
+            item.addEventListener('dragleave', () => {
+                item.classList.remove('drag-over');
+            });
+
+            item.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (dragSourceItem && dragSourceItem !== item) {
+                    this.reorderDraftEventRundownItems(
+                        dragSourceItem.dataset.rundownId,
+                        item.dataset.rundownId
+                    );
+                }
+                clearRundownDragClasses();
+            });
+
+            item.addEventListener('dragend', clearRundownDragClasses);
+        });
+
+        let dragSourceSongRow = null;
+        const songRows = container.querySelectorAll('.event-rundown-song-table tbody tr[draggable="true"]');
+
+        const clearSongDragClasses = () => {
+            songRows.forEach((row) => {
+                row.classList.remove('dragging');
+                row.classList.remove('drag-over');
+            });
+        };
+
+        songRows.forEach((row) => {
+            row.addEventListener('dragstart', (event) => {
+                event.stopPropagation();
+                dragSourceSongRow = row;
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', row.dataset.rundownSongId || '');
+                row.classList.add('dragging');
+            });
+
+            row.addEventListener('dragover', (event) => {
+                event.stopPropagation();
+                event.preventDefault();
+                event.dataTransfer.dropEffect = 'move';
+            });
+
+            row.addEventListener('dragenter', () => {
+                if (dragSourceSongRow && dragSourceSongRow !== row) {
+                    row.classList.add('drag-over');
+                }
+            });
+
+            row.addEventListener('dragleave', () => {
+                row.classList.remove('drag-over');
+            });
+
+            row.addEventListener('drop', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (dragSourceSongRow && dragSourceSongRow !== row) {
+                    this.reorderDraftEventRundownSong(
+                        row.dataset.rundownItemId,
+                        dragSourceSongRow.dataset.rundownSongId,
+                        row.dataset.rundownSongId
+                    );
+                }
+                clearSongDragClasses();
+            });
+
+            row.addEventListener('dragend', clearSongDragClasses);
+        });
+    },
+
+    addDraftEventRundownItem(type = 'custom') {
+        if (!this.draftEventRundown || typeof this.draftEventRundown !== 'object') {
+            this.draftEventRundown = this.normalizeEventRundownData();
+        }
+        this.draftEventRundown.items.push(this.createDraftEventRundownItem(type));
+        this.renderEventRundownEditor();
+    },
+
+    deleteDraftEventRundownItem(itemId) {
+        if (!itemId || !this.draftEventRundown?.items) return;
+        this.draftEventRundown.items = this.draftEventRundown.items.filter((item) => item.id !== itemId);
+        this.syncDraftEventSongIdsFromRundown();
+        this.renderEventRundownEditor();
+    },
+
+    moveDraftEventRundownItem(itemId, direction = 1) {
+        if (!itemId || !Array.isArray(this.draftEventRundown?.items)) return;
+        const currentIndex = this.draftEventRundown.items.findIndex((item) => item.id === itemId);
+        const targetIndex = currentIndex + direction;
+        if (currentIndex === -1 || targetIndex < 0 || targetIndex >= this.draftEventRundown.items.length) return;
+        const [movedItem] = this.draftEventRundown.items.splice(currentIndex, 1);
+        this.draftEventRundown.items.splice(targetIndex, 0, movedItem);
+        this.renderEventRundownEditor();
+    },
+
+    reorderDraftEventRundownItems(sourceItemId, targetItemId) {
+        if (!sourceItemId || !targetItemId || !Array.isArray(this.draftEventRundown?.items)) return;
+
+        const items = [...this.draftEventRundown.items];
+        const sourceIndex = items.findIndex((item) => item.id === sourceItemId);
+        const targetIndex = items.findIndex((item) => item.id === targetItemId);
+
+        if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return;
+
+        const [movedItem] = items.splice(sourceIndex, 1);
+        items.splice(targetIndex, 0, movedItem);
+        this.draftEventRundown.items = items;
+        this.renderEventRundownEditor();
+    },
+
+    reorderDraftEventRundownSong(itemId, sourceSongId, targetSongId) {
+        if (!itemId || !sourceSongId || !targetSongId || !Array.isArray(this.draftEventRundown?.items)) return;
+
+        const item = this.draftEventRundown.items.find((entry) => entry.id === itemId);
+        if (!item || !Array.isArray(item.songIds)) return;
+
+        const songIds = item.songIds.map(String);
+        const sourceIndex = songIds.indexOf(String(sourceSongId));
+        const targetIndex = songIds.indexOf(String(targetSongId));
+
+        if (sourceIndex === -1 || targetIndex === -1 || sourceIndex === targetIndex) return;
+
+        const [movedSongId] = songIds.splice(sourceIndex, 1);
+        songIds.splice(targetIndex, 0, movedSongId);
+        item.songIds = songIds;
+        this.syncDraftEventSongIdsFromRundown();
+        this.renderEventRundownEditor();
+    },
+
+    getCurrentEventEditorContext() {
+        const eventId = document.getElementById('editEventId')?.value || '';
+        const bandId = document.getElementById('eventBand')?.value || '';
+        return {
+            eventId: eventId || null,
+            bandId: bandId || null
+        };
+    },
+
+    async addSongsToDraftEventSongBlock(itemId, songIds = []) {
+        if (!itemId || !Array.isArray(this.draftEventRundown?.items)) return;
+
+        const nextSongIds = [...new Set(songIds.map(String).filter(Boolean))];
+        if (nextSongIds.length === 0) return;
+
+        const item = this.draftEventRundown.items.find((entry) => entry.id === itemId);
+        if (!item) return;
+
+        nextSongIds.forEach((songId) => {
+            if (!this.draftEventSongIds.includes(songId)) {
+                this.draftEventSongIds.push(songId);
+            }
+        });
+
+        item.songIds = [...new Set([...(item.songIds || []).map(String), ...nextSongIds])];
+        item.isPickerOpen = false;
+        this.syncDraftEventSongIdsFromRundown();
+        await this.renderDraftEventSongs();
+    },
+
+    syncDraftEventSongIdsFromRundown() {
+        if (!Array.isArray(this.draftEventRundown?.items)) return;
+
+        const referencedSongIds = [...new Set(
+            this.draftEventRundown.items
+                .filter((item) => item.type === 'songblock')
+                .flatMap((item) => Array.isArray(item.songIds) ? item.songIds.map(String) : [])
+                .filter(Boolean)
+        )];
+
+        this.draftEventSongIds = referencedSongIds;
+
+        if (this.draftEventSongOverrides && typeof this.draftEventSongOverrides === 'object') {
+            Object.keys(this.draftEventSongOverrides).forEach((songId) => {
+                if (!referencedSongIds.includes(String(songId))) {
+                    delete this.draftEventSongOverrides[songId];
+                }
+            });
+        }
+    },
+
+    removeSongFromDraftEventSongBlock(itemId, songId) {
+        if (!itemId || !songId || !Array.isArray(this.draftEventRundown?.items)) return;
+
+        const item = this.draftEventRundown.items.find((entry) => entry.id === itemId);
+        if (!item || !Array.isArray(item.songIds)) return;
+
+        item.songIds = item.songIds.filter((id) => String(id) !== String(songId));
+        this.syncDraftEventSongIdsFromRundown();
+        this.renderDraftEventSongs();
+    },
+
+    async openBandSongSelectorForRundownItem(itemId) {
+        const { eventId, bandId } = this.getCurrentEventEditorContext();
+        if (!bandId) {
+            UI.showToast('Bitte wähle zuerst eine Band aus.', 'warning');
+            return;
+        }
+
+        const bandSongs = await Storage.getBandSongs(bandId);
+        if (!Array.isArray(bandSongs) || bandSongs.length === 0) {
+            UI.showToast('Für diese Band sind noch keine Songs vorhanden.', 'info');
+            return;
+        }
+
+        const options = {
+            title: 'Songs für Liederblock wählen',
+            description: 'Wähle Songs aus dem Band-Pool und übernimm sie direkt in diesen Liedblock.',
+            async onConfirm(selectedIds) {
+                await App.addSongsToDraftEventSongBlock(itemId, selectedIds);
+            }
+        };
+
+        if (eventId) {
+            this.showBandSongSelector(eventId, bandSongs, options);
+        } else {
+            this.showBandSongSelectorForDraft(bandSongs, options);
+        }
+    },
+
+    async openSongpoolSelectorForRundownItem(itemId) {
+        const { eventId, bandId } = this.getCurrentEventEditorContext();
+        const user = Auth.getCurrentUser();
+        
+        if (!user) {
+            UI.showToast('Bitte melde dich an, um auf deinen Songpool zuzugreifen.', 'warning');
+            return;
+        }
+
+        try {
+            const songpoolSongs = await Storage.getSongpoolSongs(user.id, { includePublic: true });
+            
+            if (!songpoolSongs || songpoolSongs.length === 0) {
+                UI.showToast('Es sind noch keine Songs im Songpool vorhanden.', 'info');
+                return;
+            }
+
+            const options = {
+                title: 'Songs aus Songpool importieren',
+                description: 'Wähle Songs aus dem globalen Songpool. Sie werden direkt in die aktuelle Band kopiert und zum Liederblock hinzugefügt.',
+                async onConfirm(selectedIds) {
+                    await App.copySongpoolSongsToEventBlock(itemId, selectedIds, songpoolSongs, bandId, eventId);
+                }
+            };
+
+            // We reuse the draft selector UI but feed it songpool songs
+            this.showSongpoolSelectorForDraft(songpoolSongs, options);
+            
+        } catch (error) {
+            console.error('[Event] Error loading songpool:', error);
+            UI.showToast(Storage._getSongpoolErrorMessage(error, 'Songpool konnte nicht geladen werden.'), 'error');
+        }
+    },
+
+    async copySongpoolSongsToEventBlock(itemId, selectedIds, songpoolSongs, bandId, eventId) {
+        if (!selectedIds || selectedIds.length === 0) return;
+
+        UI.showLoading();
+        let successCount = 0;
+        let mappedSongIds = [];
+
+        try {
+            for (const spSongId of selectedIds) {
+                const spSong = songpoolSongs.find(s => String(s.id) === String(spSongId));
+                if (!spSong) continue;
+
+                // Create a standard song entry
+                const songData = {
+                    title: spSong.title,
+                    artist: spSong.artist,
+                    genre: spSong.genre,
+                    bpm: spSong.bpm,
+                    key: spSong.key,
+                    originalKey: spSong.originalKey,
+                    timeSignature: spSong.timeSignature,
+                    language: spSong.language,
+                    tracks: spSong.tracks,
+                    info: spSong.info,
+                    ccli: spSong.ccli,
+                    leadVocal: spSong.leadVocal,
+                    pdf_url: spSong.pdf_url,
+                    createdBy: Auth.getCurrentUser()?.id
+                };
+
+                // Link to band (or event if no band)
+                if (bandId) {
+                    songData.bandId = bandId;
+                } else if (eventId) {
+                    songData.eventId = eventId;
+                }
+
+                // Insert into regular songs table via Storage.createSong
+                const created = await Storage.createSong(songData);
+                
+                if (created && created.id) {
+                    mappedSongIds.push(created.id);
+                    successCount++;
+                }
+            }
+
+            if (mappedSongIds.length > 0) {
+                await this.addSongsToDraftEventSongBlock(itemId, mappedSongIds);
+                UI.showToast(`${successCount} Song${successCount === 1 ? '' : 's'} aus dem Songpool in die Band importiert.`, 'success');
+            }
+        } catch (error) {
+            console.error('[Event] Songpool copy error:', error);
+            UI.showToast('Fehler beim Importieren der Songs aus dem Songpool.', 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
+    openNewSongModalForRundownItem(itemId) {
+        const { eventId, bandId } = this.getCurrentEventEditorContext();
+
+        if (!eventId && !bandId) {
+            UI.showToast('Bitte wähle zuerst eine Band aus.', 'warning');
+            return;
+        }
+
+        this.draftEventSongBlockTargetId = itemId;
+
+        if (eventId) {
+            this.lastSongModalContext = {
+                eventId,
+                bandId: null,
+                origin: 'eventSongBlock',
+                rundownItemId: itemId
+            };
+            this.openSongModal(eventId, null, null);
+            return;
+        }
+
+        this.lastSongModalContext = {
+            eventId: null,
+            bandId,
+            origin: 'createEventSongBlock',
+            rundownItemId: itemId
+        };
+        this.openSongModal(null, bandId, null);
+    },
+
+    async saveRundownAsTemplate() {
+        const rundown = this.draftEventRundown;
+        if (!rundown || !Array.isArray(rundown.items) || rundown.items.length === 0) {
+            UI.showToast('Der Ablauf ist leer – nichts zu speichern.', 'warning');
+            return;
+        }
+
+        const user = Auth.getCurrentUser();
+        if (!user) {
+            UI.showToast('Du musst angemeldet sein, um Vorlagen zu speichern.', 'warning');
+            return;
+        }
+
+        // Ask for name via a small inline modal
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:420px;">
+                <div class="modal-header">
+                    <h2>Ablauf als Vorlage speichern</h2>
+                    <button type="button" class="modal-close" aria-label="Schließen">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:1.5rem;">
+                    <label style="display:block;margin-bottom:.5rem;font-weight:600;">Vorlagenname</label>
+                    <input id="rundownTemplateNameInput" type="text" class="form-input" placeholder="z.B. Sonntagsgottesdienst" style="width:100%;">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn cancel" id="cancelSaveTemplate">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" id="confirmSaveTemplate">💾 Speichern</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+        modal.querySelector('#cancelSaveTemplate').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+        modal.querySelector('#confirmSaveTemplate').addEventListener('click', async () => {
+            const name = modal.querySelector('#rundownTemplateNameInput').value.trim();
+            if (!name) {
+                UI.showToast('Bitte gib einen Namen ein.', 'warning');
+                return;
+            }
+
+            // Strip songIds from each item before saving
+            const templateData = {
+                startTime: rundown.startTime || '',
+                items: rundown.items.map(item => ({
+                    id: this.generateId ? this.generateId() : crypto.randomUUID(),
+                    type: item.type,
+                    title: item.title,
+                    duration: item.duration,
+                    notes: item.notes,
+                    songIds: [] // intentionally empty
+                }))
+            };
+
+            try {
+                await Storage.createRundownTemplate(name, templateData, user.id);
+                UI.showToast(`Vorlage "${name}" gespeichert.`, 'success');
+                modal.remove();
+            } catch (err) {
+                console.error('[Rundown] saveRundownAsTemplate error', err);
+                UI.showToast('Vorlage konnte nicht gespeichert werden.', 'error');
+            }
+        });
+
+        setTimeout(() => modal.querySelector('#rundownTemplateNameInput')?.focus(), 100);
+    },
+
+    async openLoadRundownTemplateModal() {
+        const user = Auth.getCurrentUser();
+        if (!user) {
+            UI.showToast('Du musst angemeldet sein, um Vorlagen zu laden.', 'warning');
+            return;
+        }
+
+        UI.showLoading();
+        let templates = [];
+        try {
+            templates = await Storage.getRundownTemplates(user.id);
+        } catch (err) {
+            console.error('[Rundown] getRundownTemplates error', err);
+        } finally {
+            UI.hideLoading();
+        }
+
+        const modal = document.createElement('div');
+        modal.className = 'modal active';
+
+        const renderList = () => {
+            if (templates.length === 0) {
+                return `<p style="color:var(--text-muted);text-align:center;padding:2rem 0;">Keine Vorlagen vorhanden.</p>`;
+            }
+            return templates.map(t => `
+                <div class="rundown-template-item" data-template-id="${t.id}">
+                    <div class="rundown-template-name">${this.escapeHtml(t.name)}</div>
+                    <div class="rundown-template-meta">${Array.isArray(t.data?.items) ? t.data.items.length : 0} Blöcke</div>
+                    <div class="rundown-template-actions">
+                        <button class="btn btn-primary btn-sm rundown-template-load-btn" data-id="${t.id}">Laden</button>
+                        <button class="btn btn-danger btn-sm rundown-template-delete-btn" data-id="${t.id}">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width:500px;">
+                <div class="modal-header">
+                    <h2>Vorlage laden</h2>
+                    <button type="button" class="modal-close" aria-label="Schließen">&times;</button>
+                </div>
+                <div class="modal-body" style="padding:1.5rem;">
+                    <div id="rundownTemplateList">${renderList()}</div>
+                    <p style="margin-top:1rem;font-size:.82rem;color:var(--text-muted);">⚠️ Das Laden einer Vorlage ersetzt den aktuellen Ablauf (Songs bleiben erhalten).</p>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn cancel" id="cancelLoadTemplate">Schließen</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        modal.querySelector('.modal-close').addEventListener('click', () => modal.remove());
+        modal.querySelector('#cancelLoadTemplate').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+
+        modal.addEventListener('click', async (e) => {
+            const loadBtn = e.target.closest('.rundown-template-load-btn');
+            const deleteBtn = e.target.closest('.rundown-template-delete-btn');
+
+            if (loadBtn) {
+                const templateId = loadBtn.dataset.id;
+                const template = templates.find(t => String(t.id) === String(templateId));
+                if (!template?.data) return;
+
+                // Apply template: preserve existing songIds where block index matches
+                const oldItems = this.draftEventRundown?.items || [];
+                const newItems = template.data.items.map((tItem, idx) => ({
+                    ...tItem,
+                    id: tItem.id || (this.generateId ? this.generateId() : crypto.randomUUID()),
+                    songIds: [] // no songs imported from template
+                }));
+                this.draftEventRundown = {
+                    startTime: template.data.startTime || this.draftEventRundown?.startTime || '',
+                    items: newItems
+                };
+                await this.renderEventRundownEditor();
+                UI.showToast(`Vorlage "${template.name}" geladen.`, 'success');
+                modal.remove();
+            }
+
+            if (deleteBtn) {
+                const templateId = deleteBtn.dataset.id;
+                const template = templates.find(t => String(t.id) === String(templateId));
+                if (!template) return;
+
+                if (!confirm(`Vorlage "${template.name}" wirklich löschen?`)) return;
+                try {
+                    await Storage.deleteRundownTemplate(templateId);
+                    templates = templates.filter(t => String(t.id) !== String(templateId));
+                    modal.querySelector('#rundownTemplateList').innerHTML = renderList();
+                    UI.showToast('Vorlage gelöscht.', 'success');
+                } catch (err) {
+                    UI.showToast('Vorlage konnte nicht gelöscht werden.', 'error');
+                }
+            }
+        });
+    },
+
+    remapDraftEventRundownSongIds(songIdMap) {
+        if (!(songIdMap instanceof Map) || songIdMap.size === 0 || !Array.isArray(this.draftEventRundown?.items)) {
+            return false;
+        }
+
+        let changed = false;
+        this.draftEventRundown.items = this.draftEventRundown.items.map((item) => {
+            if (item.type !== 'songblock' || !Array.isArray(item.songIds) || item.songIds.length === 0) {
+                return item;
+            }
+
+            const nextSongIds = [...new Set(
+                item.songIds
+                    .map((songId) => String(songIdMap.get(String(songId)) || songId))
+                    .filter(Boolean)
+            )];
+
+            if (nextSongIds.join('|') !== item.songIds.map(String).join('|')) {
+                changed = true;
+                return { ...item, songIds: nextSongIds };
+            }
+
+            return item;
+        });
+
+        return changed;
+    },
+
+    setDraftEventRundownFromEvent(event) {
+        const rawInfo = event?.info || '';
+        const normalized = this.extractEventRundown(rawInfo);
+        const fallbackStart = event?.date ? this.normalizeEventRundownTime(String(event.date).slice(11, 16)) : '';
+        const shouldResyncFromEventTime = Boolean(
+            fallbackStart
+            && normalized.sourceEventTime
+            && normalized.sourceEventTime !== fallbackStart
+        );
+
+        const hasSongBlock = Array.isArray(normalized.items) && normalized.items.some((item) => item?.type === 'songblock');
+        if (!hasSongBlock && Array.isArray(this.draftEventSongIds) && this.draftEventSongIds.length > 0) {
+            normalized.items = [
+                this.createDraftEventRundownItem('songblock'),
+                ...(normalized.items || [])
+            ];
+            normalized.items[0].title = 'Setlist';
+            normalized.items[0].songIds = [...this.draftEventSongIds];
+        }
+
+        this.draftEventRundown = this.normalizeEventRundownData({
+            ...normalized,
+            startTime: shouldResyncFromEventTime ? fallbackStart : (normalized.startTime || fallbackStart),
+            sourceEventTime: fallbackStart || normalized.sourceEventTime || ''
+        });
     },
 
     // Generic PDF Download for Song Lists
@@ -5271,15 +6594,537 @@ const App = {
         reader.readAsText(file);
     },
 
+    getSongpoolShowPublicPreference() {
+        try {
+            const pref = localStorage.getItem(this.songpoolShowPublicStorageKey);
+            return pref === null ? true : pref === 'true';
+        } catch (error) {
+            console.warn('[Songpool] Public toggle could not be read:', error);
+            return false;
+        }
+    },
+
+    setSongpoolShowPublicPreference(showPublic) {
+        try {
+            localStorage.setItem(this.songpoolShowPublicStorageKey, showPublic ? 'true' : 'false');
+        } catch (error) {
+            console.warn('[Songpool] Public toggle could not be saved:', error);
+        }
+    },
+
+    normalizeSongpoolVisibility(value = 'public') {
+        return String(value || '').trim().toLowerCase() === 'private' ? 'private' : 'public';
+    },
+
+    getSongpoolImportedFileBaseName(fileName = '') {
+        return decodeURIComponent(String(fileName || ''))
+            .replace(/\.[^.]+$/, '')
+            .replace(/[_-]+/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/\s+\d+$/, '')
+            .trim();
+    },
+
+    cleanImportedSongTitle(title = '', fallbackTitle = '') {
+        const cleanedTitle = String(title || '')
+            .replace(/\s{2,}/g, ' ')
+            .replace(/^[\s\-–—:|]+|[\s\-–—:|]+$/g, '')
+            .trim();
+
+        if (cleanedTitle) return cleanedTitle;
+        if (fallbackTitle) return fallbackTitle;
+        return 'Ohne Titel';
+    },
+
+    isLikelyImportedChordLine(line = '') {
+        const tokens = String(line || '')
+            .replace(/\[[^\]]+\]/g, ' ')
+            .split(/\s+/)
+            .map(token => token.replace(/[|()[\],.;:!?]/g, '').trim())
+            .filter(Boolean);
+
+        if (tokens.length === 0 || tokens.length > 8) return false;
+
+        const chordRegex = /^[A-H](?:[#b]|m|maj|min|sus|dim|aug|add|\d|\/)*$/i;
+        const chordTokenCount = tokens.filter(token => chordRegex.test(token)).length;
+        return chordTokenCount > 0 && (chordTokenCount / tokens.length) >= 0.6;
+    },
+
+    isLikelyImportedSongTitleLine(line = '') {
+        const normalizedLine = String(line || '').replace(/\s+/g, ' ').trim();
+        if (!normalizedLine) return false;
+        if (normalizedLine.length < 2 || normalizedLine.length > 90) return false;
+        if (!/[A-Za-zÄÖÜäöüß]/.test(normalizedLine)) return false;
+        if (this.isLikelyImportedChordLine(normalizedLine)) return false;
+
+        const lower = normalizedLine.toLowerCase();
+        const blockedPrefixes = [
+            'key:', 'tonart:', 'tempo:', 'bpm:', 'time:', 'taktart:', 'copyright:',
+            'artist:', 'interpret:', 'verse', 'chorus', 'bridge', 'intro', 'outro'
+        ];
+        return !blockedPrefixes.some(prefix => lower.startsWith(prefix));
+    },
+
+    extractSongpoolMetadataFromText(rawText = '', fileName = '') {
+        const text = String(rawText || '').replace(/\r/g, '\n');
+        const fallbackTitle = this.getSongpoolImportedFileBaseName(fileName);
+        const lines = text
+            .split('\n')
+            .map(line => line.replace(/\s+/g, ' ').trim())
+            .filter(Boolean);
+
+        const metadata = {
+            title: '',
+            artist: '',
+            key: '',
+            timeSignature: '',
+            bpm: '',
+            detectedFrom: fallbackTitle ? 'Dateiname' : 'Inhalt'
+        };
+
+        for (const line of lines.slice(0, 30)) {
+            const directiveMatch = line.match(/^\{([^:}]+)\s*:\s*([^}]*)\}$/);
+            if (directiveMatch) {
+                const key = directiveMatch[1].trim().toLowerCase();
+                const value = directiveMatch[2].trim();
+                if ((key === 'title' || key === 't') && value) {
+                    metadata.title = value;
+                    metadata.detectedFrom = 'Dateiinhalt';
+                } else if ((key === 'artist' || key === 'subtitle' || key === 'st') && value) {
+                    metadata.artist = value;
+                } else if (key === 'key' && value) {
+                    metadata.key = value;
+                } else if (key === 'time' && value) {
+                    metadata.timeSignature = value;
+                } else if ((key === 'tempo' || key === 'bpm') && value) {
+                    metadata.bpm = value;
+                }
+            }
+
+            if (!metadata.artist) {
+                const artistMatch = line.match(/^(?:artist|interpret)\s*[:\-]\s*(.+)$/i);
+                if (artistMatch) {
+                    metadata.artist = artistMatch[1].trim();
+                }
+            }
+
+            if (!metadata.key) {
+                const keyMatch = line.match(/(?:key|tonart)\s*[:\-]\s*(\[?[A-H][#b♯♭]?m?\]?)/i);
+                if (keyMatch) {
+                    metadata.key = keyMatch[1].replace(/[\[\]]/g, '').trim();
+                }
+            }
+
+            if (!metadata.timeSignature) {
+                const timeMatch = line.match(/(?:time|taktart)\s*[:\-]\s*(\d+\/\d+)/i);
+                if (timeMatch) {
+                    metadata.timeSignature = timeMatch[1];
+                }
+            }
+
+            if (!metadata.bpm) {
+                const bpmMatch = line.match(/(?:tempo|bpm)\s*[:\-]\s*(\d+)/i);
+                if (bpmMatch) {
+                    metadata.bpm = bpmMatch[1];
+                }
+            }
+        }
+
+        if (!metadata.title) {
+            const firstUsableLine = lines.find(line => this.isLikelyImportedSongTitleLine(line));
+            if (firstUsableLine) {
+                metadata.title = firstUsableLine;
+                metadata.detectedFrom = 'Dateiinhalt';
+            }
+        }
+
+        const title = this.cleanImportedSongTitle(metadata.title, fallbackTitle);
+        return {
+            title,
+            artist: metadata.artist || '',
+            key: metadata.key || null,
+            timeSignature: metadata.timeSignature || null,
+            bpm: metadata.bpm ? parseInt(metadata.bpm, 10) || null : null,
+            language: this.getDetectedSongLanguage(title, ''),
+            detectedFrom: metadata.detectedFrom
+        };
+    },
+
+    async extractSongpoolMetadataFromPdfFile(file) {
+        if (!file) {
+            return this.extractSongpoolMetadataFromText('', '');
+        }
+
+        const fallbackTitle = this.getSongpoolImportedFileBaseName(file.name);
+
+        try {
+            if (!window.pdfjsLib) {
+                throw new Error('pdf.js ist nicht verfügbar.');
+            }
+
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = window.pdfjsLib.getDocument({
+                data: arrayBuffer,
+                cMapUrl: 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/cmaps/',
+                cMapPacked: true
+            });
+            const pdf = await loadingTask.promise;
+
+            let extractedText = '';
+            const maxPages = Math.min(pdf.numPages || 0, 2);
+
+            for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
+                const page = await pdf.getPage(pageNumber);
+                const textContent = await page.getTextContent({ includeMarkedContent: true });
+                const sortedItems = (textContent.items || []).slice().sort((left, right) => {
+                    const yDiff = left.transform[5] - right.transform[5];
+                    if (Math.abs(yDiff) < 5) return left.transform[4] - right.transform[4];
+                    return -yDiff;
+                });
+
+                let lastY = null;
+                sortedItems.forEach((item) => {
+                    if (lastY !== null && Math.abs(item.transform[5] - lastY) > 5) {
+                        extractedText += '\n';
+                    }
+                    extractedText += item.str || '';
+                    lastY = item.transform[5];
+                });
+                extractedText += '\n';
+            }
+
+            const metadata = this.extractSongpoolMetadataFromText(extractedText, file.name);
+            return {
+                ...metadata,
+                title: this.cleanImportedSongTitle(metadata.title, fallbackTitle),
+                detectedFrom: extractedText.trim() ? metadata.detectedFrom : 'Dateiname'
+            };
+        } catch (error) {
+            console.warn('[Songpool] PDF metadata extraction failed:', error);
+            return {
+                title: this.cleanImportedSongTitle('', fallbackTitle),
+                artist: '',
+                key: null,
+                timeSignature: null,
+                bpm: null,
+                language: this.getDetectedSongLanguage(fallbackTitle, ''),
+                detectedFrom: 'Dateiname'
+            };
+        }
+    },
+
+    async createSongpoolImportDraft(file) {
+        if (!file) return null;
+
+        const lowerName = String(file.name || '').toLowerCase();
+        const isPdf = lowerName.endsWith('.pdf') || file.type === 'application/pdf';
+        const isChordPro = ['.cho', '.chordpro', '.chopro', '.pro', '.crd', '.txt', '.cp', '.chord'].some(ext => lowerName.endsWith(ext));
+
+        if (!isPdf && !isChordPro) {
+            throw new Error(`"${file.name}" ist kein unterstütztes PDF- oder ChordPro-Format.`);
+        }
+
+        const draftId = typeof Storage !== 'undefined' && typeof Storage.generateId === 'function'
+            ? Storage.generateId()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+
+        let metadata = null;
+        let info = null;
+
+        if (isPdf) {
+            metadata = await this.extractSongpoolMetadataFromPdfFile(file);
+        } else {
+            const chordProText = await file.text();
+            metadata = this.extractSongpoolMetadataFromText(chordProText, file.name);
+            info = Storage.composeSongInfoWithChordPro('', chordProText);
+        }
+
+        return {
+            id: draftId,
+            file,
+            sourceType: isPdf ? 'pdf' : 'chordpro',
+            sourceLabel: isPdf ? 'PDF' : 'ChordPro',
+            detectedFrom: metadata?.detectedFrom || 'Dateiname',
+            title: this.cleanImportedSongTitle(metadata?.title, this.getSongpoolImportedFileBaseName(file.name)),
+            artist: metadata?.artist || '',
+            bpm: metadata?.bpm || null,
+            key: metadata?.key || null,
+            originalKey: null,
+            timeSignature: metadata?.timeSignature || null,
+            language: metadata?.language || null,
+            tracks: null,
+            leadVocal: null,
+            ccli: null,
+            info,
+            visibility: 'public'
+        };
+    },
+
+    async handleSongpoolUploadSelection(event) {
+        const files = Array.from(event?.target?.files || []);
+        if (!files.length) return;
+
+        const drafts = [];
+        const errors = [];
+
+        UI.showLoading(`Dateien werden analysiert (0/${files.length})...`);
+
+        for (let index = 0; index < files.length; index++) {
+            const file = files[index];
+            UI.showLoading(`Dateien werden analysiert (${index + 1}/${files.length})...`);
+
+            try {
+                const draft = await this.createSongpoolImportDraft(file);
+                if (draft) drafts.push(draft);
+            } catch (error) {
+                console.error('[Songpool] Import draft could not be created:', error);
+                errors.push(error.message || `"${file.name}" konnte nicht verarbeitet werden.`);
+            }
+        }
+
+        UI.hideLoading();
+        if (event?.target) {
+            event.target.value = '';
+        }
+
+        if (!drafts.length) {
+            UI.showToast(errors[0] || 'Keine gültigen Dateien gefunden.', 'error');
+            return;
+        }
+
+        this.songpoolImportDrafts = drafts;
+        this.renderSongpoolImportPreview();
+        UI.openModal('songpoolImportModal');
+
+        if (errors.length > 0) {
+            UI.showToast(`${errors.length} Datei${errors.length === 1 ? '' : 'en'} konnten nicht vollständig gelesen werden.`, 'warning');
+        }
+    },
+
+    renderSongpoolImportPreview() {
+        const container = document.getElementById('songpoolImportDrafts');
+        const summary = document.getElementById('songpoolImportSummary');
+        const confirmButton = document.getElementById('confirmSongpoolImportBtn');
+        if (!container || !summary || !confirmButton) return;
+
+        const drafts = Array.isArray(this.songpoolImportDrafts) ? this.songpoolImportDrafts : [];
+        summary.textContent = `${drafts.length} Song${drafts.length === 1 ? '' : 's'} erkannt`;
+        confirmButton.disabled = drafts.length === 0;
+
+        if (!drafts.length) {
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>Keine Dateien mehr in der Import-Vorschau.</p>
+                    <p class="empty-state-note">Wähle im Songpool neue PDFs oder ChordPro-Dateien aus, um Songs gesammelt hinzuzufügen.</p>
+                </div>
+            `;
+            return;
+        }
+
+        const renderMetaChip = (label, value) => value
+            ? `<span class="songpool-import-meta-chip"><strong>${this.escapeHtml(label)}</strong><span>${this.escapeHtml(String(value))}</span></span>`
+            : '';
+
+        container.innerHTML = drafts.map((draft) => `
+            <article class="songpool-import-card" data-draft-id="${draft.id}">
+                <div class="songpool-import-card-head">
+                    <div class="songpool-import-file-copy">
+                        <div class="songpool-import-file-line">
+                            <span class="songpool-import-file-pill">${this.escapeHtml(draft.sourceLabel)}</span>
+                            <strong>${this.escapeHtml(draft.file?.name || draft.title || 'Neue Datei')}</strong>
+                        </div>
+                        <span class="songpool-import-file-hint">Songname erkannt über: ${this.escapeHtml(draft.detectedFrom || 'Dateiname')}</span>
+                    </div>
+                    <button type="button" class="btn-icon songpool-import-remove" data-draft-id="${draft.id}" title="Entfernen">🗑️</button>
+                </div>
+                <div class="songpool-import-grid">
+                    <div class="form-group">
+                        <label for="songpoolDraftTitle-${draft.id}">Titel</label>
+                        <input type="text" id="songpoolDraftTitle-${draft.id}" data-draft-field="title" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.title || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label for="songpoolDraftArtist-${draft.id}">Interpret</label>
+                        <input type="text" id="songpoolDraftArtist-${draft.id}" data-draft-field="artist" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.artist || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label for="songpoolDraftBpm-${draft.id}">BPM</label>
+                        <input type="number" min="0" step="1" id="songpoolDraftBpm-${draft.id}" data-draft-field="bpm" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.bpm || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label for="songpoolDraftKey-${draft.id}">Tonart</label>
+                        <input type="text" id="songpoolDraftKey-${draft.id}" data-draft-field="key" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.key || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label for="songpoolDraftTime-${draft.id}">Time</label>
+                        <input type="text" id="songpoolDraftTime-${draft.id}" data-draft-field="timeSignature" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.timeSignature || '')}">
+                    </div>
+                    <div class="form-group">
+                        <label for="songpoolDraftLanguage-${draft.id}">Sprache</label>
+                        <input type="text" id="songpoolDraftLanguage-${draft.id}" data-draft-field="language" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.language || '')}">
+                    </div>
+                    <div class="form-group full-width">
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; padding: 1rem; background: var(--color-surface-hover); border-radius: 12px; border: 1px solid var(--color-border);">
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                <span style="font-size: 1.2rem;">👁️</span>
+                                <strong style="font-size: 0.95rem;">Sichtbarkeit</strong>
+                            </div>
+                            <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                                <input type="radio" name="songpoolDraftVisibility-${draft.id}" value="private" data-draft-field="visibility" data-draft-id="${draft.id}"${this.normalizeSongpoolVisibility(draft.visibility) === 'private' ? ' checked' : ''} style="margin-top: 0.25rem;">
+                                <div>
+                                    <div style="font-weight: 600; font-size: 0.9rem;">Privat</div>
+                                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">Nur du kannst diesen Song in deinem Songpool sehen.</div>
+                                </div>
+                            </label>
+                            <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                                <input type="radio" name="songpoolDraftVisibility-${draft.id}" value="public" data-draft-field="visibility" data-draft-id="${draft.id}"${this.normalizeSongpoolVisibility(draft.visibility) === 'public' ? ' checked' : ''} style="margin-top: 0.25rem;">
+                                <div>
+                                    <div style="font-weight: 600; font-size: 0.9rem;">Öffentlich</div>
+                                    <div style="font-size: 0.8rem; color: var(--color-text-muted);">Andere Nutzer können deinen Song sehen und ebenfalls importieren. Hilf mit, den globalen Pool zu vergrößern!</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                </div>
+                <div class="songpool-import-meta">
+                    ${renderMetaChip('BPM', draft.bpm)}
+                    ${renderMetaChip('Tonart', draft.key)}
+                    ${renderMetaChip('Time', draft.timeSignature)}
+                    ${renderMetaChip('Sprache', draft.language)}
+                </div>
+            </article>
+        `).join('');
+
+        container.querySelectorAll('[data-draft-field]').forEach((field) => {
+            const eventName = field.tagName === 'SELECT' ? 'change' : 'input';
+            field.addEventListener(eventName, (event) => {
+                const draftId = event.currentTarget.dataset.draftId;
+                const draftField = event.currentTarget.dataset.draftField;
+                const draft = this.songpoolImportDrafts.find(entry => entry.id === draftId);
+                if (!draft || !draftField) return;
+
+                draft[draftField] = draftField === 'visibility'
+                    ? this.normalizeSongpoolVisibility(event.currentTarget.value)
+                    : event.currentTarget.value;
+            });
+        });
+
+        container.querySelectorAll('.songpool-import-remove').forEach((button) => {
+            button.addEventListener('click', () => {
+                this.songpoolImportDrafts = this.songpoolImportDrafts.filter(draft => draft.id !== button.dataset.draftId);
+                this.renderSongpoolImportPreview();
+            });
+        });
+
+        if (!confirmButton.dataset.bound) {
+            confirmButton.dataset.bound = 'true';
+            confirmButton.addEventListener('click', async () => {
+                await this.saveSongpoolImportDrafts();
+            });
+        }
+    },
+
+    async saveSongpoolImportDrafts() {
+        const drafts = (Array.isArray(this.songpoolImportDrafts) ? this.songpoolImportDrafts : [])
+            .map((draft) => ({
+                ...draft,
+                title: this.cleanImportedSongTitle(draft.title, this.getSongpoolImportedFileBaseName(draft.file?.name || ''))
+            }))
+            .filter((draft) => draft.title);
+
+        if (!drafts.length) {
+            UI.showToast('Bitte mindestens einen Songtitel eintragen.', 'warning');
+            return;
+        }
+
+        const user = Auth.getCurrentUser();
+        if (!user) {
+            UI.showToast('Du musst angemeldet sein, um Songs zu importieren.', 'error');
+            return;
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        UI.showLoading(`Songs werden gespeichert (0/${drafts.length})...`);
+
+        for (let index = 0; index < drafts.length; index++) {
+            const draft = drafts[index];
+            UI.showLoading(`Songs werden gespeichert (${index + 1}/${drafts.length})...`);
+
+            try {
+                let pdfUrl = null;
+
+                if (draft.sourceType === 'pdf' && draft.file) {
+                    const sb = SupabaseClient.getClient();
+                    const fileName = `song-pdf-${user.id}-${Date.now()}-${index}.pdf`;
+                    const { error: uploadError } = await sb.storage
+                        .from('song-pdfs')
+                        .upload(fileName, draft.file, { upsert: true });
+
+                    if (uploadError) {
+                        throw uploadError;
+                    }
+
+                    const { data: { publicUrl } } = sb.storage
+                        .from('song-pdfs')
+                        .getPublicUrl(fileName);
+
+                    pdfUrl = publicUrl || null;
+                }
+
+                await Storage.createSongpoolSong({
+                    title: draft.title,
+                    artist: draft.artist || null,
+                    bpm: draft.bpm ? parseInt(draft.bpm, 10) || null : null,
+                    key: draft.key || null,
+                    originalKey: draft.originalKey || null,
+                    timeSignature: draft.timeSignature || null,
+                    language: draft.language || this.getDetectedSongLanguage(draft.title, ''),
+                    tracks: draft.tracks || null,
+                    info: draft.info || null,
+                    ccli: draft.ccli || null,
+                    leadVocal: draft.leadVocal || null,
+                    pdf_url: pdfUrl,
+                    visibility: this.normalizeSongpoolVisibility(draft.visibility),
+                    createdBy: user.id
+                });
+
+                successCount++;
+            } catch (error) {
+                errorCount++;
+                console.error('[Songpool] Draft save failed:', error);
+            }
+        }
+
+        UI.hideLoading();
+
+        if (successCount > 0) {
+            this.songpoolImportDrafts = [];
+            UI.closeModal('songpoolImportModal');
+            await this.renderSongpoolView();
+            UI.showToast(`${successCount} Song${successCount === 1 ? '' : 's'} im Songpool gespeichert.`, 'success');
+        }
+
+        if (errorCount > 0) {
+            UI.showToast(`${errorCount} Import${errorCount === 1 ? '' : 'e'} konnten nicht gespeichert werden.`, successCount > 0 ? 'warning' : 'error');
+        }
+    },
+
     // Song Management
     async openSongModal(eventId = null, bandId = null, songId = null) {
         document.getElementById('songId').value = songId || '';
         document.getElementById('songEventId').value = eventId || '';
         document.getElementById('songBandId').value = bandId || '';
+        const modalContext = this.lastSongModalContext || null;
+        const collection = modalContext?.collection || ((modalContext?.origin === 'songpool' || modalContext?.origin === 'songpoolEdit') ? 'songpool_songs' : 'songs');
+        document.getElementById('songCollection').value = collection;
         const modalTitle = document.getElementById('songModalTitle');
         const modalSubtitle = document.querySelector('.song-editor-subtitle');
-        const isDraftEventSongEdit = this.lastSongModalContext && this.lastSongModalContext.origin === 'draftEventSong';
-        const isEventSongEdit = this.lastSongModalContext && this.lastSongModalContext.origin === 'eventSong';
+        const isDraftEventSongEdit = modalContext && modalContext.origin === 'draftEventSong';
+        const isEventSongEdit = modalContext && modalContext.origin === 'eventSong';
+        const isSongpoolSong = collection === 'songpool_songs';
+        const visibilityGroup = document.getElementById('songVisibilityGroup');
 
         // Reset PDF input
         const pdfInput = document.getElementById('songPdf');
@@ -5293,32 +7138,47 @@ const App = {
         }
         this.clearSongAutofillResults();
 
+        if (visibilityGroup) {
+            visibilityGroup.hidden = !isSongpoolSong;
+        }
+
         if (songId) {
             // Edit existing song
-            const storedSong = await Storage.getById('songs', songId);
+            const storedSong = isSongpoolSong
+                ? await Storage.getSongpoolSong(songId)
+                : await Storage.getById('songs', songId);
             const song = isDraftEventSongEdit ? this.getDraftEventSong(storedSong) : storedSong;
             if (song) {
                 if (modalTitle) {
-                    modalTitle.textContent = (isDraftEventSongEdit || isEventSongEdit)
+                    modalTitle.textContent = isSongpoolSong
+                        ? 'Songpool-Song bearbeiten'
+                        : (isDraftEventSongEdit || isEventSongEdit)
                         ? 'Song in Setlist bearbeiten'
                         : 'Song bearbeiten';
                 }
                 if (modalSubtitle) {
-                    modalSubtitle.textContent = (isDraftEventSongEdit || isEventSongEdit)
+                    modalSubtitle.textContent = isSongpoolSong
+                        ? 'Pflege deinen persönlichen Songpool und lege fest, ob der Song öffentlich oder nur für dich sichtbar ist.'
+                        : (isDraftEventSongEdit || isEventSongEdit)
                         ? 'Passe diesen Song nur für die Setlist des Auftritts an. Deine Haupt-Setlist der Band bleibt unverändert.'
                         : 'Pflege die wichtigsten Songdaten, Metainformationen und optional ein PDF in einer kompakten Arbeitsfläche.';
                 }
                 document.getElementById('songTitle').value = song.title;
-                document.getElementById('songArtist').value = song.artist;
+                document.getElementById('songArtist').value = song.artist || '';
+                document.getElementById('songGenre').value = song.genre || '';
                 document.getElementById('songBPM').value = song.bpm || '';
                 document.getElementById('songKey').value = song.key || '';
                 document.getElementById('songOriginalKey').value = song.originalKey || '';
                 document.getElementById('songTimeSignature').value = song.timeSignature || '';
                 document.getElementById('songLanguage').value = song.language || '';
+                this.songLanguageAutoValue = this.normalizeSongLanguageLabel(song.language || '');
                 document.getElementById('songTracks').value = song.tracks || '';
                 document.getElementById('songInfo').value = Storage.getSongPlainInfo(song);
                 document.getElementById('songCcli').value = song.ccli || '';
                 document.getElementById('songLeadVocal').value = song.leadVocal || '';
+                const normalizedVisibility = this.normalizeSongpoolVisibility(song.visibility);
+                const visRadio = document.querySelector(`input[name="songVisibility"][value="${normalizedVisibility}"]`);
+                if (visRadio) visRadio.checked = true;
 
                 // Show PDF info if exists
                 if (song.pdf_url) {
@@ -5333,25 +7193,35 @@ const App = {
             }
         } else {
             // New song
-            if (modalTitle) modalTitle.textContent = 'Song hinzufügen';
+            if (modalTitle) {
+                modalTitle.textContent = isSongpoolSong ? 'Songpool-Song hinzufügen' : 'Song hinzufügen';
+            }
             if (modalSubtitle) {
-                modalSubtitle.textContent = 'Pflege die wichtigsten Songdaten, Metainformationen und optional ein PDF in einer kompakten Arbeitsfläche.';
+                modalSubtitle.textContent = isSongpoolSong
+                    ? 'Lege einen Song in deinem persönlichen Songpool an. Neue Songpool-Songs sind standardmäßig öffentlich.'
+                    : 'Pflege die wichtigsten Songdaten, Metainformationen und optional ein PDF in einer kompakten Arbeitsfläche.';
             }
             document.getElementById('songTitle').value = '';
             document.getElementById('songArtist').value = '';
+            document.getElementById('songGenre').value = '';
             document.getElementById('songBPM').value = '';
             document.getElementById('songKey').value = '';
             document.getElementById('songOriginalKey').value = '';
             document.getElementById('songTimeSignature').value = '';
             document.getElementById('songLanguage').value = '';
+            this.songLanguageAutoValue = '';
             document.getElementById('songTracks').value = '';
             document.getElementById('songInfo').value = '';
             document.getElementById('songCcli').value = '';
             document.getElementById('songLeadVocal').value = '';
+            const defaultVis = this.normalizeSongpoolVisibility(modalContext?.defaultVisibility || 'public');
+            const visDefaultRadio = document.querySelector(`input[name="songVisibility"][value="${defaultVis}"]`);
+            if (visDefaultRadio) visDefaultRadio.checked = true;
             currentPdfContainer.style.display = 'none';
         }
 
         UI.openModal('songModal');
+        this.syncInferredSongLanguage();
 
         // Wire up PDF delete button (ensure it's only added once or remove old listener)
         const deletePdfBtn = document.getElementById('deleteSongPdfBtn');
@@ -5369,7 +7239,7 @@ const App = {
             clearTimeout(this.songAutofillSearchTimer);
         }
 
-        if (query.length < 4) {
+        if (query.length < 2) {
             this.songAutofillCandidates = [];
             this.clearSongAutofillResults();
             return;
@@ -5378,6 +7248,106 @@ const App = {
         this.songAutofillSearchTimer = setTimeout(() => {
             this.handleSongAutofillSearch({ silent: true });
         }, 260);
+    },
+
+    normalizeSongLanguageLabel(value = '') {
+        const raw = String(value || '').trim();
+        if (!raw) return '';
+
+        const normalized = raw.toLowerCase();
+        const map = {
+            de: 'Deutsch',
+            deu: 'Deutsch',
+            ger: 'Deutsch',
+            german: 'Deutsch',
+            deutsch: 'Deutsch',
+            en: 'Englisch',
+            eng: 'Englisch',
+            english: 'Englisch',
+            englisch: 'Englisch'
+        };
+
+        return map[normalized] || raw;
+    },
+
+    inferSongLanguageFromTitle(title = '', fallbackLanguage = '') {
+        const normalizedFallback = this.normalizeSongLanguageLabel(fallbackLanguage);
+        if (normalizedFallback) return normalizedFallback;
+
+        const rawTitle = String(title || '').trim();
+        if (!rawTitle) return '';
+
+        const lowered = rawTitle.toLowerCase();
+        if (/[äöüß]/i.test(rawTitle)) {
+            return 'Deutsch';
+        }
+
+        const tokens = lowered
+            .replace(/[^a-z0-9\s']/g, ' ')
+            .split(/\s+/)
+            .filter(Boolean);
+
+        if (tokens.length === 0) return '';
+
+        const germanTokens = new Set([
+            'der', 'die', 'das', 'und', 'ich', 'du', 'wir', 'ihr', 'nicht', 'für', 'mit', 'auf', 'bei', 'von',
+            'dem', 'den', 'des', 'ein', 'eine', 'einer', 'einem', 'mein', 'meine', 'dein', 'deine', 'sein',
+            'uns', 'euch', 'herr', 'gott', 'über', 'koenig', 'könig', 'heilig', 'leben', 'liebe', 'treu',
+            'wunder', 'immer', 'heute', 'morgen', 'himmel', 'erde', 'dich', 'mich', 'unsere', 'unser', 'deiner',
+            'gegenübersteh', 'gehört', 'alles'
+        ]);
+
+        const englishTokens = new Set([
+            'the', 'and', 'you', 'your', 'my', 'love', 'of', 'to', 'for', 'in', 'on', 'with', 'holy', 'king',
+            'lord', 'who', 'where', 'here', 'this', 'that', 'treasure', 'nothing', 'else', 'countdown',
+            'again', 'heaven', 'touch', 'open', 'awake', 'battle', 'coming', 'clouds', 'lion', 'lamb',
+            'worship', 'grace', 'hope', 'glory', 'praise', 'victory', 'how', 'great', 'name', 'high'
+        ]);
+
+        let germanScore = 0;
+        let englishScore = 0;
+
+        tokens.forEach((token) => {
+            const comparableToken = token.replace(/ae/g, 'ä').replace(/oe/g, 'ö').replace(/ue/g, 'ü');
+            if (germanTokens.has(token) || germanTokens.has(comparableToken)) germanScore += 1;
+            if (englishTokens.has(token)) englishScore += 1;
+        });
+
+        if (germanScore === 0 && englishScore === 0) {
+            return '';
+        }
+
+        if (germanScore > englishScore) return 'Deutsch';
+        if (englishScore > germanScore) return 'Englisch';
+        return '';
+    },
+
+    getDetectedSongLanguage(title = '', explicitLanguage = '') {
+        return this.inferSongLanguageFromTitle(title, explicitLanguage);
+    },
+
+    syncInferredSongLanguage(options = {}) {
+        const titleInput = document.getElementById('songTitle');
+        const languageInput = document.getElementById('songLanguage');
+        if (!titleInput || !languageInput) return;
+
+        const currentValue = String(languageInput.value || '').trim();
+        const previousAutoValue = String(this.songLanguageAutoValue || '').trim();
+        const inferredLanguage = this.inferSongLanguageFromTitle(titleInput.value, '');
+        const canOverwrite = options.force === true || !currentValue || (previousAutoValue && currentValue === previousAutoValue);
+
+        if (!inferredLanguage) {
+            if (previousAutoValue && currentValue === previousAutoValue) {
+                languageInput.value = '';
+            }
+            this.songLanguageAutoValue = '';
+            return;
+        }
+
+        if (canOverwrite) {
+            languageInput.value = inferredLanguage;
+            this.songLanguageAutoValue = inferredLanguage;
+        }
     },
 
     clearSongAutofillResults() {
@@ -5400,9 +7370,9 @@ const App = {
         }
 
         if (!titleInput || !results) return;
-        if (query.length < 4) {
+        if (query.length < 2) {
             if (!silent) {
-                UI.showToast('Bitte gib mindestens 4 Zeichen für den Titel ein.', 'info');
+                UI.showToast('Bitte gib mindestens 2 Zeichen für den Titel ein.', 'info');
             }
             this.songAutofillCandidates = [];
             this.clearSongAutofillResults();
@@ -5442,6 +7412,9 @@ const App = {
             results.innerHTML = `
                 <div class="song-autofill-list" role="listbox" aria-label="Song-Vorschläge">
                     ${candidates.map((song, index) => `
+                        ${(() => {
+                            const detectedLanguage = this.getDetectedSongLanguage(song.title, song.language);
+                            return `
                         <button type="button" class="song-autofill-option" data-song-autofill-index="${index}">
                             <span class="song-autofill-option-copy">
                                 <span class="song-autofill-option-title">${this.escapeHtml(song.title || 'Ohne Titel')}</span>
@@ -5452,9 +7425,12 @@ const App = {
                                     ${renderChip('Tonart', song.key)}
                                     ${renderChip('Orig.', song.originalKey)}
                                     ${renderChip('Time', song.timeSignature)}
+                                    ${renderChip('Sprache', detectedLanguage)}
                                 </span>
                             </span>
                         </button>
+                    `;
+                        })()}
                     `).join('')}
                 </div>
             `;
@@ -5504,6 +7480,9 @@ const App = {
         setValue('songOriginalKey', candidate.originalKey);
         setValue('songTimeSignature', candidate.timeSignature);
         setValue('songLeadVocal', candidate.leadVocal);
+        const detectedLanguage = this.getDetectedSongLanguage(candidate.title, candidate.language);
+        setValue('songLanguage', detectedLanguage);
+        this.songLanguageAutoValue = detectedLanguage || '';
 
         this.clearSongAutofillResults();
         UI.showToast('Songdaten wurden vorausgefüllt.', 'success');
@@ -5513,183 +7492,234 @@ const App = {
         const songId = document.getElementById('songId').value;
         const eventId = document.getElementById('songEventId').value;
         const bandId = document.getElementById('songBandId').value;
+        const collection = document.getElementById('songCollection')?.value || 'songs';
         const modalContext = this.lastSongModalContext || null;
         const isDraftEventSongEdit = modalContext && modalContext.origin === 'draftEventSong';
         const isEventSongEdit = modalContext && modalContext.origin === 'eventSong';
+        const isEventSongBlockCreate = modalContext && ['createEventSongBlock', 'eventSongBlock'].includes(modalContext.origin);
+        const isSongpoolSong = collection === 'songpool_songs';
         const title = document.getElementById('songTitle').value;
         const artist = document.getElementById('songArtist').value;
+        const genre = document.getElementById('songGenre').value;
         const bpm = document.getElementById('songBPM').value;
         const key = document.getElementById('songKey').value;
         const originalKey = document.getElementById('songOriginalKey').value;
         const timeSignature = document.getElementById('songTimeSignature').value;
-        const language = document.getElementById('songLanguage').value;
+        const languageInputValue = document.getElementById('songLanguage').value;
+        const language = this.getDetectedSongLanguage(title, languageInputValue);
         const tracks = document.getElementById('songTracks').value;
         const plainInfo = document.getElementById('songInfo').value;
         const ccli = document.getElementById('songCcli').value;
         const leadVocal = document.getElementById('songLeadVocal').value;
+        const visibility = this.normalizeSongpoolVisibility(document.querySelector('input[name="songVisibility"]:checked')?.value || 'public');
         const user = Auth.getCurrentUser();
 
         const pdfFileInput = document.getElementById('songPdf');
         let pdfUrl = null;
 
-        // If editing, get existing song to preserve/delete PDF
-        let existingSong = null;
-        if (songId) {
-            existingSong = await Storage.getById('songs', songId);
-            if (existingSong) pdfUrl = existingSong.pdf_url;
-        }
-
-        const currentSongState = isDraftEventSongEdit ? this.getDraftEventSong(existingSong) : existingSong;
-        if (isDraftEventSongEdit && currentSongState) {
-            pdfUrl = currentSongState.pdf_url || null;
-        }
-
-        const existingChordPro = currentSongState ? Storage.getSongChordPro(currentSongState) : '';
-
-        // Handle File Upload
-        if (pdfFileInput && pdfFileInput.files.length > 0) {
-            UI.showLoading('PDF wird hochgeladen...');
-            const file = pdfFileInput.files[0];
-            const sb = SupabaseClient.getClient();
-
-            // Delete old PDF if exists
-            if (pdfUrl && !isDraftEventSongEdit) {
-                const oldFileName = pdfUrl.split('/').pop();
-                if (oldFileName && oldFileName.startsWith('song-pdf-')) {
-                    await sb.storage.from('song-pdfs').remove([oldFileName]);
+        if (isSongpoolSong && !songId && visibility === 'public') {
+            const confirmedPublicSave = await UI.confirmAction(
+                'Öffentlich bedeutet, dass alle Nutzer von Bandmate diesen Song in ihrem Songpool einblenden können. Nur du kannst deinen eigenen Song weiterhin bearbeiten oder löschen.',
+                'Öffentlichen Song speichern?',
+                'OK, speichern',
+                'btn-primary',
+                {
+                    kicker: 'Sichtbarkeit',
+                    cancelText: 'Abbrechen'
                 }
+            );
+
+            if (!confirmedPublicSave) {
+                return;
+            }
+        }
+
+        try {
+            if (!user) {
+                throw new Error('Du musst angemeldet sein, um Songs zu speichern.');
             }
 
-            const fileExt = 'pdf';
-            const fileName = `song-pdf-${user.id}-${Date.now()}.${fileExt}`;
+            // If editing, get existing song to preserve/delete PDF
+            let existingSong = null;
+            if (songId) {
+                existingSong = isSongpoolSong
+                    ? await Storage.getSongpoolSong(songId)
+                    : await Storage.getById('songs', songId);
+                if (existingSong) pdfUrl = existingSong.pdf_url;
+            }
 
-            const { error: uploadError } = await sb.storage
-                .from('song-pdfs')
-                .upload(fileName, file, { upsert: true });
+            const currentSongState = isDraftEventSongEdit ? this.getDraftEventSong(existingSong) : existingSong;
+            if (isDraftEventSongEdit && currentSongState) {
+                pdfUrl = currentSongState.pdf_url || null;
+            }
 
-            if (uploadError) {
-                UI.hideLoading();
-                UI.showToast('Fehler beim PDF-Upload: ' + uploadError.message, 'error');
+            const existingChordPro = currentSongState ? Storage.getSongChordPro(currentSongState) : '';
+
+            // Handle File Upload
+            if (pdfFileInput && pdfFileInput.files.length > 0) {
+                UI.showLoading('PDF wird hochgeladen...');
+                const file = pdfFileInput.files[0];
+                const sb = SupabaseClient.getClient();
+
+                // Delete old PDF if exists
+                if (pdfUrl && !isDraftEventSongEdit) {
+                    const oldFileName = pdfUrl.split('/').pop();
+                    if (oldFileName && oldFileName.startsWith('song-pdf-')) {
+                        await sb.storage.from('song-pdfs').remove([oldFileName]);
+                    }
+                }
+
+                const fileExt = 'pdf';
+                const fileName = `song-pdf-${user.id}-${Date.now()}.${fileExt}`;
+
+                const { error: uploadError } = await sb.storage
+                    .from('song-pdfs')
+                    .upload(fileName, file, { upsert: true });
+
+                if (uploadError) {
+                    UI.hideLoading();
+                    UI.showToast('Fehler beim PDF-Upload: ' + uploadError.message, 'error');
+                    return;
+                }
+
+                const { data: { publicUrl } } = sb.storage
+                    .from('song-pdfs')
+                    .getPublicUrl(fileName);
+
+                pdfUrl = publicUrl;
+            }
+
+            const songData = {
+                title,
+                artist: artist || null,
+                genre: genre || null,
+                bpm: bpm ? parseInt(bpm, 10) : null,
+                key: key || null,
+                originalKey: originalKey || null,
+                timeSignature: timeSignature || null,
+                language: language || null,
+                tracks: tracks || null,
+                info: Storage.composeSongInfoWithChordPro(plainInfo, existingChordPro),
+                ccli: ccli || null,
+                leadVocal: leadVocal || null,
+                pdf_url: pdfUrl,
+                createdBy: existingSong?.createdBy || user.id
+            };
+            if (isSongpoolSong) {
+                songData.visibility = visibility;
+            }
+
+            if (pdfFileInput && pdfFileInput.files.length > 0) {
+                UI.hideLoading(); // Hide after successful upload
+            }
+
+            if (isDraftEventSongEdit && songId) {
+                this.draftEventSongOverrides[songId] = {
+                    ...(this.draftEventSongOverrides[songId] || {}),
+                    ...this.getDraftEventSongOverridePayload(songData)
+                };
+                UI.showToast('Song nur für diesen Auftritt aktualisiert', 'success');
+                UI.closeModal('songModal');
+                this.lastSongModalContext = null;
+                await this.renderDraftEventSongs();
                 return;
             }
 
-            const { data: { publicUrl } } = sb.storage
-                .from('song-pdfs')
-                .getPublicUrl(fileName);
+            // Only set one of eventId or bandId, not both
+            if (!isSongpoolSong && eventId) {
+                songData.eventId = eventId;
+            } else if (!isSongpoolSong && bandId) {
+                songData.bandId = bandId;
+            }
 
-            pdfUrl = publicUrl;
-        }
-
-        const songData = {
-            title,
-            artist,
-            bpm: bpm ? parseInt(bpm) : null,
-            key: key || null,
-            originalKey: originalKey || null,
-            timeSignature: timeSignature || null,
-            language: language || null,
-            tracks: tracks || null,
-            info: Storage.composeSongInfoWithChordPro(plainInfo, existingChordPro),
-            ccli: ccli || null,
-            leadVocal: leadVocal || null,
-            pdf_url: pdfUrl,
-            createdBy: user.id
-        };
-
-        if (pdfFileInput && pdfFileInput.files.length > 0) {
-            UI.hideLoading(); // Hide after successful upload
-        }
-
-        if (isDraftEventSongEdit && songId) {
-            this.draftEventSongOverrides[songId] = {
-                ...(this.draftEventSongOverrides[songId] || {}),
-                ...this.getDraftEventSongOverridePayload(songData)
-            };
-            UI.showToast('Song nur für diesen Auftritt aktualisiert', 'success');
-            UI.closeModal('songModal');
-            this.lastSongModalContext = null;
-            await this.renderDraftEventSongs();
-            return;
-        }
-
-        // Only set one of eventId or bandId, not both
-        if (eventId) {
-            songData.eventId = eventId;
-        } else if (bandId) {
-            songData.bandId = bandId;
-        }
-
-        if (songId) {
-            // Update existing song
-            await Storage.updateSong(songId, songData);
-            UI.showToast(isEventSongEdit ? 'Song nur für diesen Auftritt aktualisiert' : 'Song aktualisiert', 'success');
-        } else {
-            // Create new song
-            const created = await Storage.createSong(songData);
-
-            // If song was created for an event, also add to band's general setlist
-            if (created.eventId) {
-                const event = await Storage.getEvent(created.eventId);
-                if (event && event.bandId) {
-                    // Create a band version of the song (without eventId)
-                    await Storage.createSong({
-                        title: created.title,
-                        artist: created.artist,
-                        bpm: created.bpm,
-                        key: created.key,
-                        originalKey: created.originalKey,
-                        timeSignature: created.timeSignature,
-                        language: created.language,
-                        tracks: created.tracks,
-                        info: created.info,
-                        ccli: created.ccli,
-                        leadVocal: created.leadVocal,
-                        pdf_url: created.pdf_url,
-                        bandId: event.bandId,
-                        createdBy: user.id
-                    });
-                    UI.showToast('Song zu Auftritt und Band-Setlist hinzugefügt', 'success');
-
-                    // Update both event songs and band songs lists
-                    await this.renderEventSongs(created.eventId);
-                    await this.renderBandSongs(event.bandId);
+            if (songId) {
+                if (isSongpoolSong) {
+                    await Storage.updateSongpoolSong(songId, songData);
+                    UI.showToast('Songpool-Song aktualisiert', 'success');
                 } else {
-                    UI.showToast('Song hinzugefügt', 'success');
+                    // Update existing song
+                    await Storage.updateSong(songId, songData);
+                    UI.showToast(isEventSongEdit ? 'Song nur für diesen Auftritt aktualisiert' : 'Song aktualisiert', 'success');
                 }
             } else {
-                UI.showToast('Song hinzugefügt', 'success');
-                // Nach dem Hinzufügen eines Songs zur Band-Setlist sofort neu rendern
-                if (bandId) {
+                const created = isSongpoolSong
+                    ? await Storage.createSongpoolSong(songData)
+                    : await Storage.createSong(songData);
+
+                // If song was created for an event, also add to band's general setlist
+                if (!isSongpoolSong && created.eventId) {
+                    const event = await Storage.getEvent(created.eventId);
+                    if (event && event.bandId) {
+                        // Create a band version of the song (without eventId)
+                        await Storage.createSong({
+                            title: created.title,
+                            artist: created.artist,
+                            bpm: created.bpm,
+                            key: created.key,
+                            originalKey: created.originalKey,
+                            timeSignature: created.timeSignature,
+                            language: created.language,
+                            tracks: created.tracks,
+                            info: created.info,
+                            ccli: created.ccli,
+                            leadVocal: created.leadVocal,
+                            pdf_url: created.pdf_url,
+                            bandId: event.bandId,
+                            createdBy: user.id
+                        });
+                        UI.showToast('Song zu Auftritt und Band-Setlist hinzugefügt', 'success');
+
+                        // Update both event songs and band songs lists
+                        await this.renderEventSongs(created.eventId);
+                        await this.renderBandSongs(event.bandId);
+                    } else {
+                        UI.showToast('Song hinzugefügt', 'success');
+                    }
+                } else {
+                    UI.showToast(isSongpoolSong ? 'Songpool-Song hinzugefügt' : 'Song hinzugefügt', 'success');
+                    if (isSongpoolSong) {
+                        await this.renderSongpoolView();
+                    } else if (bandId) {
+                        // Nach dem Hinzufügen eines Songs zur Band-Setlist sofort neu rendern
+                        await this.renderBandSongs(bandId);
+                    }
+                }
+
+                // If this song was created from the create-event modal, add to draft list
+                if (!isSongpoolSong && isEventSongBlockCreate && modalContext?.rundownItemId) {
+                    await this.addSongsToDraftEventSongBlock(modalContext.rundownItemId, [created.id]);
+                    this.draftEventSongBlockTargetId = null;
+                } else if (!isSongpoolSong && modalContext && modalContext.origin === 'createEvent') {
+                    if (!this.draftEventSongIds.includes(created.id)) {
+                        this.draftEventSongIds.push(created.id);
+                    }
+                    this.renderDraftEventSongs();
+                }
+            }
+
+            UI.closeModal('songModal');
+            // reset last song modal context
+            this.lastSongModalContext = null;
+
+            // Refresh the appropriate list (if not already refreshed above)
+            if (songId) {
+                // For updates, refresh the current list
+                if (isSongpoolSong) {
+                    await this.renderSongpoolView();
+                } else if (eventId) {
+                    await this.renderEventSongs(eventId);
+                } else if (bandId) {
                     await this.renderBandSongs(bandId);
                 }
-            }
 
-            // If this song was created from the create-event modal, add to draft list
-            if (this.lastSongModalContext && this.lastSongModalContext.origin === 'createEvent') {
-                if (!this.draftEventSongIds.includes(created.id)) {
-                    this.draftEventSongIds.push(created.id);
+                // Also refresh draft list if applicable
+                if (modalContext && modalContext.origin === 'createEvent') {
+                    this.renderDraftEventSongs();
                 }
-                this.renderDraftEventSongs();
             }
-        }
-
-        UI.closeModal('songModal');
-        // reset last song modal context
-        this.lastSongModalContext = null;
-
-        // Refresh the appropriate list (if not already refreshed above)
-        if (songId) {
-            // For updates, refresh the current list
-            if (eventId) {
-                await this.renderEventSongs(eventId);
-            } else if (bandId) {
-                await this.renderBandSongs(bandId);
-            }
-
-            // Also refresh draft list if applicable
-            if (this.lastSongModalContext && this.lastSongModalContext.origin === 'createEvent') {
-                this.renderDraftEventSongs();
-            }
+        } catch (error) {
+            console.error('[App] handleSaveSong failed:', error);
+            UI.showToast(error.message || 'Fehler beim Speichern des Songs.', 'error');
         }
     },
 
@@ -5712,8 +7742,54 @@ const App = {
         UI.openModal('pdfPreviewModal');
     },
 
+    openChordProPreview(chordProText, title) {
+        const modal = document.getElementById('chordproPreviewModal');
+        const previewArea = document.getElementById('chordproSongPreviewArea');
+        const titleEl = document.getElementById('chordproPreviewTitle');
+        const downloadBtn = document.getElementById('chordproPreviewDownload');
+        const cleanText = typeof chordProText === 'string' ? chordProText.trim() : '';
+
+        if (!modal || !previewArea) return;
+
+        if (!cleanText) {
+            UI.showToast('Für diesen Song ist keine ChordPro-Datei hinterlegt.', 'info');
+            return;
+        }
+
+        this.cleanupChordProPreview();
+
+        if (titleEl) {
+            titleEl.textContent = title ? `${title} · ChordPro` : 'ChordPro Vorschau';
+        }
+
+        if (typeof ChordProConverter !== 'undefined' && typeof ChordProConverter.buildPreviewMarkup === 'function') {
+            previewArea.innerHTML = ChordProConverter.buildPreviewMarkup(cleanText, {
+                placeholderMessage: 'Für diesen Song ist keine ChordPro-Vorschau vorhanden.'
+            });
+        } else {
+            previewArea.innerHTML = `
+                <pre class="song-chordpro-preview-fallback">${this.escapeHtml(cleanText)}</pre>
+            `;
+        }
+
+        if (downloadBtn) {
+            const fileName = (title || 'song')
+                .replace(/[/\\?%*:|"<>]/g, '-')
+                .replace(/\s+/g, ' ')
+                .trim() || 'song';
+            const blob = new Blob([cleanText], { type: 'text/plain;charset=utf-8' });
+            const blobUrl = URL.createObjectURL(blob);
+            this.currentChordProPreviewBlobUrl = blobUrl;
+            downloadBtn.href = blobUrl;
+            downloadBtn.setAttribute('download', `${fileName}.cho`);
+        }
+
+        UI.openModal('chordproPreviewModal');
+    },
+
     async handleDeleteSongPdf() {
         const songId = document.getElementById('songId').value;
+        const collection = document.getElementById('songCollection')?.value || 'songs';
         if (!songId) return;
 
         const confirm = await UI.confirmDelete('Möchtest du das PDF wirklich entfernen?');
@@ -5722,7 +7798,10 @@ const App = {
         try {
             const modalContext = this.lastSongModalContext || null;
             const isDraftEventSongEdit = modalContext && modalContext.origin === 'draftEventSong';
-            const song = await Storage.getById('songs', songId);
+            const isSongpoolSong = collection === 'songpool_songs';
+            const song = isSongpoolSong
+                ? await Storage.getSongpoolSong(songId)
+                : await Storage.getById('songs', songId);
             const currentSong = isDraftEventSongEdit ? this.getDraftEventSong(song) : song;
 
             if (currentSong && currentSong.pdf_url) {
@@ -5751,6 +7830,13 @@ const App = {
                     return;
                 }
 
+                if (isSongpoolSong) {
+                    await Storage.updateSongpoolSong(songId, { pdf_url: null });
+                    UI.showToast('PDF aus dem Songpool entfernt', 'success');
+                    await this.renderSongpoolView();
+                    return;
+                }
+
                 await Storage.updateSong(songId, { pdf_url: null });
                 UI.showToast('PDF entfernt', 'success');
 
@@ -5767,7 +7853,7 @@ const App = {
     async renderEventSongs(eventId) {
         const container = document.getElementById('eventSongsList');
         if (!container) {
-            console.warn('eventSongsList container not found');
+            await this.renderEventRundownEditor();
             return;
         }
 
@@ -5786,6 +7872,7 @@ const App = {
 
         if ((!Array.isArray(songs) || songs.length === 0) && (!Array.isArray(bandSongs) || bandSongs.length === 0)) {
             container.innerHTML = '<div class="event-setlist-empty">Noch keine Songs hinzugefügt.</div>';
+            await this.renderEventRundownEditor();
             return;
         }
 
@@ -5797,16 +7884,16 @@ const App = {
                 <div class="event-setlist-workspace">
                 <div id="eventSongsBulkActions" class="event-setlist-bulkbar">
                     <div class="event-setlist-bulkinfo">
-                        <span>Ausgewählt:</span>
-                        <strong><span id="eventSongsSelectedCount">0</span></strong>
+                        <span class="event-setlist-bulk-label">Ausgewählt</span>
+                        <strong id="eventSongsSelectedCount">0</strong>
                     </div>
                     <div class="event-setlist-bulkactions">
-                        <button id="eventSongsBulkDelete" class="btn btn-danger btn-sm">🗑️ Auswahl löschen</button>
-                        <button id="eventSongsBulkPDF" class="btn btn-primary btn-sm">📄 Auswahl als PDF</button>
+                        <button id="eventSongsBulkDelete" class="btn btn-danger btn-sm">Auswahl löschen</button>
+                        <button id="eventSongsBulkPDF" class="btn btn-secondary btn-sm">Auswahl als PDF exportieren</button>
                     </div>
                 </div>
                 <div class="event-setlist-table-wrap">
-                <table class="songs-table event-setlist-table">
+                <table class="songs-table band-setlist-table event-setlist-table">
                     <thead>
                         <tr>
                             <th style="text-align: center; width: 40px;">Pos.</th>
@@ -5835,11 +7922,9 @@ const App = {
                                 <td style="text-align: center;" data-label="Auswählen">
                                     <input type="checkbox" class="event-song-checkbox-row" value="${song.id}">
                                 </td>
-                                <td class="event-setlist-actions-cell" style="text-align: center;" data-label="Aktionen">
+                                <td class="band-setlist-actions-cell event-setlist-actions-cell" style="text-align: center;" data-label="Aktionen">
                                     <div class="event-setlist-actions">
-                                        <button type="button" class="btn-icon edit-song" data-id="${song.id}" title="In Setlist bearbeiten" aria-label="Song in Setlist bearbeiten">
-                                            <span aria-hidden="true">✎</span>
-                                        </button>
+                                        <button type="button" class="btn-icon edit-song" data-id="${song.id}" title="In Setlist bearbeiten" aria-label="Song in Setlist bearbeiten">✏️</button>
                                         <button type="button" class="btn-icon delete-song" data-id="${song.id}" title="Löschen" aria-label="Song aus der Setlist löschen">🗑️</button>
                                     </div>
                                 </td>
@@ -5867,6 +7952,7 @@ const App = {
         }
 
         container.innerHTML = html;
+        await this.renderEventRundownEditor();
 
         // Store event songs for quick access
         this.currentEventSongs = songs || [];
@@ -6087,7 +8173,7 @@ const App = {
         });
     },
 
-    showBandSongSelector(eventId, bandSongs) {
+    showBandSongSelector(eventId, bandSongs, options = {}) {
         const songList = bandSongs.map(song => `
             <div class="song-selection-card" onclick="const cb = this.querySelector('input'); cb.checked = !cb.checked;">
                 <input type="checkbox" value="${song.id}" class="band-song-checkbox" onclick="event.stopPropagation()">
@@ -6125,8 +8211,8 @@ const App = {
                 <div class="modal-header song-pool-modal-header">
                     <div class="song-pool-title-group">
                         <span class="song-pool-kicker">Band-Pool</span>
-                        <h2>Songs aus Band-Pool wählen</h2>
-                        <p>Wähle Songs aus dem Repertoire deiner Band und füge sie gesammelt zur Setlist hinzu.</p>
+                        <h2>${this.escapeHtml(options.title || 'Songs aus Band-Pool wählen')}</h2>
+                        <p>${this.escapeHtml(options.description || 'Wähle Songs aus dem Repertoire deiner Band und füge sie gesammelt zur Setlist hinzu.')}</p>
                     </div>
                     <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
                 </div>
@@ -6155,9 +8241,13 @@ const App = {
             tempModal.remove();
         });
 
-        tempModal.querySelector('#confirmCopySongs').addEventListener('click', () => {
+        tempModal.querySelector('#confirmCopySongs').addEventListener('click', async () => {
             const selectedIds = Array.from(tempModal.querySelectorAll('.band-song-checkbox:checked')).map(cb => cb.value);
-            this.copyBandSongsToEvent(eventId, selectedIds);
+            if (typeof options.onConfirm === 'function') {
+                await options.onConfirm(selectedIds);
+            } else {
+                this.copyBandSongsToEvent(eventId, selectedIds);
+            }
             tempModal.remove();
         });
 
@@ -6170,7 +8260,7 @@ const App = {
     },
 
     // Similar to showBandSongSelector but adds selected songs to the draft for a new event
-    showBandSongSelectorForDraft(bandSongs) {
+    showBandSongSelectorForDraft(bandSongs, options = {}) {
         const songList = bandSongs.map(song => `
             <div class="song-selection-card" onclick="const cb = this.querySelector('input'); cb.checked = !cb.checked;">
                 <input type="checkbox" value="${song.id}" class="band-song-checkbox-draft" onclick="event.stopPropagation()">
@@ -6208,8 +8298,8 @@ const App = {
                 <div class="modal-header song-pool-modal-header">
                     <div class="song-pool-title-group">
                         <span class="song-pool-kicker">Band-Pool</span>
-                        <h2>Songs aus Band-Pool wählen</h2>
-                        <p>Markiere Songs aus dem Bandrepertoire und übernimm sie direkt in die neue Setlist.</p>
+                        <h2>${this.escapeHtml(options.title || 'Songs aus Band-Pool wählen')}</h2>
+                        <p>${this.escapeHtml(options.description || 'Markiere Songs aus dem Bandrepertoire und übernimm sie direkt in die neue Setlist.')}</p>
                     </div>
                     <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
                 </div>
@@ -6239,17 +8329,613 @@ const App = {
 
         tempModal.querySelector('#confirmDraftSongs').addEventListener('click', async () => {
             const selectedIds = Array.from(tempModal.querySelectorAll('.band-song-checkbox-draft:checked')).map(cb => cb.value);
-            // Merge into draft list (avoid duplicates)
-            selectedIds.forEach(id => {
-                if (!this.draftEventSongIds.includes(id)) this.draftEventSongIds.push(id);
-            });
-            await this.renderDraftEventSongs();
+            if (typeof options.onConfirm === 'function') {
+                await options.onConfirm(selectedIds);
+            } else {
+                selectedIds.forEach(id => {
+                    if (!this.draftEventSongIds.includes(id)) this.draftEventSongIds.push(id);
+                });
+                await this.renderDraftEventSongs();
+            }
             tempModal.remove();
         });
 
         tempModal.addEventListener('click', (e) => {
             if (e.target === tempModal) tempModal.remove();
         });
+    },
+
+    showSongpoolSelectorForDraft(songpoolSongs, options = {}) {
+        const songList = songpoolSongs.map(song => {
+            const isPublic = String(song.visibility || '').toLowerCase() !== 'private';
+            const icon = isPublic
+                ? `
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+                        <circle cx="12" cy="12" r="3.2"></circle>
+                    </svg>
+                `
+                : `
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 3l18 18"></path>
+                        <path d="M10.6 5.2A11.8 11.8 0 0 1 12 5c6.5 0 10 7 10 7a16.4 16.4 0 0 1-3.5 4.3"></path>
+                        <path d="M6.5 6.5A16.4 16.4 0 0 0 2 12s3.5 7 10 7a11.8 11.8 0 0 0 4.1-.7"></path>
+                        <path d="M9.9 9.9A3.2 3.2 0 0 0 12 15.2"></path>
+                    </svg>
+                `;
+
+            const visibilityBadge = `
+                <span class="songpool-visibility-badge ${isPublic ? 'is-public' : 'is-private'}" style="margin-right: 6px;">
+                    <span class="songpool-visibility-icon" style="width:12px;height:12px;margin-right:4px;display:inline-flex;">${icon}</span>
+                    <span style="font-size:0.7em;">${isPublic ? 'Öffentlich' : 'Privat'}</span>
+                </span>
+            `;
+
+            return `
+            <div class="song-selection-card" onclick="const cb = this.querySelector('input'); cb.checked = !cb.checked;">
+                <input type="checkbox" value="${song.id}" class="songpool-song-checkbox-draft" onclick="event.stopPropagation()">
+                <div class="song-card-content">
+                    <div class="song-card-title">${this.escapeHtml(song.title)}</div>
+                    <div class="song-card-artist">${this.escapeHtml(song.artist || 'Unbekannter Interpret')}</div>
+                    <div class="song-card-badges">
+                        ${visibilityBadge}
+                        ${song.bpm ? `<span class="song-badge bpm">${song.bpm} BPM</span>` : ''}
+                        ${song.key ? `<span class="song-badge key">${song.key}</span>` : ''}
+                        ${song.timeSignature ? `<span class="song-badge">${song.timeSignature}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `}).join('');
+
+        const modalContent = `
+            <div class="song-pool-modal-body">
+                <div class="song-pool-search">
+                    <input type="text" id="modalSongpoolSearchDraft" placeholder="Songpool durchsuchen..." class="modern-search-input">
+                </div>
+                <div class="modal-song-list-container song-pool-list">
+                ${songList}
+                </div>
+            </div>
+            <div class="song-pool-modal-actions">
+                <button type="button" id="cancelSongpoolDraftSongs" class="btn btn-secondary">Abbrechen</button>
+                <button type="button" id="confirmSongpoolDraftSongs" class="btn btn-primary">Ausgewählte hinzufügen</button>
+            </div>
+        `;
+
+        const tempModal = document.createElement('div');
+        tempModal.className = 'modal active';
+        tempModal.innerHTML = `
+            <div class="modal-content song-pool-modal">
+                <div class="modal-header song-pool-modal-header">
+                    <div class="song-pool-title-group">
+                        <span class="song-pool-kicker">Songpool</span>
+                        <h2>${this.escapeHtml(options.title || 'Songs aus Songpool wählen')}</h2>
+                        <p>${this.escapeHtml(options.description || 'Markiere Songs aus dem Songpool und übernimm sie direkt.')}</p>
+                    </div>
+                    <button type="button" class="modal-close songpool-modal-close" aria-label="Schließen">&times;</button>
+                </div>
+                ${modalContent}
+            </div>
+        `;
+        document.body.appendChild(tempModal);
+
+        // Add search functionality
+        const searchInput = tempModal.querySelector('#modalSongpoolSearchDraft');
+        searchInput.addEventListener('input', (e) => {
+            const term = e.target.value.toLowerCase();
+            const cards = tempModal.querySelectorAll('.song-selection-card');
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(term) ? 'flex' : 'none';
+            });
+        });
+
+        tempModal.querySelector('#cancelSongpoolDraftSongs').addEventListener('click', () => {
+            tempModal.remove();
+        });
+
+        tempModal.querySelector('.songpool-modal-close').addEventListener('click', () => {
+            tempModal.remove();
+        });
+
+        tempModal.querySelector('#confirmSongpoolDraftSongs').addEventListener('click', async () => {
+            const selectedIds = Array.from(tempModal.querySelectorAll('.songpool-song-checkbox-draft:checked')).map(cb => cb.value);
+            if (typeof options.onConfirm === 'function') {
+                await options.onConfirm(selectedIds);
+            }
+            tempModal.remove();
+        });
+
+        tempModal.addEventListener('click', (e) => {
+            if (e.target === tempModal) tempModal.remove();
+        });
+    },
+
+    openSongpoolAddEntryModal() {
+        const tempModal = document.createElement('div');
+        tempModal.className = 'modal active';
+        tempModal.innerHTML = `
+            <div class="modal-content song-pool-modal songpool-add-choice-modal">
+                <div class="modal-header song-pool-modal-header">
+                    <div class="song-pool-title-group">
+                        <span class="song-pool-kicker">Songpool</span>
+                        <h2>Song hinzufügen</h2>
+                        <p>Wähle, ob du einen Song direkt neu anlegen oder einen bestehenden Song aus einer deiner Bands in den Songpool übernehmen möchtest.</p>
+                    </div>
+                    <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
+                </div>
+                <div class="songpool-add-choice-body">
+                    <button type="button" class="songpool-add-choice-card" data-action="manual">
+                        <span class="songpool-add-choice-chip">Direkt erstellen</span>
+                        <strong>Neuen Song hinzufügen</strong>
+                        <span>Öffne den bestehenden Song-Editor und lege Titel, Metadaten, PDF und Sichtbarkeit wie bisher manuell an.</span>
+                    </button>
+                    <button type="button" class="songpool-add-choice-card" data-action="bandpool">
+                        <span class="songpool-add-choice-chip">Aus bestehendem Repertoire</span>
+                        <strong>Song aus Bandpool hinzufügen</strong>
+                        <span>Wähle zuerst eine deiner Bands und markiere dann Songs aus der Setlist, die du in deinen Songpool übernehmen möchtest.</span>
+                    </button>
+                </div>
+                <div class="song-pool-modal-actions songpool-add-choice-actions">
+                    <button type="button" class="btn btn-secondary" data-action="cancel">Abbrechen</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(tempModal);
+        document.body.classList.add('modal-open');
+        document.documentElement.classList.add('modal-open');
+
+        const closeModal = () => {
+            document.removeEventListener('keydown', handleEscape);
+            tempModal.remove();
+            if (document.querySelectorAll('.modal.active').length === 0) {
+                document.body.classList.remove('modal-open');
+                document.documentElement.classList.remove('modal-open');
+            }
+        };
+
+        const handleEscape = (event) => {
+            if (event.key === 'Escape') {
+                closeModal();
+            }
+        };
+
+        document.addEventListener('keydown', handleEscape);
+
+        tempModal.querySelector('[data-action="cancel"]').addEventListener('click', closeModal);
+        tempModal.querySelector('.song-pool-close').addEventListener('click', closeModal);
+
+        tempModal.querySelector('[data-action="manual"]').addEventListener('click', () => {
+            closeModal();
+            this.lastSongModalContext = {
+                origin: 'songpool',
+                collection: 'songpool_songs',
+                defaultVisibility: 'public'
+            };
+            this.openSongModal(null, null, null);
+        });
+
+        tempModal.querySelector('[data-action="bandpool"]').addEventListener('click', async () => {
+            closeModal();
+            await this.openSongpoolBandImportModal();
+        });
+
+        tempModal.addEventListener('click', (event) => {
+            if (event.target === tempModal) {
+                closeModal();
+            }
+        });
+    },
+
+    async openSongpoolBandImportModal() {
+        const user = Auth.getCurrentUser();
+        if (!user) {
+            UI.showToast('Du musst angemeldet sein, um Songs aus dem Bandpool zu übernehmen.', 'error');
+            return;
+        }
+
+        UI.showLoading('Band-Songs werden geladen...');
+
+        try {
+            const bands = (await Storage.getUserBands(user.id) || [])
+                .filter(Boolean)
+                .sort((left, right) => String(left.name || '').localeCompare(String(right.name || ''), 'de'));
+
+            if (!bands.length) {
+                UI.hideLoading();
+                UI.showToast('Du bist aktuell in keiner Band.', 'info');
+                return;
+            }
+
+            const bandEntries = await Promise.all(bands.map(async (band) => {
+                const songs = (await Storage.getBandSongs(band.id) || [])
+                    .filter(song => !!song && !!song.title)
+                    .sort((left, right) => String(left.title || '').localeCompare(String(right.title || ''), 'de'));
+
+                return { band, songs };
+            }));
+
+            UI.hideLoading();
+
+            if (!bandEntries.some((entry) => entry.songs.length > 0)) {
+                UI.showToast('In deinen Bands sind noch keine Songs vorhanden.', 'info');
+                return;
+            }
+
+            const tempModal = document.createElement('div');
+            tempModal.className = 'modal active';
+            tempModal.innerHTML = `
+                <div class="modal-content song-pool-modal songpool-band-import-modal">
+                    <div class="modal-header song-pool-modal-header">
+                        <div class="song-pool-title-group">
+                            <span class="song-pool-kicker">Songpool</span>
+                            <h2>Song aus Bandpool hinzufügen</h2>
+                            <p>Wähle eine Band und markiere die Songs, die du in deinen Songpool übernehmen möchtest.</p>
+                        </div>
+                        <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
+                    </div>
+                    <div class="song-pool-modal-body songpool-band-import-body">
+                        <div class="songpool-band-import-toolbar">
+                            <div class="songpool-band-select-wrapper">
+                                <select id="songpoolBandSelect" class="modern-select"></select>
+                            </div>
+                            <div class="song-pool-search">
+                                <input type="text" id="songpoolBandSearch" placeholder="Band-Songs durchsuchen..." class="modern-search-input">
+                            </div>
+                            <div class="songpool-band-import-status">
+                                <strong id="songpoolBandSelectedCount">0</strong>
+                                <span>ausgewählt</span>
+                            </div>
+                        </div>
+                        <div class="songpool-band-select-all-row">
+                            <label class="select-all-label">
+                                <input type="checkbox" id="songpoolSelectAllVisible">
+                                <span>Alle sichtbaren auswählen</span>
+                            </label>
+                            <div id="songpoolBandMeta" class="songpool-band-import-meta"></div>
+                        </div>
+                        <div id="songpoolBandSongList" class="modal-song-list-container song-pool-list songpool-band-song-list"></div>
+                        <div class="songpool-band-import-visibility-settings">
+                            <div class="songpool-band-import-visibility-head">
+                                <span class="songpool-band-import-visibility-icon" aria-hidden="true">👁️</span>
+                                <strong>Sichtbarkeit der übernommenen Songs</strong>
+                            </div>
+                            <div class="songpool-band-import-visibility-options">
+                                <label class="songpool-band-import-visibility-option">
+                                    <input type="radio" name="importVisibility" value="private">
+                                    <div>
+                                        <div class="songpool-band-import-visibility-title">Privat</div>
+                                        <div class="songpool-band-import-visibility-copy">Nur du kannst diese Songs in deinem Songpool sehen.</div>
+                                    </div>
+                                </label>
+                                <label class="songpool-band-import-visibility-option">
+                                    <input type="radio" name="importVisibility" value="public" checked>
+                                    <div>
+                                        <div class="songpool-band-import-visibility-title">Öffentlich</div>
+                                        <div class="songpool-band-import-visibility-copy">Andere Nutzer können deine Songs sehen und ebenfalls importieren.</div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="song-pool-modal-actions">
+                        <button type="button" class="btn btn-secondary" data-action="cancel">Abbrechen</button>
+                        <button type="button" class="btn btn-primary" id="confirmSongpoolBandImport" disabled>Song hinzufügen</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(tempModal);
+            document.body.classList.add('modal-open');
+            document.documentElement.classList.add('modal-open');
+
+            const bandSelect = tempModal.querySelector('#songpoolBandSelect');
+            const metaContainer = tempModal.querySelector('#songpoolBandMeta');
+            const songsContainer = tempModal.querySelector('#songpoolBandSongList');
+            const searchInput = tempModal.querySelector('#songpoolBandSearch');
+            const selectAllCheckbox = tempModal.querySelector('#songpoolSelectAllVisible');
+            const confirmButton = tempModal.querySelector('#confirmSongpoolBandImport');
+            const selectedCountLabel = tempModal.querySelector('#songpoolBandSelectedCount');
+            const selectedSongIds = new Set();
+            let activeBandId = String((bandEntries.find((entry) => entry.songs.length > 0) || bandEntries[0]).band.id);
+
+            const closeModal = () => {
+                document.removeEventListener('keydown', handleEscape);
+                tempModal.remove();
+                if (document.querySelectorAll('.modal.active').length === 0) {
+                    document.body.classList.remove('modal-open');
+                    document.documentElement.classList.remove('modal-open');
+                }
+            };
+
+            const handleEscape = (event) => {
+                if (event.key === 'Escape') {
+                    closeModal();
+                }
+            };
+
+            document.addEventListener('keydown', handleEscape);
+
+            const normalizeSearch = (value) => String(value || '').trim().toLowerCase();
+            const getActiveEntry = () => bandEntries.find((entry) => String(entry.band.id) === String(activeBandId)) || bandEntries[0];
+
+            const updateConfirmState = () => {
+                const selectedCount = selectedSongIds.size;
+                selectedCountLabel.textContent = String(selectedCount);
+                confirmButton.disabled = selectedCount === 0;
+                confirmButton.textContent = selectedCount === 0
+                    ? 'Song hinzufügen'
+                    : `${selectedCount} Song${selectedCount === 1 ? '' : 's'} hinzufügen`;
+            };
+
+            const renderBandSelect = () => {
+                bandSelect.innerHTML = bandEntries.map((entry) => `
+                    <option value="${entry.band.id}" ${String(entry.band.id) === String(activeBandId) ? 'selected' : ''}>
+                        ${this.escapeHtml(entry.band.name || 'Band')} (${entry.songs.length})
+                    </option>
+                `).join('');
+
+                bandSelect.addEventListener('change', () => {
+                    activeBandId = bandSelect.value;
+                    renderSongs();
+                });
+            };
+
+            const renderSongs = () => {
+                const activeEntry = getActiveEntry();
+                const activeSongs = Array.isArray(activeEntry?.songs) ? activeEntry.songs : [];
+                const searchTerm = normalizeSearch(searchInput.value);
+                const visibleSongs = searchTerm
+                    ? activeSongs.filter((song) => {
+                        const searchable = [
+                            song.title,
+                            song.artist,
+                            song.key,
+                            song.timeSignature,
+                            song.leadVocal,
+                            song.language,
+                            song.ccli,
+                            this.getSongInfoDisplay(song)
+                        ].join(' ').toLowerCase();
+                        return searchable.includes(searchTerm);
+                    })
+                    : activeSongs;
+
+                metaContainer.innerHTML = `
+                    <strong>${this.escapeHtml(activeEntry?.band?.name || 'Band')}</strong>
+                    <span>${activeSongs.length} Song${activeSongs.length === 1 ? '' : 's'} im Bandpool</span>
+                `;
+
+                if (!visibleSongs.length) {
+                    songsContainer.innerHTML = `
+                        <div class="songpool-band-import-empty">
+                            <strong>Keine Songs gefunden</strong>
+                            <span>${searchTerm ? 'Passe deine Suche an oder wechsle zu einer anderen Band.' : 'Für diese Band sind aktuell noch keine Songs hinterlegt.'}</span>
+                        </div>
+                    `;
+                    updateConfirmState();
+                    return;
+                }
+
+                songsContainer.innerHTML = visibleSongs.map((song) => `
+                    <label class="song-selection-card songpool-band-song-card">
+                        <input
+                            type="checkbox"
+                            value="${song.id}"
+                            class="songpool-band-song-checkbox"
+                            ${selectedSongIds.has(String(song.id)) ? 'checked' : ''}
+                        >
+                        <div class="song-card-content">
+                            <div class="song-card-title">${this.escapeHtml(song.title)}</div>
+                            <div class="song-card-artist">${this.escapeHtml(song.artist || 'Unbekannter Interpret')}</div>
+                            <div class="song-card-badges">
+                                ${song.bpm ? `<span class="song-badge bpm">${song.bpm} BPM</span>` : ''}
+                                ${song.key ? `<span class="song-badge key">${this.escapeHtml(song.key)}</span>` : ''}
+                                ${song.timeSignature ? `<span class="song-badge">${this.escapeHtml(song.timeSignature)}</span>` : ''}
+                                ${song.language ? `<span class="song-badge">${this.escapeHtml(song.language)}</span>` : ''}
+                            </div>
+                        </div>
+                    </label>
+                `).join('');
+
+                // Update "Select All" checkbox state
+                if (visibleSongs.length > 0) {
+                    const allVisibleSelected = visibleSongs.every(song => selectedSongIds.has(String(song.id)));
+                    const someVisibleSelected = visibleSongs.some(song => selectedSongIds.has(String(song.id)));
+                    selectAllCheckbox.checked = allVisibleSelected;
+                    selectAllCheckbox.indeterminate = someVisibleSelected && !allVisibleSelected;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                }
+
+                songsContainer.querySelectorAll('.songpool-band-song-checkbox').forEach((checkbox) => {
+                    checkbox.addEventListener('change', () => {
+                        const songId = String(checkbox.value);
+                        if (checkbox.checked) {
+                            selectedSongIds.add(songId);
+                        } else {
+                            selectedSongIds.delete(songId);
+                        }
+                        
+                        // Update Select All state after individual change
+                        const stillAllSelected = visibleSongs.every(s => selectedSongIds.has(String(s.id)));
+                        const stillSomeSelected = visibleSongs.some(s => selectedSongIds.has(String(s.id)));
+                        selectAllCheckbox.checked = stillAllSelected;
+                        selectAllCheckbox.indeterminate = stillSomeSelected && !stillAllSelected;
+                        
+                        updateConfirmState();
+                    });
+                });
+
+                updateConfirmState();
+            };
+
+            // Select All logic
+            selectAllCheckbox.addEventListener('change', () => {
+                const activeEntry = getActiveEntry();
+                const activeSongs = Array.isArray(activeEntry?.songs) ? activeEntry.songs : [];
+                const searchTerm = normalizeSearch(searchInput.value);
+                const visibleSongs = searchTerm
+                    ? activeSongs.filter((song) => {
+                        const searchable = [
+                            song.title,
+                            song.artist,
+                            song.key,
+                            song.timeSignature,
+                            song.leadVocal,
+                            song.language,
+                            song.ccli,
+                            this.getSongInfoDisplay(song)
+                        ].join(' ').toLowerCase();
+                        return searchable.includes(searchTerm);
+                    })
+                    : activeSongs;
+
+                if (selectAllCheckbox.checked) {
+                    visibleSongs.forEach(song => selectedSongIds.add(String(song.id)));
+                } else {
+                    visibleSongs.forEach(song => selectedSongIds.delete(String(song.id)));
+                }
+                renderSongs();
+            });
+
+            renderBandSelect();
+            renderSongs();
+
+            tempModal.querySelector('[data-action="cancel"]').addEventListener('click', closeModal);
+            tempModal.querySelector('.song-pool-close').addEventListener('click', closeModal);
+
+            confirmButton.addEventListener('click', async () => {
+                const selectedIds = Array.from(selectedSongIds);
+                if (!selectedIds.length) return;
+                
+                const visibility = tempModal.querySelector('input[name="importVisibility"]:checked')?.value || 'public';
+                
+                closeModal();
+                await this.copyBandSongsToSongpool(selectedIds, visibility);
+            });
+
+            searchInput.addEventListener('input', () => {
+                renderSongs();
+            });
+
+            tempModal.addEventListener('click', (event) => {
+                if (event.target === tempModal) {
+                    closeModal();
+                }
+            });
+        } catch (error) {
+            UI.hideLoading();
+            console.error('[Songpool] Band import modal could not be opened:', error);
+            UI.showToast(error.message || 'Band-Songs konnten nicht geladen werden.', 'error');
+        }
+    },
+
+    async copyBandSongsToSongpool(songIds, visibility = 'private') {
+        const user = Auth.getCurrentUser();
+        if (!user) {
+            UI.showToast('Du musst angemeldet sein, um Songs in den Songpool zu übernehmen.', 'error');
+            return;
+        }
+
+        const uniqueSongIds = Array.from(new Set((Array.isArray(songIds) ? songIds : []).map((songId) => String(songId)).filter(Boolean)));
+        if (!uniqueSongIds.length) {
+            UI.showToast('Bitte wähle mindestens einen Song aus.', 'info');
+            return;
+        }
+
+        const normalizeComparableValue = (value) => String(value || '')
+            .trim()
+            .toLocaleLowerCase('de-DE')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '');
+        const buildSignature = (song) => `${normalizeComparableValue(song?.title)}::${normalizeComparableValue(song?.artist)}`;
+
+        let createdCount = 0;
+        let skippedCount = 0;
+        let errorCount = 0;
+
+        try {
+            const existingOwnSongs = await Storage.getSongpoolSongs(user.id, { includePublic: false });
+            const existingSignatures = new Set((existingOwnSongs || []).map(buildSignature));
+
+            UI.showLoading(`Songs werden übernommen (0/${uniqueSongIds.length})...`);
+
+            for (let index = 0; index < uniqueSongIds.length; index++) {
+                const songId = uniqueSongIds[index];
+                UI.showLoading(`Songs werden übernommen (${index + 1}/${uniqueSongIds.length})...`);
+
+                try {
+                    const bandSong = await Storage.getById('songs', songId);
+                    if (!bandSong || !bandSong.title) {
+                        errorCount++;
+                        continue;
+                    }
+
+                    const signature = buildSignature(bandSong);
+                    if (existingSignatures.has(signature)) {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    await Storage.createSongpoolSong({
+                        title: bandSong.title,
+                        artist: bandSong.artist || null,
+                        bpm: bandSong.bpm || null,
+                        timeSignature: bandSong.timeSignature || null,
+                        key: bandSong.key || null,
+                        originalKey: bandSong.originalKey || null,
+                        leadVocal: bandSong.leadVocal || null,
+                        language: bandSong.language || null,
+                        tracks: bandSong.tracks || null,
+                        info: bandSong.info || null,
+                        ccli: bandSong.ccli || null,
+                        pdf_url: bandSong.pdf_url || null,
+                        visibility: visibility,
+                        createdBy: user.id
+                    });
+
+                    existingSignatures.add(signature);
+                    createdCount++;
+                } catch (error) {
+                    console.error('[Songpool] Band song could not be copied:', error);
+                    errorCount++;
+                }
+            }
+        } catch (error) {
+            console.error('[Songpool] Band songs could not be copied to songpool:', error);
+            UI.showToast(error.message || 'Band-Songs konnten nicht in den Songpool übernommen werden.', 'error');
+            return;
+        } finally {
+            UI.hideLoading();
+        }
+
+        if (createdCount > 0) {
+            await this.renderSongpoolView();
+        }
+
+        if (createdCount > 0 && skippedCount === 0 && errorCount === 0) {
+            UI.showToast(`${createdCount} Song${createdCount === 1 ? '' : 's'} zum Songpool hinzugefügt`, 'success');
+            return;
+        }
+
+        if (createdCount === 0 && skippedCount > 0 && errorCount === 0) {
+            UI.showToast('Die ausgewählten Songs sind bereits in deinem Songpool vorhanden.', 'info');
+            return;
+        }
+
+        if (createdCount > 0 || skippedCount > 0) {
+            const parts = [];
+            if (createdCount > 0) parts.push(`${createdCount} hinzugefügt`);
+            if (skippedCount > 0) parts.push(`${skippedCount} bereits vorhanden`);
+            if (errorCount > 0) parts.push(`${errorCount} fehlgeschlagen`);
+            UI.showToast(`Songpool aktualisiert: ${parts.join(', ')}`, errorCount > 0 ? 'warning' : 'success');
+            return;
+        }
+
+        UI.showToast('Die ausgewählten Songs konnten nicht übernommen werden.', 'error');
     },
 
     async copyBandSongsToEvent(eventId, songIds) {
@@ -6292,6 +8978,7 @@ const App = {
     async syncEventSongs(eventId, draftSongIds) {
         const user = Auth.getCurrentUser();
         const overrides = this.draftEventSongOverrides || {};
+        const songIdMap = new Map();
 
         const getOverridePayload = (songId) => {
             const override = overrides[songId];
@@ -6348,6 +9035,7 @@ const App = {
                 const overridePayload = getOverridePayload(songId);
                 if (overridePayload) Object.assign(updatePayload, overridePayload);
                 await Storage.updateSong(songId, updatePayload);
+                songIdMap.set(String(songId), String(songId));
             } else {
                 // It's a NEW song (Band Song ID) to be added
                 const bandSong = await Storage.getById('songs', songId);
@@ -6373,10 +9061,16 @@ const App = {
                         createdBy: user.id
                     };
                     if (overridePayload) Object.assign(eventSong, overridePayload);
-                    await Storage.createSong(eventSong);
+                    const createdEventSong = await Storage.createSong(eventSong);
+                    if (createdEventSong?.id) {
+                        songIdMap.set(String(songId), String(createdEventSong.id));
+                    }
                 }
             }
         }
+
+        this.remapDraftEventRundownSongIds(songIdMap);
+        return songIdMap;
     },
 
     async renderBandSongs(bandId) {
@@ -6450,7 +9144,7 @@ const App = {
                     <td style="padding: var(--spacing-sm);" data-label="Sprache">${song.language || '-'}</td>
                     <td style="padding: var(--spacing-sm);" data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
                     <td style="padding: var(--spacing-sm); text-align: center;" data-label="PDF">
-                        ${song.pdf_url ? `<button type="button" class="btn-icon" title="PDF öffnen" onclick="App.openPdfPreview('${song.pdf_url}', '${this.escapeHtml(song.title)}')">📄</button>` : '-'}
+                        ${this.renderSongDocumentPreviewButtons(song)}
                     </td>
                     <td style="padding: var(--spacing-sm); font-size: 0.9em;" data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
                     <td style="padding: var(--spacing-sm); font-family: monospace; font-size: 0.9em;" data-label="CCLI">${song.ccli || '-'}</td>
@@ -6582,6 +9276,9 @@ const App = {
             this.downloadSongListPDF(this.currentBandSongs || [], `Gesamtsetlist der Band ${bandName}`, 'Repertoire Export', true);
         });
 
+        const bandSongLookup = new Map((this.currentBandSongs || []).map((song) => [String(song.id), song]));
+        this.attachSongDocumentPreviewHandlers(container, bandSongLookup);
+
         // CSV Import
         const csvUpload = document.getElementById('csvSongUpload');
         if (csvUpload) {
@@ -6696,6 +9393,567 @@ const App = {
         attachSongListeners();
     },
 
+    async renderSongpoolView() {
+        const container = document.getElementById('songpoolList');
+        if (!container) return;
+
+        const user = Auth.getCurrentUser();
+        if (!user) return;
+        const isAdmin = Auth.isAdmin();
+
+        const showPublicSongs = this.getSongpoolShowPublicPreference();
+        const previousSearchInput = document.getElementById('songpoolSongSearch');
+        const searchInputValue = previousSearchInput?.value || '';
+        const searchTerm = searchInputValue.toLowerCase();
+        const shouldRestoreSearchFocus = document.activeElement === previousSearchInput;
+        const previousSelectionStart = previousSearchInput?.selectionStart;
+        const previousSelectionEnd = previousSearchInput?.selectionEnd;
+
+        let songs = [];
+        try {
+            songs = await Storage.getSongpoolSongs(user.id, {
+                includePublic: showPublicSongs
+            });
+        } catch (error) {
+            console.error('[Songpool] View could not be rendered:', error);
+            container.innerHTML = `
+                <div class="empty-state">
+                    <p>Der Songpool konnte gerade nicht geladen werden.</p>
+                    <p class="empty-state-note">${this.escapeHtml(error.message || 'Bitte prüfe die Verbindung oder richte zuerst die Songpool-Tabelle ein.')}</p>
+                </div>
+            `;
+            return;
+        }
+
+        songs = (Array.isArray(songs) ? songs : []).map((song) => ({
+            ...song,
+            visibility: this.normalizeSongpoolVisibility(song.visibility),
+            isOwner: String(song.createdBy) === String(user.id),
+            canManage: isAdmin || String(song.createdBy) === String(user.id)
+        }));
+
+        if (searchTerm) {
+            songs = songs.filter((song) =>
+                (song.title || '').toLowerCase().includes(searchTerm) ||
+                (song.artist || '').toLowerCase().includes(searchTerm) ||
+                Storage.getSongPlainInfo(song).toLowerCase().includes(searchTerm) ||
+                (song.ccli || '').toLowerCase().includes(searchTerm)
+            );
+        }
+
+        if (this.songpoolSongSort.direction !== 'none') {
+            const field = this.songpoolSongSort.field;
+            const direction = this.songpoolSongSort.direction === 'asc' ? 1 : -1;
+
+            songs.sort((left, right) => {
+                let leftValue = left[field] || '';
+                let rightValue = right[field] || '';
+
+                if (field === 'bpm') {
+                    leftValue = parseInt(leftValue, 10) || 0;
+                    rightValue = parseInt(rightValue, 10) || 0;
+                } else {
+                    leftValue = String(leftValue || '').toLowerCase();
+                    rightValue = String(rightValue || '').toLowerCase();
+                }
+
+                if (leftValue < rightValue) return -1 * direction;
+                if (leftValue > rightValue) return 1 * direction;
+                return 0;
+            });
+        }
+
+        const ownSongCount = songs.filter((song) => song.isOwner).length;
+        const sharedSongCount = songs.filter((song) => !song.isOwner && song.visibility === 'public').length;
+        const intro = "Persönlicher Songpool mit PDF- und ChordPro-Import.";
+        const status = showPublicSongs
+            ? (sharedSongCount > 0 ? `${ownSongCount} eigene + ${sharedSongCount} öffentliche Songs.` : `${ownSongCount} eigene Songs. Öffentliche Songs erscheinen automatisch.`)
+            : `${ownSongCount} eigene Songs. Nutze den Schalter für öffentliche Songs.`;
+        const adminNote = isAdmin ? ' Als Admin kannst du sichtbare Songs weiterhin bearbeiten und löschen.' : '';
+        const description = `${intro} ${status}${adminNote}`;
+
+        const getSortClass = (field) => {
+            if (this.songpoolSongSort.field !== field) return '';
+            return this.songpoolSongSort.direction === 'asc' ? 'sort-asc' : (this.songpoolSongSort.direction === 'desc' ? 'sort-desc' : '');
+        };
+
+        const getVisibilityBadge = (song) => {
+            const isPublic = this.normalizeSongpoolVisibility(song.visibility) === 'public';
+            const tooltipText = isPublic
+                ? 'Öffentlich: Andere Bandmate-Nutzer können diesen Song sehen und in ihren Songpool übernehmen.'
+                : 'Privat: Dieser Song ist nur für dich in deinem Songpool sichtbar.';
+            const icon = isPublic
+                ? `
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path>
+                        <circle cx="12" cy="12" r="3.2"></circle>
+                    </svg>
+                `
+                : `
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M3 3l18 18"></path>
+                        <path d="M10.6 5.2A11.8 11.8 0 0 1 12 5c6.5 0 10 7 10 7a16.4 16.4 0 0 1-3.5 4.3"></path>
+                        <path d="M6.5 6.5A16.4 16.4 0 0 0 2 12s3.5 7 10 7a11.8 11.8 0 0 0 4.1-.7"></path>
+                        <path d="M9.9 9.9A3.2 3.2 0 0 0 12 15.2"></path>
+                    </svg>
+                `;
+            return `
+                <span
+                    class="songpool-visibility-badge ${isPublic ? 'is-public' : 'is-private'}"
+                    title="${this.escapeHtml(tooltipText)}"
+                    aria-label="${this.escapeHtml(tooltipText)}"
+                >
+                    <span class="songpool-visibility-icon">${icon}</span>
+                    <span>${isPublic ? 'Öffentlich' : 'Privat'}</span>
+                </span>
+            `;
+        };
+
+        const tableRows = songs.length > 0
+            ? songs.map((song) => `
+                <tr class="${song.isOwner ? '' : 'songpool-row-shared'}" style="border-bottom: 1px solid var(--color-border);">
+                    <td style="padding: var(--spacing-sm); text-align: center;" data-label="Auswählen">
+                        <input
+                            type="checkbox"
+                            class="songpool-song-checkbox-row"
+                            value="${song.id}"
+                            title="${song.canManage ? 'Song auswählen' : 'Für den PDF-Export auswählbar. Bearbeiten und Löschen bleiben gesperrt.'}"
+                        >
+                    </td>
+                    <td class="band-setlist-actions-cell" style="padding: var(--spacing-sm); text-align: center;" data-label="Aktionen">
+                        ${song.canManage ? `
+                            <div style="display: flex; gap: 8px; justify-content: center;">
+                                <button class="btn-icon edit-songpool-song" data-id="${song.id}" title="Bearbeiten">✏️</button>
+                                <button class="btn-icon delete-songpool-song" data-id="${song.id}" title="Löschen">🗑️</button>
+                            </div>
+                        ` : `
+                            <div
+                                class="songpool-readonly-cell"
+                                title="Dieser Song wurde nicht von dir erstellt. Du kannst nur eigene Songs bearbeiten oder löschen."
+                                aria-label="Dieser Song wurde nicht von dir erstellt. Du kannst nur eigene Songs bearbeiten oder löschen."
+                            >—</div>
+                        `}
+                    </td>
+                    <td style="padding: var(--spacing-sm);" data-label="Sichtbar">${getVisibilityBadge(song)}</td>
+                    <td style="padding: var(--spacing-sm); white-space: nowrap;" data-label="Titel">${this.escapeHtml(song.title)}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Genre">${this.escapeHtml(song.genre || '-')}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="BPM">${song.bpm || '-'}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Time">${song.timeSignature || '-'}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Tonart">${song.key || '-'}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Sprache">${song.language || '-'}</td>
+                    <td style="padding: var(--spacing-sm); text-align: center;" data-label="PDF">
+                        ${this.renderSongDocumentPreviewButtons(song)}
+                    </td>
+                    <td style="padding: var(--spacing-sm); font-family: monospace; font-size: 0.9em;" data-label="CCLI">${song.ccli || '-'}</td>
+                </tr>
+            `).join('')
+            : `<tr><td colspan="12" style="padding: var(--spacing-xl); text-align: center; color: var(--color-text-light);">${searchTerm ? 'Keine Songs gefunden.' : 'Noch keine Songs im Songpool.'}</td></tr>`;
+
+        this.currentSongpoolSongs = songs;
+
+        container.innerHTML = `
+        <div class="band-setlist-workspace songpool-workspace">
+            <div class="band-setlist-toolbar songpool-toolbar">
+                <div class="band-setlist-toolbar-top">
+                    <div class="band-setlist-titleblock">
+                        <span class="band-setlist-kicker">Studio</span>
+                        <h3>Songpool <span class="band-setlist-count">(${this.currentSongpoolSongs.length})</span></h3>
+                        <p class="band-setlist-description">${this.escapeHtml(description)}</p>
+                    </div>
+                    <div class="band-setlist-toolbar-actions">
+                        <button class="btn btn-secondary btn-sm" id="songpoolExportPDF" title="Sichtbare Songs als PDF">
+                            <img src="images/pdf-download.png" class="btn-icon-img" alt="PDF icon"><span class="btn-text-mobile-hide">Als PDF herunterladen</span>
+                        </button>
+                        <input type="file" id="songpoolFileUpload" accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf" multiple style="display: none;">
+                        <button id="songpoolImportBtn" class="btn btn-secondary btn-sm" title="PDFs oder ChordPro-Dateien importieren">
+                            <img src="images/pdf-download.png" class="btn-icon-img" alt="Import icon"><span class="btn-text-mobile-hide">PDF / ChordPro import</span>
+                        </button>
+                        <button id="addSongpoolSongBtn" class="btn btn-primary btn-sm">+ Song hinzufügen</button>
+                    </div>
+                </div>
+                <div class="band-setlist-toolbar-main songpool-toolbar-main">
+                    <div class="search-wrapper band-setlist-search">
+                        <span class="search-icon">🔍</span>
+                        <input type="text" id="songpoolSongSearch" placeholder="Songpool durchsuchen..." class="modern-search-input" value="${this.escapeHtml(searchInputValue)}">
+                    </div>
+                    <div class="songpool-visibility-toggle">
+                        <label class="toggle-switch" for="songpoolShowPublicToggle">
+                            <input type="checkbox" id="songpoolShowPublicToggle"${showPublicSongs ? ' checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <label for="songpoolShowPublicToggle" class="toggle-label">Öffentliche Songs anzeigen</label>
+                    </div>
+                </div>
+            </div>
+
+            <div id="songpoolBulkActions" class="band-setlist-bulkbar" style="display: none;">
+                <div class="band-setlist-bulkinfo">
+                    <span class="band-setlist-bulk-label">Ausgewählt</span>
+                    <strong id="songpoolSelectedCount">0</strong>
+                </div>
+                <div class="band-setlist-bulkactions">
+                    <button id="songpoolBulkDelete" class="btn btn-danger btn-sm">Auswahl löschen</button>
+                    <button id="songpoolBulkPDF" class="btn btn-secondary btn-sm">Auswahl als PDF exportieren</button>
+                </div>
+            </div>
+
+            <div class="band-setlist-table-wrap">
+                <table class="songs-table band-setlist-table songpool-table" style="width: 100%; border-collapse: collapse; margin-top: var(--spacing-md);">
+                    <thead>
+                        <tr style="border-bottom: 2px solid var(--color-border);">
+                            <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">
+                                <input type="checkbox" id="selectAllSongpoolSongs">
+                            </th>
+                            <th style="padding: var(--spacing-sm); text-align: center; width: 108px;">Aktionen</th>
+                            <th class="sortable-header songpool-col-visibility ${getSortClass('visibility')}" data-field="visibility" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Sichtbar</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-title ${getSortClass('title')}" data-field="title" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Titel</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-artist ${getSortClass('artist')}" data-field="artist" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Interpret</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-genre ${getSortClass('genre')}" data-field="genre" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Genre</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-bpm ${getSortClass('bpm')}" data-field="bpm" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">BPM</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-time ${getSortClass('timeSignature')}" data-field="timeSignature" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Time</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-key ${getSortClass('key')}" data-field="key" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Tonart</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-language ${getSortClass('language')}" data-field="language" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Sprache</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th style="padding: var(--spacing-sm); text-align: center;">PDF</th>
+                            <th class="sortable-header sortable-col-ccli ${getSortClass('ccli')}" data-field="ccli" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">CCLI</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="songpoolTableBody">
+                        ${tableRows}
+                    </tbody>
+                </table>
+            </div>
+            <div id="songpoolScrollbarDock" class="band-setlist-scrollbar-dock songpool-scrollbar-dock" aria-hidden="true">
+                <div id="songpoolScrollbar" class="band-setlist-scrollbar-top songpool-scrollbar-top">
+                    <div id="songpoolScrollbarInner" class="band-setlist-scrollbar-top-inner songpool-scrollbar-top-inner"></div>
+                </div>
+            </div>
+        </div>
+        `;
+
+        this.setupSongpoolHorizontalScroll(container);
+
+        container.querySelectorAll('.sortable-header').forEach((header) => {
+            header.addEventListener('click', () => {
+                const field = header.dataset.field;
+                if (this.songpoolSongSort.field === field) {
+                    if (this.songpoolSongSort.direction === 'asc') this.songpoolSongSort.direction = 'desc';
+                    else if (this.songpoolSongSort.direction === 'desc') this.songpoolSongSort.direction = 'none';
+                    else this.songpoolSongSort.direction = 'asc';
+                } else {
+                    this.songpoolSongSort.field = field;
+                    this.songpoolSongSort.direction = 'asc';
+                }
+                this.renderSongpoolView();
+            });
+        });
+
+        const searchInput = document.getElementById('songpoolSongSearch');
+        if (searchInput) {
+            searchInput.addEventListener('input', () => {
+                clearTimeout(this.songpoolSearchTimeout);
+                this.songpoolSearchTimeout = setTimeout(() => this.renderSongpoolView(), 250);
+            });
+            if (shouldRestoreSearchFocus) {
+                searchInput.focus();
+                const selectionStart = typeof previousSelectionStart === 'number'
+                    ? Math.min(previousSelectionStart, searchInput.value.length)
+                    : searchInput.value.length;
+                const selectionEnd = typeof previousSelectionEnd === 'number'
+                    ? Math.min(previousSelectionEnd, searchInput.value.length)
+                    : searchInput.value.length;
+                searchInput.setSelectionRange(selectionStart, selectionEnd);
+            }
+        }
+
+        const publicToggle = document.getElementById('songpoolShowPublicToggle');
+        if (publicToggle) {
+            publicToggle.addEventListener('change', () => {
+                this.setSongpoolShowPublicPreference(publicToggle.checked);
+                this.renderSongpoolView();
+            });
+        }
+
+        const importButton = document.getElementById('songpoolImportBtn');
+        const fileInput = document.getElementById('songpoolFileUpload');
+        if (importButton && fileInput) {
+            importButton.addEventListener('click', () => fileInput.click());
+            fileInput.addEventListener('change', async (event) => {
+                await this.handleSongpoolUploadSelection(event);
+            });
+        }
+
+        const addButton = document.getElementById('addSongpoolSongBtn');
+        if (addButton) {
+            addButton.addEventListener('click', () => {
+                this.openSongpoolAddEntryModal();
+            });
+        }
+
+        const exportButton = document.getElementById('songpoolExportPDF');
+        if (exportButton) {
+            exportButton.addEventListener('click', () => {
+                this.downloadSongListPDF(this.currentSongpoolSongs || [], 'Songpool', 'Studio-Repertoire', true);
+            });
+        }
+
+        const checkboxRows = container.querySelectorAll('.songpool-song-checkbox-row');
+        const selectAll = document.getElementById('selectAllSongpoolSongs');
+        const bulkActionsBar = document.getElementById('songpoolBulkActions');
+        const selectedCountSpan = document.getElementById('songpoolSelectedCount');
+        const bulkDeleteBtn = document.getElementById('songpoolBulkDelete');
+        const bulkPDFBtn = document.getElementById('songpoolBulkPDF');
+        const songLookup = new Map((this.currentSongpoolSongs || []).map((song) => [String(song.id), song]));
+
+        this.attachSongDocumentPreviewHandlers(container, songLookup);
+
+        const getVisibleCheckboxes = () => Array.from(container.querySelectorAll('.songpool-song-checkbox-row'))
+            .filter((checkbox) => checkbox.closest('tr')?.style.display !== 'none');
+
+        const getSelectedSongIds = () => Array.from(container.querySelectorAll('.songpool-song-checkbox-row:checked'))
+            .map((checkbox) => String(checkbox.value));
+
+        const getSelectedSongs = () => getSelectedSongIds()
+            .map((songId) => songLookup.get(songId))
+            .filter(Boolean);
+
+        const updateBulkActions = () => {
+            const selectedSongs = getSelectedSongs();
+            const checkedCount = selectedSongs.length;
+            const deletableCount = selectedSongs.filter((song) => song.canManage).length;
+            const visibleCheckboxes = getVisibleCheckboxes();
+            const visibleCheckedCount = visibleCheckboxes.filter((checkbox) => checkbox.checked).length;
+
+            selectedCountSpan.textContent = checkedCount;
+            bulkActionsBar.style.display = checkedCount > 0 ? 'flex' : 'none';
+
+            if (bulkDeleteBtn) {
+                bulkDeleteBtn.disabled = deletableCount === 0;
+                bulkDeleteBtn.title = deletableCount === 0
+                    ? 'In deiner Auswahl ist kein Song, den du löschen darfst.'
+                    : (
+                        deletableCount < checkedCount
+                            ? `${deletableCount} Song${deletableCount === 1 ? '' : 's'} aus deiner Auswahl ${deletableCount === 1 ? 'ist' : 'sind'} löschbar. Öffentliche Songs anderer Mitglieder bleiben erhalten.`
+                            : ''
+                    );
+            }
+
+            if (bulkPDFBtn) {
+                bulkPDFBtn.disabled = checkedCount === 0;
+            }
+
+            if (selectAll) {
+                selectAll.checked = visibleCheckboxes.length > 0 && visibleCheckedCount === visibleCheckboxes.length;
+                selectAll.indeterminate = visibleCheckedCount > 0 && visibleCheckedCount < visibleCheckboxes.length;
+            }
+        };
+
+        if (selectAll) {
+            selectAll.addEventListener('change', (event) => {
+                getVisibleCheckboxes().forEach((checkbox) => {
+                    checkbox.checked = event.target.checked;
+                });
+                updateBulkActions();
+            });
+        }
+
+        checkboxRows.forEach((checkbox) => {
+            checkbox.addEventListener('change', updateBulkActions);
+        });
+
+        if (bulkDeleteBtn) {
+            bulkDeleteBtn.addEventListener('click', async () => {
+                const selectedSongs = getSelectedSongs();
+                if (selectedSongs.length === 0) return;
+
+                const deletableSongs = selectedSongs.filter((song) => song.canManage);
+                const skippedCount = selectedSongs.length - deletableSongs.length;
+
+                if (deletableSongs.length === 0) {
+                    UI.showToast('Du kannst nur eigene Songs aus dem Songpool löschen.', 'info');
+                    return;
+                }
+
+                const confirmMessage = skippedCount > 0
+                    ? `${deletableSongs.length} Song${deletableSongs.length === 1 ? '' : 's'} aus deiner Auswahl ${deletableSongs.length === 1 ? 'ist' : 'sind'} löschbar. ${skippedCount} öffentlicher Song${skippedCount === 1 ? '' : 's'} anderer Mitglieder ${skippedCount === 1 ? 'bleibt' : 'bleiben'} erhalten.`
+                    : `${deletableSongs.length} Song${deletableSongs.length === 1 ? '' : 's'} aus deinem Songpool löschen?`;
+
+                const confirmed = await UI.confirmAction(
+                    confirmMessage,
+                    'Wirklich löschen?',
+                    'Löschen',
+                    'btn-danger',
+                    {
+                        kicker: 'Songpool'
+                    }
+                );
+
+                if (confirmed) {
+                    UI.showLoading(`${deletableSongs.length} Song${deletableSongs.length === 1 ? '' : 's'} werden gelöscht...`);
+                    try {
+                        for (const song of deletableSongs) {
+                            await Storage.deleteSongpoolSong(song.id);
+                        }
+                        UI.hideLoading();
+                        UI.showToast(
+                            skippedCount > 0
+                                ? `${deletableSongs.length} Song${deletableSongs.length === 1 ? '' : 's'} gelöscht, ${skippedCount} öffentlicher Song${skippedCount === 1 ? '' : 's'} ${skippedCount === 1 ? 'wurde' : 'wurden'} übersprungen`
+                                : `${deletableSongs.length} Song${deletableSongs.length === 1 ? '' : 's'} gelöscht`,
+                            skippedCount > 0 ? 'warning' : 'success'
+                        );
+                        await this.renderSongpoolView();
+                    } catch (error) {
+                        UI.hideLoading();
+                        console.error('[Songpool] Bulk delete failed:', error);
+                        UI.showToast(error.message || 'Fehler beim Löschen im Songpool', 'error');
+                    }
+                }
+            });
+        }
+
+        if (bulkPDFBtn) {
+            bulkPDFBtn.addEventListener('click', () => {
+                const selectedSongs = getSelectedSongs();
+                this.downloadSongListPDF(selectedSongs, 'Songpool Auswahl', 'Studio-Repertoire', true);
+            });
+        }
+
+        updateBulkActions();
+
+        container.querySelectorAll('.edit-songpool-song').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                this.lastSongModalContext = {
+                    origin: 'songpoolEdit',
+                    collection: 'songpool_songs'
+                };
+                this.openSongModal(null, null, button.dataset.id);
+            });
+        });
+
+        container.querySelectorAll('.delete-songpool-song').forEach((button) => {
+            button.addEventListener('click', async (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                const confirmed = await UI.confirmDelete('Möchtest du diesen Song wirklich aus deinem Songpool löschen?');
+                if (!confirmed) return;
+
+                UI.showLoading('Song wird gelöscht...');
+                try {
+                    await Storage.deleteSongpoolSong(button.dataset.id);
+                    UI.hideLoading();
+                    UI.showToast('Song aus dem Songpool gelöscht', 'success');
+                    await this.renderSongpoolView();
+                } catch (error) {
+                    UI.hideLoading();
+                    console.error('[Songpool] Delete failed:', error);
+                    UI.showToast(error.message || 'Fehler beim Löschen des Songpool-Songs', 'error');
+                }
+            });
+        });
+    },
+
+    setupSongpoolHorizontalScroll(container) {
+        const scrollbarDock = document.getElementById('songpoolScrollbarDock');
+        const topScrollbar = document.getElementById('songpoolScrollbar');
+        const topScrollbarInner = document.getElementById('songpoolScrollbarInner');
+        const tableWrap = container.querySelector('.band-setlist-table-wrap');
+        const table = container.querySelector('.songpool-table');
+
+        if (!scrollbarDock || !topScrollbar || !topScrollbarInner || !tableWrap || !table) return;
+
+        if (typeof this.songpoolScrollCleanup === 'function') {
+            this.songpoolScrollCleanup();
+        }
+
+        if (this.songpoolResizeObserver) {
+            this.songpoolResizeObserver.disconnect();
+            this.songpoolResizeObserver = null;
+        }
+
+        let syncingScroll = false;
+
+        const syncMetrics = () => {
+            const contentWidth = Math.max(table.scrollWidth, table.offsetWidth, tableWrap.scrollWidth);
+            const hasOverflow = contentWidth > tableWrap.clientWidth + 1;
+
+            topScrollbarInner.style.width = `${contentWidth}px`;
+            scrollbarDock.dataset.hasOverflow = hasOverflow ? 'true' : 'false';
+            this.refreshSongpoolScrollbarDockVisibility();
+
+            if (!hasOverflow) {
+                topScrollbar.scrollLeft = 0;
+                tableWrap.scrollLeft = 0;
+                return;
+            }
+
+            if (Math.abs(topScrollbar.scrollLeft - tableWrap.scrollLeft) > 1) {
+                topScrollbar.scrollLeft = tableWrap.scrollLeft;
+            }
+        };
+
+        const onScrollbarScroll = () => {
+            if (syncingScroll) return;
+            syncingScroll = true;
+            tableWrap.scrollLeft = topScrollbar.scrollLeft;
+            requestAnimationFrame(() => {
+                syncingScroll = false;
+            });
+        };
+
+        const onTableScroll = () => {
+            if (syncingScroll) return;
+            syncingScroll = true;
+            topScrollbar.scrollLeft = tableWrap.scrollLeft;
+            requestAnimationFrame(() => {
+                syncingScroll = false;
+            });
+        };
+
+        topScrollbar.addEventListener('scroll', onScrollbarScroll, { passive: true });
+        tableWrap.addEventListener('scroll', onTableScroll, { passive: true });
+
+        if (typeof ResizeObserver !== 'undefined') {
+            this.songpoolResizeObserver = new ResizeObserver(() => {
+                syncMetrics();
+            });
+            this.songpoolResizeObserver.observe(tableWrap);
+            this.songpoolResizeObserver.observe(table);
+        }
+
+        this.syncSongpoolScrollbarMetrics = syncMetrics;
+        this.songpoolScrollCleanup = () => {
+            topScrollbar.removeEventListener('scroll', onScrollbarScroll);
+            tableWrap.removeEventListener('scroll', onTableScroll);
+            if (this.songpoolResizeObserver) {
+                this.songpoolResizeObserver.disconnect();
+                this.songpoolResizeObserver = null;
+            }
+            scrollbarDock.dataset.hasOverflow = 'false';
+            this.refreshSongpoolScrollbarDockVisibility();
+            if (this.syncSongpoolScrollbarMetrics === syncMetrics) {
+                this.syncSongpoolScrollbarMetrics = null;
+            }
+            this.songpoolScrollCleanup = null;
+        };
+
+        requestAnimationFrame(() => {
+            syncMetrics();
+            setTimeout(syncMetrics, 0);
+        });
+    },
+
+    refreshSongpoolScrollbarDockVisibility() {
+        const dock = document.getElementById('songpoolScrollbarDock');
+        const songpoolView = document.getElementById('songpoolView');
+        if (!dock || !songpoolView) return;
+
+        const hasOverflow = dock.dataset.hasOverflow === 'true';
+        const isActive = songpoolView.classList.contains('active');
+        dock.classList.toggle('is-visible', hasOverflow && isActive);
+    },
+
     setupBandSetlistHorizontalScroll(container) {
         const scrollbarDock = document.getElementById('bandSetlistScrollbarDock');
         const topScrollbar = document.getElementById('bandSetlistScrollbar');
@@ -6799,10 +10057,14 @@ const App = {
 
     async renderDraftEventSongs() {
         const container = document.getElementById('eventSongsList');
-        if (!container) return;
+        if (!container) {
+            await this.renderEventRundownEditor();
+            return;
+        }
 
         if (!this.draftEventSongIds || this.draftEventSongIds.length === 0) {
             container.innerHTML = '<div class="event-setlist-empty">Noch keine Songs für diesen Auftritt ausgewählt.</div>';
+            await this.renderEventRundownEditor();
             return;
         }
 
@@ -6811,7 +10073,7 @@ const App = {
         container.innerHTML = `
         <div class="event-setlist-workspace">
         <div class="event-setlist-table-wrap">
-        <table class="songs-table event-setlist-table">
+        <table class="songs-table band-setlist-table event-setlist-table">
             <thead>
                 <tr>
                     <th style="text-align: center; width: 40px;">Pos.</th>
@@ -6838,12 +10100,10 @@ const App = {
                     <tr draggable="true" data-song-id="${song.id}">
                         <td class="drag-handle" data-label="Pos.">☰</td>
                         <td style="color: var(--color-text-muted);" data-label="#">${idx + 1}</td>
-                        <td class="event-setlist-actions-cell" style="text-align: center;" data-label="Aktionen">
+                        <td class="band-setlist-actions-cell event-setlist-actions-cell" style="text-align: center;" data-label="Aktionen">
                             <div class="event-setlist-actions">
-                                <button type="button" class="btn-icon edit-draft-song" data-id="${song.id}" title="In Setlist bearbeiten" aria-label="Song in Setlist bearbeiten">
-                                    <span aria-hidden="true">✎</span>
-                                </button>
-                                <button type="button" class="btn-icon remove-draft-song" data-id="${song.id}" title="Entfernen" aria-label="Song aus der Setlist entfernen">❌</button>
+                                <button type="button" class="btn-icon edit-draft-song" data-id="${song.id}" title="In Setlist bearbeiten" aria-label="Song in Setlist bearbeiten">✏️</button>
+                                <button type="button" class="btn-icon remove-draft-song" data-id="${song.id}" title="Entfernen" aria-label="Song aus der Setlist entfernen">🗑️</button>
                             </div>
                         </td>
                         <td class="event-setlist-title-cell" data-label="Titel">${this.escapeHtml(draftSong.title)}</td>
@@ -6865,9 +10125,10 @@ const App = {
                 }).join('')}
             </tbody>
         </table>
+            </div>
         </div>
-        </div>
-        `;
+`;
+        await this.renderEventRundownEditor();
 
         // --- Drag and Drop Logic for Draft Songs ---
         const tbody = document.getElementById('draftEventSongsTableBody');
@@ -10863,7 +14124,10 @@ const App = {
 
         // Check for absence conflicts
         const datesToCheck = dates.map(date => date?.startTime).filter(Boolean);
-        const conflicts = await this.getAbsenceConflicts(bandId, datesToCheck);
+        const selectedRehearsalMembers = (typeof Rehearsals !== 'undefined' && typeof Rehearsals.getSelectedMembers === 'function')
+            ? Rehearsals.getSelectedMembers()
+            : [];
+        const conflicts = await this.getAbsenceConflicts(bandId, datesToCheck, selectedRehearsalMembers);
         if (conflicts && conflicts.length > 0) {
             const lines = conflicts.map(c => `• ${c.name}: ${c.dates.join(', ')}`);
             const msg = `Folgende Mitglieder haben für die ausgewählten Probetermine Abwesenheiten eingetragen:\n\n${lines.join('\n')}\n\nMöchtest du die Probe trotzdem anlegen?`;
@@ -10937,12 +14201,15 @@ const App = {
         const date = scheduleMode === 'fixed' && eventDateValue ? new Date(eventDateValue).toISOString() : null;
 
         const location = document.getElementById('eventLocation').value;
+        const visibleEventInfo = document.getElementById('eventInfo').value;
         let soundcheckDate = null, soundcheckLocation = null, info = null, techInfo = null;
 
         if (document.getElementById('eventShowExtras').checked) {
             soundcheckLocation = document.getElementById('eventSoundcheckLocation').value || null;
-            info = document.getElementById('eventInfo').value;
+            info = this.composeEventInfoWithRundown(visibleEventInfo, this.getPersistableDraftEventRundown());
             techInfo = document.getElementById('eventTechInfo').value;
+        } else {
+            info = this.composeEventInfoWithRundown('', this.getPersistableDraftEventRundown());
         }
 
         const members = Events.getSelectedMembers();
@@ -10984,9 +14251,15 @@ const App = {
             }
 
             if (savedEventId) {
+                this.syncDraftEventSongIdsFromRundown();
                 await this.syncEventSongs(savedEventId, this.draftEventSongIds || []);
-                this.draftEventSongIds = [];
-                this.draftEventSongOverrides = {};
+                await Storage.updateEvent(savedEventId, {
+                    info: this.composeEventInfoWithRundown(
+                        document.getElementById('eventShowExtras').checked ? visibleEventInfo : '',
+                        this.getPersistableDraftEventRundown()
+                    )
+                });
+                this.resetDraftEventState();
             }
             // Always update dashboard after event changes
             await this.updateDashboard();

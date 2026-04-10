@@ -59,7 +59,7 @@
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260408-11">
+    <link rel="stylesheet" href="css/style.css?v=20260409-1">
     <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
     <link rel="stylesheet" href="css/calendar.css?v=20260408-4">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
@@ -710,6 +710,16 @@
                                 </span>
                                 <span class="sidebar-label">PDF to ChordPro</span>
                             </button>
+                            <button class="sidebar-subitem" data-view="songpool">
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9 18V5l12-2v13"></path>
+                                        <circle cx="6" cy="18" r="3"></circle>
+                                        <circle cx="18" cy="16" r="3"></circle>
+                                    </svg>
+                                </span>
+                                <span class="sidebar-label">Songpool</span>
+                            </button>
                         </div>
                     </div>
 
@@ -993,6 +1003,16 @@
                                         </svg>
                                     </span>
                                     <span class="nav-label">PDF to ChordPro</span>
+                                </button>
+                                <button class="nav-subitem" data-view="songpool">
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M9 18V5l12-2v13"></path>
+                                            <circle cx="6" cy="18" r="3"></circle>
+                                            <circle cx="18" cy="16" r="3"></circle>
+                                        </svg>
+                                    </span>
+                                    <span class="nav-label">Songpool</span>
                                 </button>
                             </div>
                         </div>
@@ -1621,6 +1641,14 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                    <!-- Songpool View -->
+                    <div id="songpoolView" class="view">
+                        <div class="view-page-shell">
+                            <section class="page-section-card songpool-page-section">
+                                <div id="songpoolList"></div>
+                            </section>
                         </div>
                     </div>
                     <!-- Probeorte View -->
@@ -2577,6 +2605,33 @@
         </div>
     </div>
 
+    <!-- Songpool Import Modal -->
+    <div id="songpoolImportModal" class="modal modal-import-songs songpool-import-modal-shell">
+        <div class="modal-content import-songs-modal songpool-import-modal">
+            <div class="modal-header import-songs-modal-header">
+                <div class="import-songs-title-group">
+                    <span class="import-songs-kicker">Songpool</span>
+                    <h2>Import-Vorschau</h2>
+                    <p>Prüfe erkannte Songs aus PDF- oder ChordPro-Dateien und passe Titel oder Sichtbarkeit an, bevor du alles gesammelt speicherst.</p>
+                </div>
+                <button class="modal-close" aria-label="Schließen">&times;</button>
+            </div>
+            <div class="modal-body import-songs-modal-body songpool-import-modal-body">
+                <div class="songpool-import-intro">
+                    <div>
+                        <strong id="songpoolImportSummary">0 Songs erkannt</strong>
+                        <p>Neue Uploads starten standardmäßig als öffentlich und können hier vor dem Speichern noch auf privat gestellt werden.</p>
+                    </div>
+                </div>
+                <div id="songpoolImportDrafts" class="songpool-import-drafts"></div>
+            </div>
+            <div class="modal-actions import-songs-actions">
+                <button type="button" class="btn cancel" onclick="UI.closeModal('songpoolImportModal')">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="confirmSongpoolImportBtn">Songs speichern</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Add User Modal (Admin Only) -->
     <div id="addUserModal" class="modal">
         <div class="modal-content">
@@ -3184,22 +3239,47 @@
                         </div>
                     </section>
 
-                    <section class="scheduler-panel setlist-section event-setlist-panel">
-                        <div class="section-header-row">
+                    <section class="scheduler-panel event-rundown-panel">
+                        <div class="section-header-row event-rundown-header-row">
                             <div>
-                                <span class="scheduler-panel-eyebrow">Musik</span>
-                                <label class="section-title">🎵 Setlist</label>
+                                <span class="scheduler-panel-eyebrow">Ablauf & Musik</span>
+                                <label class="section-title">🕒 Ablauf & Setlist</label>
                             </div>
-                            <div class="section-actions">
-                                <button type="button" id="copyBandSongsBtn" class="btn btn-secondary btn-sm">
-                                    📋 Band-Pool
+                            <div class="event-rundown-start-group">
+                                <button type="button" id="eventRundownSaveTemplateBtn" class="btn btn-secondary btn-sm">
+                                    💾 Als Vorlage speichern
                                 </button>
-                                <button type="button" id="addEventSongBtn" class="btn btn-secondary btn-sm">
-                                    + Neuer Song
+                                <button type="button" id="eventRundownLoadTemplateBtn" class="btn btn-secondary btn-sm">
+                                    📂 Aus Vorlage laden
                                 </button>
+                                <button type="button" id="eventRundownPdfBtn" class="btn btn-secondary btn-sm">
+                                    📄 Setlist PDF
+                                </button>
+                                <label for="eventRundownStart">Start des Abends</label>
+                                <input type="time" id="eventRundownStart" step="60">
                             </div>
                         </div>
-                        <div id="eventSongsList" class="compact-song-list event-setlist-shell"></div>
+                        <div class="event-rundown-preset-toolbar" id="eventRundownPresetToolbar">
+                            <div class="rundown-dropdown-wrapper" style="position: relative; display: inline-block;">
+                                <button type="button" class="btn btn-secondary btn-sm" id="eventRundownDropdownBtn">
+                                    <span aria-hidden="true">➕</span> Punkt hinzufügen
+                                </button>
+                                <div id="eventRundownDropdownMenu" class="rundown-dropdown-menu">
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="countdown">⏱️ Countdown</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="songblock">🎵 Liederblock</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="vortrag">🎙️ Vortrag</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="predigt">📖 Predigt</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="abendmahl">🍞 Abendmahl</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="pause">☕ Pause</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="video">🎬 Video Vortrag</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="rede">🗣️ Rede</button>
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="ankuendigungen">📣 Ankündigungen</button>
+                                    <hr class="rundown-dropdown-separator">
+                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="custom">➕ Leerer Block</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="eventRundownList" class="event-rundown-list-shell"></div>
                     </section>
                 </div>
 
@@ -3227,6 +3307,7 @@
                 <input type="hidden" id="songId">
                 <input type="hidden" id="songEventId">
                 <input type="hidden" id="songBandId">
+                <input type="hidden" id="songCollection" value="songs">
                 <div class="song-editor-scroll">
                     <section class="song-editor-panel">
                         <div class="song-editor-panel-head">
@@ -3245,6 +3326,10 @@
                             <div class="form-group">
                                 <label for="songArtist">Interpret <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <input type="text" id="songArtist" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="songGenre">Genre</label>
+                                <input type="text" id="songGenre" placeholder="z.B. Rock, Pop, Worship">
                             </div>
                             <div class="form-group">
                                 <label for="songBPM">BPM</label>
@@ -3347,6 +3432,29 @@
                                 <label for="songCcli">Songselect CCLI Nummer</label>
                                 <input type="text" id="songCcli" placeholder="CCLI Nummer">
                             </div>
+                            <div class="form-group full-width" id="songVisibilityGroup" hidden>
+                                <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem; padding: 1rem; background: var(--color-surface-hover); border-radius: 12px; border: 1px solid var(--color-border);">
+                                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+                                        <span style="font-size: 1.2rem;">👁️</span>
+                                        <strong style="font-size: 0.95rem;">Sichtbarkeit</strong>
+                                    </div>
+                                    <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                                        <input type="radio" name="songVisibility" value="private" style="margin-top: 0.25rem;">
+                                        <div>
+                                            <div style="font-weight: 600; font-size: 0.9rem;">Privat</div>
+                                            <div style="font-size: 0.8rem; color: var(--color-text-muted);">Nur du kannst diesen Song in deinem Songpool sehen.</div>
+                                        </div>
+                                    </label>
+                                    <label style="display: flex; align-items: flex-start; gap: 0.75rem; cursor: pointer;">
+                                        <input type="radio" name="songVisibility" value="public" checked style="margin-top: 0.25rem;">
+                                        <div>
+                                            <div style="font-weight: 600; font-size: 0.9rem;">Öffentlich</div>
+                                            <div style="font-size: 0.8rem; color: var(--color-text-muted);">Andere Nutzer können deinen Song sehen und ebenfalls importieren. Hilf mit, den globalen Pool zu vergrößern!</div>
+                                        </div>
+                                    </label>
+                                </div>
+                            </div>
+
                         </div>
                     </section>
 
@@ -3766,6 +3874,27 @@
         </div>
     </div>
 
+    <div id="chordproPreviewModal" class="modal">
+        <div class="modal-content modal-xl chordpro-preview-modal-content">
+            <div class="modal-header">
+                <div class="chordpro-preview-modal-copy">
+                    <span class="chordpro-preview-modal-kicker">ChordPro</span>
+                    <h2 id="chordproPreviewTitle">ChordPro Vorschau</h2>
+                </div>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body chordpro-preview-modal-body">
+                <div class="converter-container chordpro-preview-modal-shell">
+                    <div id="chordproSongPreviewArea" class="chordpro-preview chordpro-preview-modal-surface"></div>
+                </div>
+            </div>
+            <div class="modal-actions chordpro-preview-modal-actions">
+                <a id="chordproPreviewDownload" href="#" download class="btn btn-secondary">🎼 ChordPro herunterladen</a>
+                <button type="button" class="btn cancel" id="chordproPreviewCancel">Schließen</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ChordPro Help Modal -->
     <div id="chordproHelpModal" class="modal">
         <div class="modal-content chordpro-help-modal-content">
@@ -3929,12 +4058,12 @@
     <script src="js/proxy-service.js?v=20260311"></script>
     <script src="js/config.js"></script>
     <script src="js/supabase.js?v=20260407-17"></script>
-    <script src="js/storage.js?v=20260408-3"></script>
+    <script src="js/storage.js?v=20260409-1"></script>
     <script src="js/auth.js?v=20260407-19"></script>
     <script src="js/email-service.js?v=20260311"></script>
     <script src="js/bands.js?v=20260311"></script>
     <script src="js/pdf-generator.js?v=20260311"></script>
-    <script src="js/events.js?v=20260408-2"></script>
+    <script src="js/events.js?v=20260408-6"></script>
     <script src="js/rehearsals.js?v=20260408-2"></script>
     <script src="js/statistics.js?v=20260407-1"></script>
     <script src="js/calendar.js?v=20260408-2"></script>
@@ -3945,7 +4074,7 @@
     <script src="js/feedback-service.js?v=20260311"></script>
     <script src="js/chordpro-converter.js?v=20260407-8"></script>
     <script src="js/notifications.js?v=20260328"></script>
-    <script src="js/app.js?v=20260408-13"></script>
+    <script src="js/app.js?v=20260409-1"></script>
 
     <!-- Skip duplicated pdf.js block -->
 

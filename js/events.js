@@ -32,6 +32,58 @@ const Events = {
         return new Date(0);
     },
 
+    getDisplayDateForEvent(event) {
+        if (!event?.date) return null;
+
+        const displayDate = new Date(event.date);
+        if (Number.isNaN(displayDate.getTime())) return null;
+
+        if (typeof App !== 'undefined' && typeof App.extractEventRundown === 'function') {
+            const rundown = App.extractEventRundown(event.info || '');
+            const sourceEventTime = typeof rundown?.sourceEventTime === 'string' ? rundown.sourceEventTime : '';
+
+            if (/^\d{2}:\d{2}$/.test(sourceEventTime)) {
+                const [hours, minutes] = sourceEventTime.split(':').map(Number);
+                displayDate.setHours(hours, minutes, 0, 0);
+            }
+        }
+
+        return displayDate;
+    },
+
+    formatDisplayDateForEvent(event) {
+        const displayDate = this.getDisplayDateForEvent(event);
+        if (!displayDate) return '';
+
+        return displayDate.toLocaleDateString('de-DE', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    },
+
+    formatDisplayDateTimeRangeForEvent(event) {
+        const displayDate = this.getDisplayDateForEvent(event);
+        if (!displayDate) return '';
+
+        const dateLabel = displayDate.toLocaleDateString('de-DE', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+
+        const timeLabel = displayDate.toLocaleTimeString('de-DE', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        return `${dateLabel} um ${timeLabel} Uhr`;
+    },
+
     isArchivedResolvedEvent(event) {
         return event?.status === 'confirmed' && !!event?.date && Storage.isPastCalendarDay(event.date);
     },
@@ -350,7 +402,7 @@ const Events = {
 
         const headerChips = [];
         if (event.status === 'confirmed' && event.date) {
-            headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${UI.formatDateTimeRange(event.date)}</span>`);
+            headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${this.formatDisplayDateTimeRangeForEvent(event) || UI.formatDateTimeRange(event.date)}</span>`);
         } else if (proposals.length > 0) {
             if (proposals.length > 1) {
                 headerChips.push(`<span class="schedule-card-chip">${proposals.length} Termine</span>`);
@@ -415,12 +467,10 @@ const Events = {
     },
 
     async _renderConfirmedEventBody(event, dataContext, canManage) {
-        const eventSongs = (dataContext.songs && (dataContext.songs[event.id] || dataContext.songs[String(event.id)])) || [];
-
         let detailsHtml = `
             <div class="confirmed-event-details">
                 ${this._renderEventDetailsGrid(event, dataContext)}
-                ${this._renderEventSetlist(event, dataContext)}
+                ${this._renderEventRundown(event, dataContext)}
             </div>
         `;
 
@@ -443,8 +493,7 @@ const Events = {
         return `
             <div class="pending-event-info">
                 ${this._renderEventDetailsGrid(event, dataContext)}
-                
-                ${this._renderEventSetlist(event, dataContext)}
+                ${this._renderEventRundown(event, dataContext)}
 
                 <div class="event-action-buttons" style="margin-bottom: 1.5rem;">
                     <button class="btn btn-vote-now" data-event-id="${event.id}">
@@ -473,32 +522,36 @@ const Events = {
             const member = dataContext.members ? dataContext.members[memberId] : null;
             return member ? this._getUserName(member) : 'Unbekannt';
         });
-
-        const guests = event.guests || [];
+        const guests = Array.isArray(event.guests) ? event.guests : [];
+        const eventDateTimeLabel = this.formatDisplayDateForEvent(event) || (event.date ? UI.formatDate(event.date) : 'Nicht festgelegt');
+        const creatorAvatarContent = proposedBy && proposedBy.profile_image_url
+            ? `<img src="${proposedBy.profile_image_url}" class="creator-avatar-img" alt="${Bands.escapeHtml(proposedByName)}">`
+            : UI.getUserInitials(proposedByName);
 
         let html = `
             <div class="event-details-grid">
-                
-                <div class="detail-item">
-                    <div class="detail-label">Erstellt von</div>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                         <div class="creator-avatar" style="width: 24px; height: 24px; font-size: 0.65rem; background: ${proposedBy ? UI.getAvatarColor(proposedByName) : 'var(--color-primary)'}; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white;">
-                            ${proposedBy && proposedBy.profile_image_url ? `<img src="${proposedBy.profile_image_url}" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">` : UI.getUserInitials(proposedByName)}
+                <div class="detail-item detail-item-meta-stack">
+                    <div class="detail-stack-row">
+                        <div class="detail-label">Erstellt von</div>
+                        <div class="detail-stack-value">
+                            <div class="creator-avatar detail-meta-avatar" style="background: ${proposedBy ? UI.getAvatarColor(proposedByName) : 'var(--color-primary)'};">
+                                ${creatorAvatarContent}
+                            </div>
+                            <span class="detail-value">${Bands.escapeHtml(proposedByName)}</span>
                         </div>
-                        <span class="detail-value">${Bands.escapeHtml(proposedByName)}</span>
                     </div>
-                </div>
 
-                ${event.status === 'confirmed' ? `
-                <div class="detail-item">
-                    <div class="detail-label">Datum & Zeit</div>
-                    <div class="detail-value">${UI.formatDate(event.date)}</div>
-                </div>
-                ` : ''}
+                    ${event.status === 'confirmed' ? `
+                    <div class="detail-stack-row">
+                        <div class="detail-label">Datum & Zeit</div>
+                        <div class="detail-value">${eventDateTimeLabel}</div>
+                    </div>
+                    ` : ''}
 
-                <div class="detail-item">
-                    <div class="detail-label">📍 Ort</div>
-                    <div class="detail-value">${Bands.escapeHtml(event.location || 'Nicht angegeben')}</div>
+                    <div class="detail-stack-row">
+                        <div class="detail-label">📍 Ort</div>
+                        <div class="detail-value">${Bands.escapeHtml(event.location || 'Nicht angegeben')}</div>
+                    </div>
                 </div>
 
                 ${event.soundcheckLocation ? `
@@ -508,12 +561,18 @@ const Events = {
                 </div>
                 ` : ''}
 
-                ${event.info ? `
+                ${(() => {
+                    const visibleInfo = (typeof App !== 'undefined' && typeof App.extractEventVisibleInfo === 'function')
+                        ? App.extractEventVisibleInfo(event.info || '')
+                        : (event.info || '');
+
+                    return visibleInfo ? `
                 <div class="detail-item" style="grid-column: 1 / -1;">
                     <div class="detail-label">ℹ️ Event-Infos</div>
-                    <div class="detail-value" style="white-space: pre-wrap; font-weight: normal;">${Bands.escapeHtml(event.info)}</div>
+                    <div class="detail-value" style="white-space: pre-wrap; font-weight: normal;">${Bands.escapeHtml(visibleInfo)}</div>
                 </div>
-                ` : ''}
+                ` : '';
+                })()}
 
                 ${event.techInfo ? `
                 <div class="detail-item" style="grid-column: 1 / -1;">
@@ -553,7 +612,7 @@ const Events = {
                 </div>
                 <div class="event-setlist-workspace">
                     <div class="event-setlist-table-wrap">
-                        <table class="songs-table event-setlist-table">
+                        <table class="songs-table band-setlist-table event-setlist-table">
                             <thead>
                                 <tr>
                                     <th style="text-align: center; width: 52px;">Pos.</th>
@@ -594,6 +653,110 @@ const Events = {
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        `;
+    },
+
+    _renderEventRundown(event, dataContext) {
+        if (typeof App === 'undefined' || typeof App.extractEventRundown !== 'function' || typeof App.getEventRundownTimeline !== 'function') {
+            return '';
+        }
+
+        const rundown = App.extractEventRundown(event.info || '');
+        if (!rundown || !Array.isArray(rundown.items) || rundown.items.length === 0) {
+            return '';
+        }
+
+        const eventSongs = (dataContext.songs && (dataContext.songs[event.id] || dataContext.songs[String(event.id)])) || [];
+        const sortedSongs = [...eventSongs].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const songMap = new Map(sortedSongs.map((song, index) => [String(song.id), { ...song, orderIndex: index + 1 }]));
+        const fallbackStart = event.date ? String(event.date).slice(11, 16) : '';
+        const timeline = App.getEventRundownTimeline(rundown, fallbackStart);
+        const totalDuration = timeline.reduce((sum, item) => sum + (Number(item.duration) || 0), 0);
+
+        return `
+            <div class="event-rundown-display">
+                <div class="event-rundown-display-head">
+                    <div>
+                        <span class="event-rundown-display-kicker">Ablauf</span>
+                        <h4>Abendplan</h4>
+                    </div>
+                    <div class="event-rundown-display-meta">
+                        ${sortedSongs.length > 0 ? `<button type="button" class="btn btn-secondary btn-sm download-setlist-pdf" data-event-id="${event.id}">📄 Setlist PDF</button>` : ''}
+                        <span class="event-rundown-summary-pill">Start ${rundown.startTime || fallbackStart || 'offen'}</span>
+                        <span class="event-rundown-summary-pill">${timeline.length} Punkt${timeline.length === 1 ? '' : 'e'}</span>
+                        <span class="event-rundown-summary-pill">${App.formatRundownDuration(totalDuration)}</span>
+                    </div>
+                </div>
+                <div class="event-rundown-display-items">
+                    ${timeline.map((item) => {
+                        const selectedSongs = Array.isArray(item.songIds)
+                            ? item.songIds.map((songId) => songMap.get(String(songId))).filter(Boolean)
+                            : [];
+
+                        return `
+                            <article class="event-rundown-display-item" data-rundown-type="${Bands.escapeHtml(item.type)}">
+                                <div class="event-rundown-item-head">
+                                    <div class="event-rundown-time-stack">
+                                        <span class="event-rundown-time-main">${Bands.escapeHtml(item.startLabel)}</span>
+                                        <span class="event-rundown-time-sub">bis ${Bands.escapeHtml(item.endLabel)}</span>
+                                    </div>
+                                    <span class="event-rundown-type-chip" data-rundown-type="${Bands.escapeHtml(item.type)}">
+                                        <span class="event-rundown-type-icon" aria-hidden="true">${Bands.escapeHtml(item.typeMeta.icon)}</span>
+                                        <span>${Bands.escapeHtml(item.typeMeta.label)}</span>
+                                    </span>
+                                    <span class="event-rundown-summary-pill">${Bands.escapeHtml(item.durationLabel)}</span>
+                                </div>
+                                <div class="event-rundown-display-title">${Bands.escapeHtml(item.title)}</div>
+                                ${item.notes ? `<div class="event-rundown-display-notes">${Bands.escapeHtml(item.notes)}</div>` : ''}
+                                ${selectedSongs.length > 0 ? `
+                                    <div class="event-rundown-song-table-wrap">
+                                        <table class="songs-table band-setlist-table event-setlist-table event-rundown-song-table">
+                                            <thead>
+                                                <tr>
+                                                    <th style="text-align: center; width: 52px;">Pos.</th>
+                                                    <th>Titel</th>
+                                                    <th>Interpret</th>
+                                                    <th style="text-align: center;">BPM</th>
+                                                    <th style="text-align: center;">Time</th>
+                                                    <th style="text-align: center;">Tonart</th>
+                                                    <th style="text-align: center;">Orig.</th>
+                                                    <th>Lead</th>
+                                                    <th>Sprache</th>
+                                                    <th>Tracks</th>
+                                                    <th style="text-align: center;">PDF</th>
+                                                    <th>Infos</th>
+                                                    <th>CCLI</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${selectedSongs.map((song) => `
+                                                    <tr>
+                                                        <td style="text-align: center;" data-label="Pos.">${song.orderIndex}</td>
+                                                        <td class="event-setlist-title-cell" data-label="Titel">${Bands.escapeHtml(song.title)}</td>
+                                                        <td data-label="Interpret">${Bands.escapeHtml(song.artist || '-')}</td>
+                                                        <td style="text-align: center;" data-label="BPM">${song.bpm || '-'}</td>
+                                                        <td style="text-align: center;" data-label="Time">${song.timeSignature || '-'}</td>
+                                                        <td class="event-setlist-key-cell" style="text-align: center;" data-label="Tonart">${song.key || '-'}</td>
+                                                        <td style="text-align: center;" data-label="Orig.">${song.originalKey || '-'}</td>
+                                                        <td data-label="Lead">${Bands.escapeHtml(song.leadVocal || '-')}</td>
+                                                        <td data-label="Sprache">${Bands.escapeHtml(song.language || '-')}</td>
+                                                        <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
+                                                        <td style="text-align: center;" data-label="PDF">
+                                                            ${song.pdf_url ? `<button type="button" class="btn-icon" title="PDF öffnen" onclick="App.openPdfPreview('${song.pdf_url}', '${Bands.escapeHtml(song.title)}')">📄</button>` : '-'}
+                                                        </td>
+                                                        <td data-label="Infos">${Bands.escapeHtml(Storage.getSongInfoPreview(song) || '-')}</td>
+                                                        <td style="font-family: monospace;" data-label="CCLI">${song.ccli || '-'}</td>
+                                                    </tr>
+                                                `).join('')}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ` : ''}
+                            </article>
+                        `;
+                    }).join('')}
                 </div>
             </div>
         `;
@@ -1252,6 +1415,8 @@ const Events = {
         const scheduleMode = this.getScheduleMode();
         const fixedDate = scheduleMode === 'fixed' ? document.getElementById('eventDate').value : '';
         const location = document.getElementById('eventLocation').value;
+        const extrasEnabled = document.getElementById('eventShowExtras').checked;
+        const visibleEventInfo = document.getElementById('eventInfo').value;
 
         if (!bandId) {
             UI.showToast('Bitte wähle eine Band aus.', 'warning');
@@ -1284,7 +1449,12 @@ const Events = {
             status: scheduleMode === 'fixed' ? 'confirmed' : 'pending',
             date: scheduleMode === 'fixed' ? fixedDate : (proposals.length > 0 ? proposals[0].start : null),
             proposedDates: scheduleMode === 'proposals' ? proposals : [],
-            info: document.getElementById('eventInfo').value,
+            info: (typeof App !== 'undefined' && typeof App.composeEventInfoWithRundown === 'function')
+                ? App.composeEventInfoWithRundown(
+                    extrasEnabled ? visibleEventInfo : '',
+                    typeof App.getPersistableDraftEventRundown === 'function' ? App.getPersistableDraftEventRundown() : null
+                )
+                : (extrasEnabled ? visibleEventInfo : ''),
             techInfo: document.getElementById('eventTechInfo').value,
             members: this.getSelectedMembers(),
             guests: this.getGuests()
@@ -1308,14 +1478,26 @@ const Events = {
 
                 // Save Songs
                 if (savedEventId && typeof App !== 'undefined') {
+                    if (typeof App.syncDraftEventSongIdsFromRundown === 'function') {
+                        App.syncDraftEventSongIdsFromRundown();
+                    }
                     // Use syncEventSongs to handle additions, deletions, and ordering
                     // We pass draftEventSongIds which contains mixture of existing IDs and new BandSong IDs
                     await App.syncEventSongs(savedEventId, App.draftEventSongIds || []);
+                    await Storage.updateEvent(savedEventId, {
+                        info: (typeof App.composeEventInfoWithRundown === 'function')
+                            ? App.composeEventInfoWithRundown(extrasEnabled ? visibleEventInfo : '', App.getPersistableDraftEventRundown())
+                            : (extrasEnabled ? visibleEventInfo : '')
+                    });
 
                     // Clear draft
-                    App.draftEventSongIds = [];
-                    App.draftEventSongOverrides = {};
-                    App.deletedEventSongs = [];
+                    if (typeof App.resetDraftEventState === 'function') {
+                        App.resetDraftEventState();
+                    } else {
+                        App.draftEventSongIds = [];
+                        App.draftEventSongOverrides = {};
+                        App.deletedEventSongs = [];
+                    }
 
                     if (App.updateDashboard) await App.updateDashboard();
                 }
@@ -1402,14 +1584,17 @@ const Events = {
 
         document.getElementById('eventLocation').value = event.location || '';
         document.getElementById('eventSoundcheckLocation').value = event.soundcheckLocation || '';
-        document.getElementById('eventInfo').value = event.info || '';
+        document.getElementById('eventInfo').value = (typeof App !== 'undefined' && typeof App.extractEventVisibleInfo === 'function')
+            ? App.extractEventVisibleInfo(event.info || '')
+            : (event.info || '');
         document.getElementById('eventTechInfo').value = event.techInfo || '';
         document.getElementById('eventGuests').value = (event.guests || []).join('\n');
 
         // Toggle sections if they have content
         const extrasCheck = document.getElementById('eventShowExtras');
         if (extrasCheck) {
-            extrasCheck.checked = !!(event.soundcheckLocation || event.info || event.techInfo);
+            const visibleInfo = document.getElementById('eventInfo').value;
+            extrasCheck.checked = !!(event.soundcheckLocation || visibleInfo || event.techInfo);
             document.getElementById('eventExtrasFields').style.display = extrasCheck.checked ? 'block' : 'none';
         }
         const guestsCheck = document.getElementById('eventShowGuests');
@@ -1429,7 +1614,13 @@ const Events = {
         if (typeof App !== 'undefined') {
             App.draftEventSongIds = (eventSongs || []).sort((a, b) => (a.order || 0) - (b.order || 0)).map(s => s.id);
             App.draftEventSongOverrides = {};
+            if (typeof App.setDraftEventRundownFromEvent === 'function') {
+                App.setDraftEventRundownFromEvent(event);
+            }
             await App.renderDraftEventSongs();
+            if (typeof App.renderEventRundownEditor === 'function') {
+                await App.renderEventRundownEditor();
+            }
         }
 
         const container = document.getElementById('eventDateProposals');

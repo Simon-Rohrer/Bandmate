@@ -114,18 +114,15 @@ const PDFGenerator = {
                     <table style="${styles.table}">
                         <thead>
                             <tr style="${styles.th}">
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 30px; color: #4B5563;">#</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 220px; color: #4B5563;">Titel</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 140px; color: #4B5563;">Interpret</th>
-                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 40px; color: #4B5563;">BPM</th>
-                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 40px; color: #4B5563;">Time</th>
-                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 40px; color: #4B5563;">Key</th>
-                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 40px; color: #4B5563;">Orig.</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 80px; color: #4B5563;">Lead</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 60px; color: #4B5563;">Sprache</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 40px; color: #4B5563;">Tracks</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 200px; color: #4B5563;">Infos</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 80px; color: #4B5563;">CCLI</th>
+                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 40px; color: #4B5563;">#</th>
+                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 300px; color: #4B5563;">Titel</th>
+                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 200px; color: #4B5563;">Interpret</th>
+                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 180px; color: #4B5563;">Genre</th>
+                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 60px; color: #4B5563;">BPM</th>
+                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 60px; color: #4B5563;">Time</th>
+                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 60px; color: #4B5563;">Key</th>
+                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 100px; color: #4B5563;">Sprache</th>
+                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 100px; color: #4B5563;">CCLI</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -134,14 +131,11 @@ const PDFGenerator = {
                     <td style="padding: 8px 5px; color: #9CA3AF; font-weight: 500; vertical-align: top;">${idx + 1}</td>
                     <td style="padding: 8px 5px; font-weight: 600; color: #111827; vertical-align: top;">${this.escapeHtml(song.title)}</td>
                     <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${this.escapeHtml(song.artist || '-')}</td>
+                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${this.escapeHtml(song.genre || '-')}</td>
                     <td style="padding: 8px 5px; text-align: center; font-weight: 500; vertical-align: top;">${song.bpm || '-'}</td>
                     <td style="padding: 8px 5px; text-align: center; font-weight: 500; vertical-align: top;">${song.timeSignature || '-'}</td>
                     <td style="padding: 8px 5px; text-align: center; font-weight: 500; color: #8B5CF6; vertical-align: top;">${song.key || '-'}</td>
-                    <td style="padding: 8px 5px; text-align: center; font-weight: 500; vertical-align: top;">${song.originalKey || '-'}</td>
-                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${this.escapeHtml(song.leadVocal || '-')}</td>
                     <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${this.escapeHtml(song.language || '-')}</td>
-                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top; word-break: break-word;">${this.escapeHtml(Storage.getSongPlainInfo(song) || '-')}</td>
                     <td style="padding: 8px 5px; color: #4B5563; vertical-align: top; font-family: monospace;">${this.escapeHtml(song.ccli || '-')}</td>
                 </tr>
             `).join('')}
