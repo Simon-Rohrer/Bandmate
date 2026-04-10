@@ -28452,6 +28452,166 @@ html[data-theme="light"] .calendar-sync-card,
     color: var(--color-text-muted);
 }
 
+.songpool-duplicate-import-modal {
+    max-width: min(980px, 96vw);
+    width: min(96vw, 980px);
+    max-height: min(92vh, 980px);
+}
+
+.songpool-duplicate-review-body {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.95rem;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.songpool-duplicate-review-toolbar {
+    align-items: center;
+}
+
+.songpool-duplicate-review-status {
+    align-self: flex-start;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 0.85rem;
+    justify-content: center;
+    font-size: 0.9rem;
+}
+
+.songpool-duplicate-review-copy {
+    display: grid;
+    gap: 0.22rem;
+    flex: 1;
+    min-width: 0;
+    padding: 0.78rem 0.95rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 5%, transparent), transparent 72%),
+        var(--color-bg-secondary);
+}
+
+.songpool-duplicate-review-copy strong {
+    color: var(--color-text);
+    font-size: 0.96rem;
+}
+
+.songpool-duplicate-review-copy span {
+    color: var(--color-text-secondary);
+    line-height: 1.45;
+    font-size: 0.86rem;
+}
+
+.songpool-duplicate-review-list {
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    display: grid;
+    gap: 0.95rem;
+    align-content: start;
+}
+
+.songpool-duplicate-review-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 4%, transparent), transparent 74%),
+        var(--color-surface);
+}
+
+.songpool-duplicate-review-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.85rem;
+}
+
+.songpool-duplicate-review-head-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    flex-shrink: 0;
+}
+
+.songpool-duplicate-review-draft {
+    display: grid;
+    gap: 0.28rem;
+    min-width: 0;
+}
+
+.songpool-duplicate-review-draft strong {
+    color: var(--color-text);
+    font-size: 1rem;
+    line-height: 1.28;
+}
+
+.songpool-duplicate-review-draft span:last-child {
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.songpool-duplicate-hit-count {
+    flex-shrink: 0;
+    justify-content: center;
+    min-width: 180px;
+}
+
+.songpool-duplicate-match-list {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.songpool-duplicate-match-card {
+    cursor: default;
+    align-items: flex-start;
+}
+
+.songpool-duplicate-match-card:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+.songpool-duplicate-match-info {
+    margin-top: 0.12rem;
+    color: var(--color-text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.45;
+    white-space: pre-wrap;
+}
+
+.songpool-duplicate-review-remove {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--color-danger, #ef4444) 34%, var(--color-border));
+    background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+    color: color-mix(in srgb, var(--color-danger, #ef4444) 78%, white 8%);
+}
+
+.songpool-duplicate-review-remove:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger, #ef4444) 50%, var(--color-border));
+    color: color-mix(in srgb, var(--color-danger, #ef4444) 88%, white 4%);
+}
+
+.songpool-duplicate-review-remove svg {
+    width: 14px;
+    height: 14px;
+}
+
+.songpool-duplicate-review-empty {
+    min-height: 180px;
+    align-content: center;
+    border-radius: 1rem;
+    border: 1px dashed color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+    background: color-mix(in srgb, var(--color-primary) 4%, transparent);
+}
+
 @media (max-width: 900px) {
     .song-editor-grid-primary,
     .song-editor-grid-secondary,
@@ -28525,6 +28685,22 @@ html[data-theme="light"] .calendar-sync-card,
         min-height: 0;
         height: 100%;
         max-height: none;
+    }
+
+    .songpool-duplicate-review-head,
+    .songpool-duplicate-review-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .songpool-duplicate-review-head-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .songpool-duplicate-hit-count,
+    .songpool-duplicate-review-status {
+        min-width: 0;
     }
 
     .song-autofill-option {
