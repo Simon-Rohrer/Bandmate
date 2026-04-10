@@ -1268,6 +1268,67 @@ const Storage = {
         return cleanInfo || null;
     },
 
+    getSongPdfStoragePath(pdfUrl = '') {
+        const rawUrl = String(pdfUrl || '').trim();
+        if (!rawUrl) return null;
+
+        try {
+            const parsedUrl = new URL(rawUrl, window.location.origin);
+            const match = parsedUrl.pathname.match(/\/storage\/v1\/object\/public\/song-pdfs\/(.+)$/);
+            if (!match || !match[1]) return null;
+            return decodeURIComponent(match[1]);
+        } catch (error) {
+            console.warn('[Storage] Could not parse song pdf path:', error);
+            return null;
+        }
+    },
+
+    async songPdfHasRemainingReferences(pdfUrl = '') {
+        const normalizedUrl = String(pdfUrl || '').trim();
+        if (!normalizedUrl) return false;
+
+        const sb = SupabaseClient.getClient();
+        const [
+            { data: songRefs, error: songsError },
+            { data: songpoolRefs, error: songpoolError }
+        ] = await Promise.all([
+            sb.from('songs').select('id').eq('pdf_url', normalizedUrl).limit(1),
+            sb.from('songpool_songs').select('id').eq('pdf_url', normalizedUrl).limit(1)
+        ]);
+
+        if (songsError) {
+            console.warn('[Storage] Song pdf reference lookup failed in songs:', songsError);
+        }
+
+        if (songpoolError && !this._isMissingSongpoolTableError(songpoolError)) {
+            console.warn('[Storage] Song pdf reference lookup failed in songpool_songs:', songpoolError);
+        }
+
+        return Boolean((songRefs && songRefs.length) || (songpoolRefs && songpoolRefs.length));
+    },
+
+    async cleanupSongPdfStorage(pdfUrl = '') {
+        const storagePath = this.getSongPdfStoragePath(pdfUrl);
+        if (!storagePath) {
+            return { removed: false, skipped: true, reason: 'invalid-path' };
+        }
+
+        const hasRemainingReferences = await this.songPdfHasRemainingReferences(pdfUrl);
+        if (hasRemainingReferences) {
+            return { removed: false, skipped: true, reason: 'still-referenced' };
+        }
+
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb.storage.from('song-pdfs').remove([storagePath]);
+
+        if (error) {
+            console.warn('[Storage] Song pdf cleanup failed:', error);
+            return { removed: false, skipped: false, reason: error.message || 'remove-failed' };
+        }
+
+        return { removed: true, skipped: false, reason: null };
+    },
+
     // Song operations
     async createSong(songData) {
         const song = {
@@ -1377,6 +1438,8 @@ const Storage = {
     },
 
     async updateSongpoolSong(songId, updates) {
+        const shouldCheckPdfCleanup = updates && Object.prototype.hasOwnProperty.call(updates, 'pdf_url');
+        const existingSong = shouldCheckPdfCleanup ? await this.getSongpoolSong(songId) : null;
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb
             .from('songpool_songs')
@@ -1389,10 +1452,16 @@ const Storage = {
             throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Song konnte nicht aktualisiert werden.'));
         }
 
-        return data || null;
+        const updatedSong = data || null;
+        if (shouldCheckPdfCleanup && existingSong?.pdf_url && existingSong.pdf_url !== (updatedSong?.pdf_url || updates?.pdf_url || null)) {
+            await this.cleanupSongPdfStorage(existingSong.pdf_url);
+        }
+
+        return updatedSong;
     },
 
     async deleteSongpoolSong(songId) {
+        const existingSong = await this.getSongpoolSong(songId);
         const sb = SupabaseClient.getClient();
         const { error } = await sb
             .from('songpool_songs')
@@ -1401,6 +1470,10 @@ const Storage = {
 
         if (error) {
             throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Song konnte nicht gelöscht werden.'));
+        }
+
+        if (existingSong?.pdf_url) {
+            await this.cleanupSongPdfStorage(existingSong.pdf_url);
         }
 
         return true;
@@ -1676,7 +1749,15 @@ const Storage = {
     },
 
     async updateSong(songId, updates) {
-        return await this.update('songs', songId, updates);
+        const shouldCheckPdfCleanup = updates && Object.prototype.hasOwnProperty.call(updates, 'pdf_url');
+        const existingSong = shouldCheckPdfCleanup ? await this.getById('songs', songId) : null;
+        const updatedSong = await this.update('songs', songId, updates);
+
+        if (updatedSong && shouldCheckPdfCleanup && existingSong?.pdf_url && existingSong.pdf_url !== (updatedSong?.pdf_url || updates?.pdf_url || null)) {
+            await this.cleanupSongPdfStorage(existingSong.pdf_url);
+        }
+
+        return updatedSong;
     },
 
     async saveChordProToSong(songId, chordProText) {
@@ -1763,7 +1844,14 @@ const Storage = {
     },
 
     async deleteSong(songId) {
-        return await this.delete('songs', songId);
+        const existingSong = await this.getById('songs', songId);
+        const deleted = await this.delete('songs', songId);
+
+        if (deleted && existingSong?.pdf_url) {
+            await this.cleanupSongPdfStorage(existingSong.pdf_url);
+        }
+
+        return deleted;
     },
 
     // Rundown Template operations

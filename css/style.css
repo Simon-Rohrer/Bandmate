@@ -4266,6 +4266,108 @@ input:checked+.slider:before {
     background: rgba(8, 16, 30, 0.96);
 }
 
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-content,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-modal-content {
+    box-shadow: 0 32px 80px rgba(15, 23, 42, 0.16);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-header,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-modal-header {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-kicker,
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-preview-kicker,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-modal-kicker,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-preview-kicker {
+    border-color: rgba(203, 213, 225, 0.85);
+    background: rgba(241, 245, 249, 0.92);
+    color: #64748b;
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-editor-panel,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-editor-panel {
+    border-right: 1px solid rgba(226, 232, 240, 0.95);
+    background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.06), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-toolbar-card,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-toolbar-card {
+    border: 1px solid rgba(226, 232, 240, 0.98);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-section-label,
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-slider-label,
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-card-hint,
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-stat-label,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-section-label,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-slider-label,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-card-hint,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-stat-label {
+    color: #64748b;
+    opacity: 1;
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-mode-option,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-mode-option {
+    border-color: rgba(226, 232, 240, 0.98);
+    background: rgba(248, 250, 252, 0.96);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-mode-option:hover,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-mode-option:hover {
+    border-color: rgba(96, 165, 250, 0.5);
+    background: rgba(239, 246, 255, 0.98);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-mode-option:has(input:checked),
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-mode-option:has(input:checked) {
+    border-color: rgba(96, 165, 250, 0.72);
+    background: linear-gradient(180deg, rgba(239, 246, 255, 0.98) 0%, rgba(219, 234, 254, 0.78) 100%);
+    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.18);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-preview-panel,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-preview-panel {
+    background:
+        radial-gradient(circle at top left, rgba(96, 165, 250, 0.08), transparent 28%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-preview-stage,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-preview-stage {
+    border-left: 1px solid rgba(226, 232, 240, 0.98);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(248, 250, 252, 0.96) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-preview-paper,
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-preview-stage iframe,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-preview-paper,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-preview-stage iframe {
+    background: #f8fafc;
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-preview-loading,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-preview-loading {
+    background: rgba(248, 250, 252, 0.82);
+    color: #0f172a;
+}
+
+html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
+:root:not(.theme-dark) #rundownPdfExportModal .rundown-pdf-modal-actions {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+    border-top-color: rgba(226, 232, 240, 0.98);
+}
+
 .pdf-preview-iframe {
     background-color: var(--color-background);
 }
@@ -28452,6 +28554,168 @@ html[data-theme="light"] .calendar-sync-card,
     color: var(--color-text-muted);
 }
 
+.songpool-band-document-modal {
+    max-width: min(940px, 96vw);
+    width: min(96vw, 940px);
+}
+
+.songpool-band-document-body {
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr);
+    gap: 0.95rem;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.songpool-band-document-toolbar {
+    align-items: flex-start;
+}
+
+.songpool-band-document-copy {
+    min-height: 46px;
+}
+
+.songpool-band-document-status {
+    align-self: flex-start;
+    min-width: 0;
+    min-height: 40px;
+    padding: 0 0.8rem;
+    justify-content: center;
+    font-size: 0.9rem;
+    gap: 0.3rem;
+}
+
+.songpool-band-document-list {
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+    display: grid;
+    gap: 0.9rem;
+    align-content: start;
+}
+
+.songpool-band-document-card {
+    display: grid;
+    gap: 0.85rem;
+    padding: 1rem;
+    border-radius: 1rem;
+    border: 1px solid var(--color-border);
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 4%, transparent), transparent 74%),
+        var(--color-surface);
+}
+
+.songpool-band-document-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.85rem;
+}
+
+.songpool-band-document-head-actions {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    flex-shrink: 0;
+}
+
+.songpool-band-document-head .songpool-band-document-copy {
+    display: grid;
+    gap: 0.28rem;
+    min-width: 0;
+}
+
+.songpool-band-document-head .songpool-band-document-copy strong {
+    color: var(--color-text);
+    font-size: 1rem;
+    line-height: 1.28;
+}
+
+.songpool-band-document-head .songpool-band-document-copy span:last-child {
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.songpool-band-document-pill {
+    background: color-mix(in srgb, var(--color-danger, #ef4444) 12%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger, #ef4444) 24%, var(--color-border));
+    color: color-mix(in srgb, var(--color-danger, #ef4444) 78%, white 8%);
+}
+
+.songpool-band-document-upload-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.85rem;
+    align-items: center;
+}
+
+.songpool-band-document-input {
+    display: none;
+}
+
+.songpool-band-document-upload-btn {
+    white-space: nowrap;
+}
+
+.songpool-band-document-file {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 46px;
+    padding: 0.7rem 0.9rem;
+    border-radius: 14px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    color: var(--color-text-secondary);
+}
+
+.songpool-band-document-file.has-file {
+    color: var(--color-text);
+    border-color: color-mix(in srgb, var(--color-primary) 24%, var(--color-border));
+}
+
+.songpool-band-document-file span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.songpool-band-document-card-remove,
+.songpool-band-document-remove {
+    flex-shrink: 0;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--color-danger, #ef4444) 34%, var(--color-border));
+    background: color-mix(in srgb, var(--color-danger, #ef4444) 10%, transparent);
+    color: color-mix(in srgb, var(--color-danger, #ef4444) 82%, white 6%);
+}
+
+.songpool-band-document-card-remove:hover:not(:disabled),
+.songpool-band-document-remove:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-danger, #ef4444) 15%, transparent);
+    border-color: color-mix(in srgb, var(--color-danger, #ef4444) 52%, var(--color-border));
+    color: color-mix(in srgb, var(--color-danger, #ef4444) 92%, white 2%);
+}
+
+.songpool-band-document-card-remove svg,
+.songpool-band-document-remove svg {
+    width: 14px;
+    height: 14px;
+}
+
+.songpool-band-document-file.has-file .songpool-band-document-remove {
+    background: color-mix(in srgb, var(--color-danger, #ef4444) 13%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-danger, #ef4444) 12%, transparent);
+}
+
+.songpool-band-document-empty {
+    min-height: 160px;
+}
+
 .songpool-duplicate-import-modal {
     max-width: min(980px, 96vw);
     width: min(96vw, 980px);
@@ -28685,6 +28949,21 @@ html[data-theme="light"] .calendar-sync-card,
         min-height: 0;
         height: 100%;
         max-height: none;
+    }
+
+    .songpool-band-document-toolbar,
+    .songpool-band-document-head {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .songpool-band-document-head-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    .songpool-band-document-upload-row {
+        grid-template-columns: 1fr;
     }
 
     .songpool-duplicate-review-head,

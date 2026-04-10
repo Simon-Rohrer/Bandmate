@@ -2143,6 +2143,9 @@ const App = {
             return '';
         }
 
+        const isDarkTheme = document.documentElement.classList.contains('theme-dark')
+            || document.documentElement.dataset.theme === 'dark';
+
         const pages = PDFGenerator.buildRundownPDFPages({
             title: session.title || session.defaultTitle || 'Ablauf',
             subtitle: session.subtitle || '',
@@ -2172,14 +2175,14 @@ const App = {
                         @page { size: A4; margin: 0; }
                         body {
                             font-family: Inter, Arial, sans-serif;
-                            background:
-                                radial-gradient(circle at top, rgba(79, 125, 243, 0.12), transparent 34%),
-                                #0b1220;
-                            color: #e2e8f0;
+                            background: ${isDarkTheme
+                                ? 'radial-gradient(circle at top, rgba(79, 125, 243, 0.12), transparent 34%), #0b1220'
+                                : 'linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)'};
+                            color: ${isDarkTheme ? '#e2e8f0' : '#0f172a'};
                         }
                         .preview-shell {
                             min-height: 100vh;
-                            padding: 18px;
+                            padding: ${isDarkTheme ? '18px' : '24px'};
                         }
                         .preview-page-wrap {
                             width: min(100%, 860px);
@@ -2190,8 +2193,9 @@ const App = {
                             overflow: hidden;
                             background: #ffffff;
                             box-shadow:
-                                0 22px 40px rgba(0, 0, 0, 0.24),
-                                0 0 0 1px rgba(255, 255, 255, 0.06);
+                                ${isDarkTheme
+                                    ? '0 22px 40px rgba(0, 0, 0, 0.24), 0 0 0 1px rgba(255, 255, 255, 0.06)'
+                                    : '0 24px 48px rgba(15, 23, 42, 0.10), 0 0 0 1px rgba(203, 213, 225, 0.82)'};
                         }
                         .preview-page-sheet > * {
                             width: 100% !important;
@@ -2232,6 +2236,9 @@ const App = {
     },
 
     buildRundownPdfPreviewErrorDocument(message = 'Die Vorschau konnte nicht geladen werden.') {
+        const isDarkTheme = document.documentElement.classList.contains('theme-dark')
+            || document.documentElement.dataset.theme === 'dark';
+
         return `
             <!doctype html>
             <html lang="de">
@@ -2242,8 +2249,8 @@ const App = {
                             margin: 0;
                             min-height: 100%;
                             font-family: Inter, Arial, sans-serif;
-                            background: #0b1220;
-                            color: #e2e8f0;
+                            background: ${isDarkTheme ? '#0b1220' : '#f8fafc'};
+                            color: ${isDarkTheme ? '#e2e8f0' : '#0f172a'};
                         }
                         body {
                             display: flex;
@@ -2256,10 +2263,11 @@ const App = {
                             max-width: 420px;
                             padding: 22px 24px;
                             border-radius: 20px;
-                            border: 1px solid rgba(148, 163, 184, 0.18);
-                            background: rgba(15, 23, 42, 0.82);
+                            border: 1px solid ${isDarkTheme ? 'rgba(148, 163, 184, 0.18)' : 'rgba(203, 213, 225, 0.9)'};
+                            background: ${isDarkTheme ? 'rgba(15, 23, 42, 0.82)' : '#ffffff'};
                             text-align: center;
                             line-height: 1.55;
+                            box-shadow: ${isDarkTheme ? 'none' : '0 18px 40px rgba(15, 23, 42, 0.08)'};
                         }
                     </style>
                 </head>
@@ -2659,6 +2667,285 @@ const App = {
                 this.openChordProPreview(chordProText, song?.title || button.dataset.title || 'ChordPro Vorschau');
             });
         });
+    },
+
+    getSongDocumentDownloadBaseName(song = null) {
+        const title = String(song?.title || 'song').trim() || 'song';
+        const artist = String(song?.artist || '').trim();
+        return `${title}${artist ? ` - ${artist}` : ''}`
+            .replace(/[\/\\?%*:|"<>]/g, '-')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    },
+
+    normalizeTextForSearch(value = '') {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/ß/g, 'ss')
+            .toLowerCase()
+            .trim();
+    },
+
+    getUniqueDocumentFilename(filename = 'datei', usedNames = new Set()) {
+        const safeName = String(filename || 'datei').trim() || 'datei';
+        const extensionMatch = safeName.match(/(\.[^.]+)$/);
+        const extension = extensionMatch ? extensionMatch[1] : '';
+        const basename = extension ? safeName.slice(0, -extension.length) : safeName;
+
+        let candidate = safeName;
+        let suffix = 2;
+
+        while (usedNames.has(candidate.toLowerCase())) {
+            candidate = `${basename} (${suffix})${extension}`;
+            suffix += 1;
+        }
+
+        usedNames.add(candidate.toLowerCase());
+        return candidate;
+    },
+
+    async triggerFileDownloadFromBlob(blob, filename) {
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(objectUrl), 1200);
+    },
+
+    async collectSongAttachedDocuments(song, usedNames = new Set()) {
+        if (!song) {
+            return { files: [], skippedCount: 0, errorCount: 0 };
+        }
+
+        const files = [];
+        let skippedCount = 0;
+        let errorCount = 0;
+        const baseName = this.getSongDocumentDownloadBaseName(song);
+
+        if (song.pdf_url) {
+            try {
+                const response = await fetch(song.pdf_url);
+                if (!response.ok) {
+                    throw new Error(`PDF konnte nicht geladen werden (${response.status})`);
+                }
+                const pdfBlob = await response.blob();
+                files.push({
+                    filename: this.getUniqueDocumentFilename(`${baseName}.pdf`, usedNames),
+                    blob: pdfBlob
+                });
+            } catch (error) {
+                console.error('[Songpool] PDF download failed:', error);
+                errorCount++;
+            }
+        }
+
+        const chordProText = typeof Storage !== 'undefined' && typeof Storage.getSongChordPro === 'function'
+            ? Storage.getSongChordPro(song)
+            : '';
+
+        if (chordProText) {
+            try {
+                const chordProBlob = new Blob([chordProText], { type: 'text/plain;charset=utf-8' });
+                files.push({
+                    filename: this.getUniqueDocumentFilename(`${baseName}.chopro`, usedNames),
+                    blob: chordProBlob
+                });
+            } catch (error) {
+                console.error('[Songpool] ChordPro download failed:', error);
+                errorCount++;
+            }
+        }
+
+        if (!song.pdf_url && !chordProText) {
+            skippedCount++;
+        }
+
+        return { files, skippedCount, errorCount };
+    },
+
+    getZipDosTimestamp(date = new Date()) {
+        const safeDate = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+        const year = Math.max(1980, safeDate.getFullYear());
+        const month = safeDate.getMonth() + 1;
+        const day = safeDate.getDate();
+        const hours = safeDate.getHours();
+        const minutes = safeDate.getMinutes();
+        const seconds = Math.floor(safeDate.getSeconds() / 2);
+
+        return {
+            time: (hours << 11) | (minutes << 5) | seconds,
+            date: ((year - 1980) << 9) | (month << 5) | day
+        };
+    },
+
+    getZipCRC32Table() {
+        if (this.zipCRC32Table) {
+            return this.zipCRC32Table;
+        }
+
+        const table = new Uint32Array(256);
+        for (let index = 0; index < 256; index++) {
+            let crc = index;
+            for (let bit = 0; bit < 8; bit++) {
+                crc = (crc & 1) ? (0xEDB88320 ^ (crc >>> 1)) : (crc >>> 1);
+            }
+            table[index] = crc >>> 0;
+        }
+
+        this.zipCRC32Table = table;
+        return table;
+    },
+
+    calculateCRC32(bytes) {
+        const table = this.getZipCRC32Table();
+        let crc = 0xFFFFFFFF;
+
+        for (let index = 0; index < bytes.length; index++) {
+            crc = table[(crc ^ bytes[index]) & 0xFF] ^ (crc >>> 8);
+        }
+
+        return (crc ^ 0xFFFFFFFF) >>> 0;
+    },
+
+    async createZipBlobFromFiles(files = []) {
+        const normalizedFiles = Array.isArray(files) ? files.filter((file) => file?.blob && file?.filename) : [];
+        if (!normalizedFiles.length) {
+            return null;
+        }
+
+        const encoder = new TextEncoder();
+        const zipParts = [];
+        const centralDirectoryParts = [];
+        let offset = 0;
+        const timestamp = this.getZipDosTimestamp(new Date());
+
+        for (const file of normalizedFiles) {
+            const filenameBytes = encoder.encode(String(file.filename));
+            const dataBytes = new Uint8Array(await file.blob.arrayBuffer());
+            const crc32 = this.calculateCRC32(dataBytes);
+
+            const localHeader = new Uint8Array(30 + filenameBytes.length);
+            const localView = new DataView(localHeader.buffer);
+            localView.setUint32(0, 0x04034b50, true);
+            localView.setUint16(4, 20, true);
+            localView.setUint16(6, 0x0800, true);
+            localView.setUint16(8, 0, true);
+            localView.setUint16(10, timestamp.time, true);
+            localView.setUint16(12, timestamp.date, true);
+            localView.setUint32(14, crc32, true);
+            localView.setUint32(18, dataBytes.length, true);
+            localView.setUint32(22, dataBytes.length, true);
+            localView.setUint16(26, filenameBytes.length, true);
+            localView.setUint16(28, 0, true);
+            localHeader.set(filenameBytes, 30);
+
+            const centralHeader = new Uint8Array(46 + filenameBytes.length);
+            const centralView = new DataView(centralHeader.buffer);
+            centralView.setUint32(0, 0x02014b50, true);
+            centralView.setUint16(4, 20, true);
+            centralView.setUint16(6, 20, true);
+            centralView.setUint16(8, 0x0800, true);
+            centralView.setUint16(10, 0, true);
+            centralView.setUint16(12, timestamp.time, true);
+            centralView.setUint16(14, timestamp.date, true);
+            centralView.setUint32(16, crc32, true);
+            centralView.setUint32(20, dataBytes.length, true);
+            centralView.setUint32(24, dataBytes.length, true);
+            centralView.setUint16(28, filenameBytes.length, true);
+            centralView.setUint16(30, 0, true);
+            centralView.setUint16(32, 0, true);
+            centralView.setUint16(34, 0, true);
+            centralView.setUint16(36, 0, true);
+            centralView.setUint32(38, 0, true);
+            centralView.setUint32(42, offset, true);
+            centralHeader.set(filenameBytes, 46);
+
+            zipParts.push(localHeader, dataBytes);
+            centralDirectoryParts.push(centralHeader);
+            offset += localHeader.length + dataBytes.length;
+        }
+
+        const centralDirectorySize = centralDirectoryParts.reduce((sum, part) => sum + part.length, 0);
+        const endOfCentralDirectory = new Uint8Array(22);
+        const eocdView = new DataView(endOfCentralDirectory.buffer);
+        eocdView.setUint32(0, 0x06054b50, true);
+        eocdView.setUint16(4, 0, true);
+        eocdView.setUint16(6, 0, true);
+        eocdView.setUint16(8, normalizedFiles.length, true);
+        eocdView.setUint16(10, normalizedFiles.length, true);
+        eocdView.setUint32(12, centralDirectorySize, true);
+        eocdView.setUint32(16, offset, true);
+        eocdView.setUint16(20, 0, true);
+
+        return new Blob([...zipParts, ...centralDirectoryParts, endOfCentralDirectory], { type: 'application/zip' });
+    },
+
+    async downloadSongDocumentsBatch(songs = []) {
+        const queue = Array.isArray(songs) ? songs.filter(Boolean) : [];
+        if (!queue.length) {
+            UI.showToast('Bitte wähle mindestens einen Song aus.', 'info');
+            return;
+        }
+
+        let downloadedCount = 0;
+        let skippedCount = 0;
+        let errorCount = 0;
+        const collectedFiles = [];
+        const usedNames = new Set();
+
+        UI.showLoading(`Dateien werden heruntergeladen (0/${queue.length})...`);
+
+        for (let index = 0; index < queue.length; index++) {
+            const song = queue[index];
+            UI.showLoading(`Dateien werden heruntergeladen (${index + 1}/${queue.length})...`);
+            const result = await this.collectSongAttachedDocuments(song, usedNames);
+            collectedFiles.push(...result.files);
+            downloadedCount += result.files.length;
+            skippedCount += result.skippedCount;
+            errorCount += result.errorCount;
+        }
+
+        if (collectedFiles.length === 1) {
+            await this.triggerFileDownloadFromBlob(collectedFiles[0].blob, collectedFiles[0].filename);
+        } else if (collectedFiles.length > 1) {
+            UI.showLoading('Downloadpaket wird erstellt...');
+            const archiveBlob = await this.createZipBlobFromFiles(collectedFiles);
+            const archiveName = `Songpool-Auswahl ${new Date().toISOString().slice(0, 10)}.zip`;
+            await this.triggerFileDownloadFromBlob(archiveBlob, archiveName);
+        }
+
+        UI.hideLoading();
+
+        if (downloadedCount > 0 && skippedCount === 0 && errorCount === 0) {
+            UI.showToast(
+                collectedFiles.length > 1
+                    ? `${downloadedCount} Datei${downloadedCount === 1 ? '' : 'en'} als ZIP heruntergeladen`
+                    : `${downloadedCount} Datei${downloadedCount === 1 ? '' : 'en'} heruntergeladen`,
+                'success'
+            );
+            return;
+        }
+
+        if (downloadedCount > 0 || skippedCount > 0 || errorCount > 0) {
+            const parts = [];
+            if (downloadedCount > 0) {
+                parts.push(
+                    collectedFiles.length > 1
+                        ? `${downloadedCount} im ZIP`
+                        : `${downloadedCount} heruntergeladen`
+                );
+            }
+            if (skippedCount > 0) parts.push(`${skippedCount} ohne Anhang`);
+            if (errorCount > 0) parts.push(`${errorCount} fehlgeschlagen`);
+            UI.showToast(`Download abgeschlossen: ${parts.join(', ')}`, errorCount > 0 ? 'warning' : 'success');
+            return;
+        }
+
+        UI.showToast('Für die Auswahl konnten keine Dateien heruntergeladen werden.', 'info');
     },
 
     setupInstrumentSelector(containerId, inputId, initialValue = "") {
@@ -7573,7 +7860,25 @@ const App = {
         )];
     },
 
-    getSongpoolDuplicateMatchMeta(leftTitle = '', rightTitle = '', leftArtist = '', rightArtist = '') {
+    normalizeSongpoolKeyForComparison(value = '') {
+        const raw = String(value || '').trim().toLowerCase();
+        if (!raw) return '';
+
+        return raw
+            .replace(/\s+/g, ' ')
+            .replace(/\bdur\b/g, '')
+            .replace(/\bmajor\b/g, '')
+            .replace(/\bmoll\b/g, 'm')
+            .replace(/\bminor\b/g, 'm')
+            .replace(/\s+/g, '')
+            .replace('db', 'c#')
+            .replace('eb', 'd#')
+            .replace('gb', 'f#')
+            .replace('ab', 'g#')
+            .replace('bb', 'a#');
+    },
+
+    getSongpoolDuplicateMatchMeta(leftTitle = '', rightTitle = '', leftArtist = '', rightArtist = '', leftKey = '', rightKey = '') {
         const normalizedLeft = this.normalizeSongpoolDuplicateText(leftTitle);
         const normalizedRight = this.normalizeSongpoolDuplicateText(rightTitle);
 
@@ -7618,6 +7923,15 @@ const App = {
             score = Math.min(score + 0.04, 1);
         }
 
+        const normalizedLeftKey = this.normalizeSongpoolKeyForComparison(leftKey);
+        const normalizedRightKey = this.normalizeSongpoolKeyForComparison(rightKey);
+        if (normalizedLeftKey && normalizedRightKey) {
+            if (normalizedLeftKey !== normalizedRightKey) {
+                return null;
+            }
+            score = Math.min(score + 0.03, 1);
+        }
+
         if (score < 0.78) return null;
 
         return {
@@ -7633,7 +7947,9 @@ const App = {
                     draft?.title || '',
                     song?.title || '',
                     draft?.artist || '',
-                    song?.artist || ''
+                    song?.artist || '',
+                    draft?.key || '',
+                    song?.key || ''
                 );
 
                 if (!matchMeta) return null;
@@ -7685,7 +8001,8 @@ const App = {
         if (!draft) return '';
         return [
             this.normalizeSongpoolDuplicateText(draft.title || ''),
-            this.normalizeSongpoolDuplicateText(draft.artist || '')
+            this.normalizeSongpoolDuplicateText(draft.artist || ''),
+            this.normalizeSongpoolKeyForComparison(draft.key || '')
         ].join('::');
     },
 
@@ -7719,6 +8036,11 @@ const App = {
                 )
             }))
             .filter((draft) => draft.title);
+
+        const draftsWithoutKey = normalizedDrafts.filter((draft) => !String(draft.key || '').trim());
+        if (draftsWithoutKey.length > 0) {
+            throw new Error(`Bitte trage für ${draftsWithoutKey.length} Song${draftsWithoutKey.length === 1 ? '' : 's'} eine Tonart ein.`);
+        }
 
         const user = options.user || Auth.getCurrentUser();
         if (!user) {
@@ -7841,6 +8163,302 @@ const App = {
         };
     },
 
+    async createSongpoolDraftFromBandSongFile(song, visibility = 'public', file = null) {
+        const baseDraft = this.createSongpoolDraftFromBandSong(song, visibility);
+        if (!baseDraft) return null;
+        if (!file) return baseDraft;
+
+        const isChordProUpload = this.isChordProLikeFileName(file.name || '');
+        const plainInfo = Storage.getSongPlainInfo(song);
+        const chordProText = isChordProUpload ? await file.text() : '';
+
+        return {
+            ...baseDraft,
+            sourceType: isChordProUpload ? 'chordpro' : 'pdf',
+            sourceLabel: isChordProUpload ? 'ChordPro' : 'PDF',
+            file,
+            pdf_url: null,
+            info: isChordProUpload
+                ? Storage.composeSongInfoWithChordPro(plainInfo, chordProText)
+                : (baseDraft.info || null)
+        };
+    },
+
+    async openSongpoolBandMissingDocumentModal(readySongs = [], missingSongs = [], visibility = 'public') {
+        const readyEntries = Array.isArray(readySongs) ? readySongs.filter(Boolean) : [];
+        const missingEntries = Array.isArray(missingSongs) ? missingSongs.filter(Boolean) : [];
+        const readyDocumentCount = readyEntries.length;
+        let missingDocumentCount = missingEntries.length;
+        let activeMissingEntries = [...missingEntries];
+
+        if (!missingEntries.length) {
+            const drafts = await Promise.all(
+                readyEntries.map((song) => this.createSongpoolDraftFromBandSongFile(song, visibility))
+            );
+            return {
+                confirmed: true,
+                drafts: drafts.filter(Boolean)
+            };
+        }
+
+        return new Promise((resolve) => {
+            const tempModal = document.createElement('div');
+            tempModal.className = 'modal active';
+            const fileSelections = new Map();
+
+            tempModal.innerHTML = `
+                <div class="modal-content song-pool-modal songpool-band-import-modal songpool-band-document-modal">
+                    <div class="modal-header song-pool-modal-header">
+                        <div class="song-pool-title-group">
+                            <span class="song-pool-kicker">Songpool</span>
+                            <h2>Dateien für den Import ergänzen</h2>
+                            <p>Ein Song im Songpool braucht immer eine PDF oder ChordPro-Datei. Für die markierten Band-Songs fehlt diese Datei noch.</p>
+                        </div>
+                        <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
+                    </div>
+                    <div class="song-pool-modal-body songpool-band-document-body">
+                        <div class="songpool-band-import-toolbar songpool-band-document-toolbar">
+                            <div class="songpool-band-import-status songpool-band-document-status">
+                                <strong data-band-document-ready-count>${readyDocumentCount}</strong>
+                                <span>schon bereit</span>
+                            </div>
+                            <div class="songpool-band-import-status songpool-band-document-status">
+                                <strong data-band-document-missing-count>${missingDocumentCount}</strong>
+                                <span>brauchen eine Datei</span>
+                            </div>
+                            <div class="songpool-duplicate-review-copy songpool-band-document-copy">
+                                <strong>Direkt im Import ergänzen</strong>
+                                <span>Du kannst jetzt pro Song eine PDF oder ChordPro-Datei anhängen. Danach öffnet sich die Vorschau, in der du unter anderem die Tonart prüfen und ergänzen kannst.</span>
+                            </div>
+                        </div>
+                        <div class="modal-song-list-container song-pool-list songpool-band-document-list" data-band-document-list></div>
+                    </div>
+                    <div class="song-pool-modal-actions">
+                        <button type="button" class="btn btn-secondary" data-action="cancel">Import abbrechen</button>
+                        ${readyDocumentCount > 0 ? `<button type="button" class="btn btn-secondary" data-action="ready-only"></button>` : ''}
+                        <button type="button" class="btn btn-primary" data-action="continue"></button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(tempModal);
+            document.body.classList.add('modal-open');
+            document.documentElement.classList.add('modal-open');
+
+            const listContainer = tempModal.querySelector('[data-band-document-list]');
+            const continueButton = tempModal.querySelector('[data-action="continue"]');
+            const readyOnlyButton = tempModal.querySelector('[data-action="ready-only"]');
+            const readyCountEl = tempModal.querySelector('[data-band-document-ready-count]');
+            const missingCountEl = tempModal.querySelector('[data-band-document-missing-count]');
+
+            const closeModal = (result = { confirmed: false, drafts: [] }) => {
+                document.removeEventListener('keydown', handleEscape);
+                tempModal.remove();
+                if (document.querySelectorAll('.modal.active').length === 0) {
+                    document.body.classList.remove('modal-open');
+                    document.documentElement.classList.remove('modal-open');
+                }
+                resolve(result);
+            };
+
+            const handleEscape = (event) => {
+                if (event.key === 'Escape') {
+                    closeModal({ confirmed: false, drafts: [] });
+                }
+            };
+
+            const buildDraftsForSelection = async ({ includeReady = true, includeUploaded = true } = {}) => {
+                const drafts = [];
+
+                if (includeReady) {
+                    for (const song of readyEntries) {
+                        const draft = await this.createSongpoolDraftFromBandSongFile(song, visibility);
+                        if (draft) drafts.push(draft);
+                    }
+                }
+
+                if (includeUploaded) {
+                    for (const song of activeMissingEntries) {
+                        const file = fileSelections.get(String(song.id));
+                        if (!file) continue;
+                        const draft = await this.createSongpoolDraftFromBandSongFile(song, visibility, file);
+                        if (draft) drafts.push(draft);
+                    }
+                }
+
+                return drafts;
+            };
+
+            const updateStatusCounts = () => {
+                missingDocumentCount = activeMissingEntries.filter((song) => !fileSelections.has(String(song.id))).length;
+
+                if (readyCountEl) {
+                    readyCountEl.textContent = String(readyDocumentCount);
+                }
+
+                if (missingCountEl) {
+                    missingCountEl.textContent = String(missingDocumentCount);
+                }
+            };
+
+            const updateActionState = () => {
+                const uploadedCount = activeMissingEntries.filter((song) => fileSelections.has(String(song.id))).length;
+                const totalCount = readyDocumentCount + uploadedCount;
+
+                if (continueButton) {
+                    continueButton.disabled = totalCount === 0;
+                    continueButton.textContent = totalCount > 0
+                        ? `${totalCount} Song${totalCount === 1 ? '' : 's'} zur Vorschau`
+                        : 'Nichts ausgewählt';
+                }
+
+                if (readyOnlyButton) {
+                    readyOnlyButton.disabled = readyDocumentCount === 0;
+                    readyOnlyButton.textContent = `${readyDocumentCount} Song${readyDocumentCount === 1 ? '' : 's'} zur Vorschau`;
+                }
+            };
+
+            const renderMissingList = () => {
+                if (!listContainer) return;
+
+                if (!activeMissingEntries.length) {
+                    listContainer.innerHTML = `
+                        <div class="songpool-duplicate-review-empty songpool-band-document-empty">
+                            <strong>Keine offenen Datei-Anhänge mehr</strong>
+                            <span>Du kannst jetzt mit den übrigen Songs zur Vorschau weitergehen oder den Import abbrechen.</span>
+                        </div>
+                    `;
+                    return;
+                }
+
+                listContainer.innerHTML = activeMissingEntries.map((song) => {
+                    const selectedFile = fileSelections.get(String(song.id));
+                    const fileName = selectedFile?.name || 'Noch keine Datei ausgewählt';
+                    const hasFile = Boolean(selectedFile);
+
+                    return `
+                        <article class="songpool-band-document-card">
+                            <div class="songpool-band-document-head">
+                                <div class="songpool-band-document-copy">
+                                    <div class="songpool-import-file-line">
+                                        <span class="songpool-import-file-pill songpool-band-document-pill">Datei fehlt</span>
+                                        <strong>${this.escapeHtml(song.title || 'Ohne Titel')}</strong>
+                                    </div>
+                                    <span>${this.escapeHtml(song.artist || 'Unbekannter Interpret')}</span>
+                                </div>
+                                <div class="songpool-band-document-head-actions">
+                                    <span class="song-badge ${hasFile ? 'bpm' : ''}">${hasFile ? 'Datei ergänzt' : 'Noch offen'}</span>
+                                    <button
+                                        type="button"
+                                        class="btn-icon songpool-band-document-card-remove"
+                                        data-remove-missing-song-id="${this.escapeHtmlAttr(String(song.id))}"
+                                        title="Song aus dem Import entfernen"
+                                        aria-label="Song aus dem Import entfernen"
+                                    >${this.getRundownInlineIcon('close')}</button>
+                                </div>
+                            </div>
+                            <div class="songpool-band-document-upload-row">
+                                <label class="btn btn-secondary btn-sm songpool-band-document-upload-btn" for="songpoolBandMissingFile-${this.escapeHtmlAttr(String(song.id))}">
+                                    Datei auswählen
+                                </label>
+                                <input
+                                    type="file"
+                                    id="songpoolBandMissingFile-${this.escapeHtmlAttr(String(song.id))}"
+                                    class="songpool-band-document-input"
+                                    data-missing-song-id="${this.escapeHtmlAttr(String(song.id))}"
+                                    accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf"
+                                >
+                                <div class="songpool-band-document-file ${hasFile ? 'has-file' : ''}">
+                                    <span>${this.escapeHtml(fileName)}</span>
+                                    ${hasFile ? `
+                                        <button
+                                            type="button"
+                                            class="btn-icon songpool-band-document-remove"
+                                            data-remove-missing-file="${this.escapeHtmlAttr(String(song.id))}"
+                                            title="Datei entfernen"
+                                            aria-label="Datei entfernen"
+                                        >${this.getRundownInlineIcon('close')}</button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </article>
+                    `;
+                }).join('');
+
+                listContainer.querySelectorAll('.songpool-band-document-input').forEach((input) => {
+                    input.addEventListener('change', () => {
+                        const songId = String(input.dataset.missingSongId || '');
+                        const file = input.files && input.files[0] ? input.files[0] : null;
+
+                        if (file && !(this.isChordProLikeFileName(file.name) || String(file.name || '').toLowerCase().endsWith('.pdf') || file.type === 'application/pdf')) {
+                            UI.showToast('Bitte wähle eine PDF- oder ChordPro-Datei aus.', 'error');
+                            input.value = '';
+                            return;
+                        }
+
+                        if (file) {
+                            fileSelections.set(songId, file);
+                        } else {
+                            fileSelections.delete(songId);
+                        }
+
+                        renderMissingList();
+                        updateActionState();
+                    });
+                });
+
+                listContainer.querySelectorAll('[data-remove-missing-song-id]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        const songId = String(button.dataset.removeMissingSongId || '');
+                        fileSelections.delete(songId);
+                        activeMissingEntries = activeMissingEntries.filter((song) => String(song?.id || '') !== songId);
+                        updateStatusCounts();
+                        renderMissingList();
+                        updateActionState();
+                    });
+                });
+
+                listContainer.querySelectorAll('[data-remove-missing-file]').forEach((button) => {
+                    button.addEventListener('click', () => {
+                        fileSelections.delete(String(button.dataset.removeMissingFile || ''));
+                        updateStatusCounts();
+                        renderMissingList();
+                        updateActionState();
+                    });
+                });
+            };
+
+            document.addEventListener('keydown', handleEscape);
+            updateStatusCounts();
+            renderMissingList();
+            updateActionState();
+
+            tempModal.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+                closeModal({ confirmed: false, drafts: [] });
+            });
+
+            readyOnlyButton?.addEventListener('click', async () => {
+                const drafts = await buildDraftsForSelection({ includeReady: true, includeUploaded: false });
+                closeModal({ confirmed: true, drafts });
+            });
+
+            continueButton?.addEventListener('click', async () => {
+                const drafts = await buildDraftsForSelection({ includeReady: true, includeUploaded: true });
+                closeModal({ confirmed: true, drafts });
+            });
+
+            tempModal.querySelector('.song-pool-close')?.addEventListener('click', () => {
+                closeModal({ confirmed: false, drafts: [] });
+            });
+
+            tempModal.addEventListener('click', (event) => {
+                if (event.target === tempModal) {
+                    closeModal({ confirmed: false, drafts: [] });
+                }
+            });
+        });
+    },
+
     removeSongpoolImportDraftsByIds(draftIds = []) {
         const idSet = new Set((Array.isArray(draftIds) ? draftIds : []).map((id) => String(id)));
         if (!idSet.size) return;
@@ -7958,6 +8576,10 @@ const App = {
                     badges.push(`<span class="song-badge">${this.escapeHtml(match.song.language)}</span>`);
                 }
 
+                if (match.song?.key) {
+                    badges.push(`<span class="song-badge key">${this.escapeHtml(match.song.key)}</span>`);
+                }
+
                 return badges.join('');
             };
 
@@ -8066,12 +8688,15 @@ const App = {
                     <article class="songpool-duplicate-review-card" data-duplicate-draft-id="${this.escapeHtmlAttr(entry.draft?.id || '')}">
                         <div class="songpool-duplicate-review-head">
                             <div class="songpool-duplicate-review-draft">
-                                <div class="songpool-import-file-line">
-                                    <span class="songpool-import-file-pill">${this.escapeHtml(entry.draft?.sourceLabel || 'Import')}</span>
-                                    <strong>${this.escapeHtml(entry.draft?.title || 'Ohne Titel')}</strong>
-                                </div>
-                                <span>${this.escapeHtml(entry.draft?.artist || 'Unbekannter Interpret')}</span>
-                            </div>
+                                            <div class="songpool-import-file-line">
+                                                <span class="songpool-import-file-pill">${this.escapeHtml(entry.draft?.sourceLabel || 'Import')}</span>
+                                                <strong>${this.escapeHtml(entry.draft?.title || 'Ohne Titel')}</strong>
+                                            </div>
+                                            <span>${this.escapeHtml([
+                                                entry.draft?.artist || 'Unbekannter Interpret',
+                                                entry.draft?.key ? `Tonart ${entry.draft.key}` : ''
+                                            ].filter(Boolean).join(' • '))}</span>
+                                        </div>
                             <div class="songpool-duplicate-review-head-actions">
                                 <div class="songpool-band-import-status songpool-duplicate-hit-count">
                                     <strong>${this.escapeHtml(this.getSongpoolDuplicateMatchCountLabel(entry.matches.length))}</strong>
@@ -8480,13 +9105,17 @@ const App = {
             return;
         }
 
-        this.songpoolImportDrafts = drafts;
-        this.renderSongpoolImportPreview();
-        UI.openModal('songpoolImportModal');
+        this.openSongpoolImportPreview(drafts);
 
         if (errors.length > 0) {
             UI.showToast(`${errors.length} Datei${errors.length === 1 ? '' : 'en'} konnten nicht vollständig gelesen werden.`, 'warning');
         }
+    },
+
+    openSongpoolImportPreview(drafts = []) {
+        this.songpoolImportDrafts = Array.isArray(drafts) ? drafts.filter(Boolean) : [];
+        this.renderSongpoolImportPreview();
+        UI.openModal('songpoolImportModal');
     },
 
     renderSongpoolImportPreview() {
@@ -8539,7 +9168,7 @@ const App = {
                         <input type="number" min="0" step="1" id="songpoolDraftBpm-${draft.id}" data-draft-field="bpm" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.bpm || '')}">
                     </div>
                     <div class="form-group">
-                        <label for="songpoolDraftKey-${draft.id}">Tonart</label>
+                        <label for="songpoolDraftKey-${draft.id}">Tonart <span class="required-indicator" title="Pflichtfeld">*</span></label>
                         <input type="text" id="songpoolDraftKey-${draft.id}" data-draft-field="key" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.key || '')}">
                     </div>
                     <div class="form-group">
@@ -8622,6 +9251,16 @@ const App = {
 
         if (!drafts.length) {
             UI.showToast('Bitte mindestens einen Songtitel eintragen.', 'warning');
+            return;
+        }
+
+        const draftsWithoutKey = drafts.filter((draft) => !String(draft.key || '').trim());
+        if (draftsWithoutKey.length > 0) {
+            UI.showToast(`Bitte trage für ${draftsWithoutKey.length} Song${draftsWithoutKey.length === 1 ? '' : 's'} eine Tonart ein.`, 'warning');
+            const firstMissingKeyInput = document.getElementById(`songpoolDraftKey-${draftsWithoutKey[0].id}`);
+            if (firstMissingKeyInput) {
+                firstMissingKeyInput.focus();
+            }
             return;
         }
 
@@ -8708,6 +9347,7 @@ const App = {
         if (pdfInput) pdfInput.value = '';
         const currentPdfContainer = document.getElementById('songCurrentPdf');
         const pdfNameSpan = document.getElementById('songPdfName');
+        const songKeyLabel = document.querySelector('label[for="songKey"]');
         this.songAutofillCandidates = [];
         if (this.songAutofillSearchTimer) {
             clearTimeout(this.songAutofillSearchTimer);
@@ -8717,6 +9357,12 @@ const App = {
 
         if (visibilityGroup) {
             visibilityGroup.hidden = !isSongpoolSong;
+        }
+
+        if (songKeyLabel) {
+            songKeyLabel.innerHTML = isSongpoolSong
+                ? 'Tonart <span class="required-indicator" title="Pflichtfeld">*</span>'
+                : 'Tonart';
         }
 
         if (songId) {
@@ -9109,6 +9755,7 @@ const App = {
             }
 
             const currentSongState = isDraftEventSongEdit ? this.getDraftEventSong(existingSong) : existingSong;
+            const previousCurrentPdfUrl = currentSongState?.pdf_url || null;
             if (isDraftEventSongEdit && currentSongState) {
                 pdfUrl = currentSongState.pdf_url || null;
             }
@@ -9131,6 +9778,12 @@ const App = {
             }
 
             if (isSongpoolSong && !songId) {
+                if (!String(key || '').trim()) {
+                    UI.showToast('Bitte wähle für den Songpool eine Tonart aus.', 'warning');
+                    document.getElementById('songKey')?.focus();
+                    return;
+                }
+
                 if (!this.songpoolEntryHasDocument({ file: selectedSongFile, pdf_url: pdfUrl, info: existingChordPro })) {
                     UI.showToast('Im Songpool braucht jeder Song eine PDF oder eine ChordPro-Datei.', 'error');
                     return;
@@ -9213,6 +9866,12 @@ const App = {
                 }
             }
 
+            if (isSongpoolSong && songId && !String(key || '').trim()) {
+                UI.showToast('Bitte wähle für den Songpool eine Tonart aus.', 'warning');
+                document.getElementById('songKey')?.focus();
+                return;
+            }
+
             // Handle File Upload
             if (pdfFileInput && pdfFileInput.files.length > 0) {
                 const file = pdfFileInput.files[0];
@@ -9222,14 +9881,6 @@ const App = {
                 } else {
                     UI.showLoading('PDF wird hochgeladen...');
                     const sb = SupabaseClient.getClient();
-
-                    // Delete old PDF if exists
-                    if (pdfUrl && !isDraftEventSongEdit) {
-                        const oldFileName = pdfUrl.split('/').pop();
-                        if (oldFileName && oldFileName.startsWith('song-pdf-')) {
-                            await sb.storage.from('song-pdfs').remove([oldFileName]);
-                        }
-                    }
 
                     const fileExt = 'pdf';
                     const fileName = `song-pdf-${user.id}-${Date.now()}.${fileExt}`;
@@ -9281,6 +9932,9 @@ const App = {
                     ...(this.draftEventSongOverrides[songId] || {}),
                     ...this.getDraftEventSongOverridePayload(songData)
                 };
+                if (previousCurrentPdfUrl && previousCurrentPdfUrl !== pdfUrl && previousCurrentPdfUrl !== existingSong?.pdf_url) {
+                    await Storage.cleanupSongPdfStorage(previousCurrentPdfUrl);
+                }
                 UI.showToast('Song nur für diesen Auftritt aktualisiert', 'success');
                 UI.closeModal('songModal');
                 this.lastSongModalContext = null;
@@ -9468,16 +10122,6 @@ const App = {
             const currentSong = isDraftEventSongEdit ? this.getDraftEventSong(song) : song;
 
             if (currentSong && currentSong.pdf_url) {
-                const sb = SupabaseClient.getClient();
-                const fileName = currentSong.pdf_url.split('/').pop();
-                const shouldDeletePhysicalFile = fileName
-                    && fileName.startsWith('song-pdf-')
-                    && (!song || currentSong.pdf_url !== song.pdf_url);
-
-                if (shouldDeletePhysicalFile) {
-                    await sb.storage.from('song-pdfs').remove([fileName]);
-                }
-
                 const currentPdfContainer = document.getElementById('songCurrentPdf');
                 if (currentPdfContainer) currentPdfContainer.style.display = 'none';
                 const pdfInput = document.getElementById('songPdf');
@@ -9488,6 +10132,9 @@ const App = {
                         ...(this.draftEventSongOverrides[songId] || {}),
                         pdf_url: null
                     };
+                    if (!song || currentSong.pdf_url !== song.pdf_url) {
+                        await Storage.cleanupSongPdfStorage(currentSong.pdf_url);
+                    }
                     UI.showToast('PDF für diesen Auftritt entfernt', 'success');
                     await this.renderDraftEventSongs();
                     return;
@@ -10317,7 +10964,7 @@ const App = {
 
             document.addEventListener('keydown', handleEscape);
 
-            const normalizeSearch = (value) => String(value || '').trim().toLowerCase();
+            const normalizeSearch = (value) => this.normalizeTextForSearch(value);
             const getActiveEntry = () => bandEntries.find((entry) => String(entry.band.id) === String(activeBandId)) || bandEntries[0];
 
             const updateConfirmState = () => {
@@ -10357,7 +11004,7 @@ const App = {
                             song.language,
                             song.ccli,
                             this.getSongInfoDisplay(song)
-                        ].join(' ').toLowerCase();
+                        ].map((value) => this.normalizeTextForSearch(value)).join(' ');
                         return searchable.includes(searchTerm);
                     })
                     : activeSongs;
@@ -10448,7 +11095,7 @@ const App = {
                             song.language,
                             song.ccli,
                             this.getSongInfoDisplay(song)
-                        ].join(' ').toLowerCase();
+                        ].map((value) => this.normalizeTextForSearch(value)).join(' ');
                         return searchable.includes(searchTerm);
                     })
                     : activeSongs;
@@ -10507,12 +11154,12 @@ const App = {
         }
 
         let loadErrorCount = 0;
-        let missingDocumentCount = 0;
+        const readyBandSongs = [];
+        const missingDocumentSongs = [];
 
         try {
             UI.showLoading(`Songs werden vorbereitet (0/${uniqueSongIds.length})...`);
 
-            const bandSongs = [];
             for (let index = 0; index < uniqueSongIds.length; index++) {
                 const songId = uniqueSongIds[index];
                 UI.showLoading(`Songs werden vorbereitet (${index + 1}/${uniqueSongIds.length})...`);
@@ -10525,11 +11172,11 @@ const App = {
                     }
 
                     if (!this.songpoolEntryHasDocument(bandSong)) {
-                        missingDocumentCount++;
+                        missingDocumentSongs.push(bandSong);
                         continue;
                     }
 
-                    bandSongs.push(bandSong);
+                    readyBandSongs.push(bandSong);
                 } catch (error) {
                     console.error('[Songpool] Band song could not be loaded:', error);
                     loadErrorCount++;
@@ -10538,51 +11185,35 @@ const App = {
 
             UI.hideLoading();
 
-            if (!bandSongs.length) {
-                if (missingDocumentCount > 0 && loadErrorCount === 0) {
-                    UI.showToast('Nur Songs mit PDF oder ChordPro können in den Songpool übernommen werden.', 'error');
-                    return;
-                }
+            if (!readyBandSongs.length && !missingDocumentSongs.length) {
                 UI.showToast('Die ausgewählten Songs konnten nicht übernommen werden.', 'error');
                 return;
             }
 
-            const drafts = bandSongs
-                .map((song) => this.createSongpoolDraftFromBandSong(song, visibility))
-                .filter(Boolean);
+            const documentResolution = await this.openSongpoolBandMissingDocumentModal(
+                readyBandSongs,
+                missingDocumentSongs,
+                visibility
+            );
 
-            const result = await this.saveSongpoolDraftsWithDuplicateReview(drafts, { user });
-
-            if (result.successCount > 0) {
-                await this.renderSongpoolView();
-            }
-
-            if (result.duplicateReviewCanceled) {
-                UI.showToast(
-                    result.successCount > 0
-                        ? `Import abgebrochen. ${result.successCount} eindeutige Song${result.successCount === 1 ? '' : 's'} wurden bereits übernommen.`
-                        : 'Import abgebrochen.',
-                    result.successCount > 0 ? 'warning' : 'info'
-                );
+            if (!documentResolution?.confirmed) {
+                UI.showToast('Import abgebrochen.', 'info');
                 return;
             }
 
-            const totalErrorCount = loadErrorCount + result.errorCount;
-            const parts = [];
-            if (result.successCount > 0) parts.push(`${result.successCount} hinzugefügt`);
-            if (result.skippedDuplicateCount > 0) parts.push(`${result.skippedDuplicateCount} ausgelassen`);
-            if (missingDocumentCount > 0) parts.push(`${missingDocumentCount} ohne PDF/ChordPro`);
-            if (totalErrorCount > 0) parts.push(`${totalErrorCount} fehlgeschlagen`);
+            const drafts = (Array.isArray(documentResolution.drafts) ? documentResolution.drafts : []).filter(Boolean);
 
-            if (result.successCount > 0 && parts.length > 0) {
-                UI.showToast(`Songpool aktualisiert: ${parts.join(', ')}`, (result.skippedDuplicateCount > 0 || missingDocumentCount > 0 || totalErrorCount > 0) ? 'warning' : 'success');
+            if (!drafts.length) {
+                UI.showToast('Es wurden keine Songs zum Hinzufügen ausgewählt.', 'info');
                 return;
             }
 
-            if (result.skippedDuplicateCount > 0 || missingDocumentCount > 0 || totalErrorCount > 0) {
-                UI.showToast(`Keine neuen Songs hinzugefügt: ${parts.join(', ')}`, 'info');
-                return;
+            this.openSongpoolImportPreview(drafts);
+
+            if (loadErrorCount > 0) {
+                UI.showToast(`${loadErrorCount} Song${loadErrorCount === 1 ? '' : 's'} konnten nicht geladen werden.`, 'warning');
             }
+            return;
         } catch (error) {
             console.error('[Songpool] Band songs could not be copied to songpool:', error);
             UI.showToast(error.message || 'Band-Songs konnten nicht in den Songpool übernommen werden.', 'error');
@@ -11058,7 +11689,7 @@ const App = {
         const showPublicSongs = this.getSongpoolShowPublicPreference();
         const previousSearchInput = document.getElementById('songpoolSongSearch');
         const searchInputValue = previousSearchInput?.value || '';
-        const searchTerm = searchInputValue.toLowerCase();
+        const searchTerm = this.normalizeTextForSearch(searchInputValue);
         const shouldRestoreSearchFocus = document.activeElement === previousSearchInput;
         const previousSelectionStart = previousSearchInput?.selectionStart;
         const previousSelectionEnd = previousSearchInput?.selectionEnd;
@@ -11088,10 +11719,10 @@ const App = {
 
         if (searchTerm) {
             songs = songs.filter((song) =>
-                (song.title || '').toLowerCase().includes(searchTerm) ||
-                (song.artist || '').toLowerCase().includes(searchTerm) ||
-                Storage.getSongPlainInfo(song).toLowerCase().includes(searchTerm) ||
-                (song.ccli || '').toLowerCase().includes(searchTerm)
+                this.normalizeTextForSearch(song.title).includes(searchTerm) ||
+                this.normalizeTextForSearch(song.artist).includes(searchTerm) ||
+                this.normalizeTextForSearch(Storage.getSongPlainInfo(song)).includes(searchTerm) ||
+                this.normalizeTextForSearch(song.ccli).includes(searchTerm)
             );
         }
 
@@ -11171,7 +11802,7 @@ const App = {
                             type="checkbox"
                             class="songpool-song-checkbox-row"
                             value="${song.id}"
-                            title="${song.canManage ? 'Song auswählen' : 'Für den PDF-Export auswählbar. Bearbeiten und Löschen bleiben gesperrt.'}"
+                            title="${song.canManage ? 'Song auswählen' : 'Für den Download auswählbar. Bearbeiten und Löschen bleiben gesperrt.'}"
                         >
                     </td>
                     <td class="band-setlist-actions-cell" style="padding: var(--spacing-sm); text-align: center;" data-label="Aktionen">
@@ -11188,17 +11819,17 @@ const App = {
                             >—</div>
                         `}
                     </td>
-                    <td style="padding: var(--spacing-sm);" data-label="Sichtbar">${getVisibilityBadge(song)}</td>
-                    <td style="padding: var(--spacing-sm); white-space: nowrap;" data-label="Titel">${this.escapeHtml(song.title)}</td>
-                    <td style="padding: var(--spacing-sm);" data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
-                    <td style="padding: var(--spacing-sm);" data-label="Genre">${this.escapeHtml(song.genre || '-')}</td>
-                    <td style="padding: var(--spacing-sm);" data-label="BPM">${song.bpm || '-'}</td>
-                    <td style="padding: var(--spacing-sm);" data-label="Time">${song.timeSignature || '-'}</td>
-                    <td style="padding: var(--spacing-sm);" data-label="Tonart">${song.key || '-'}</td>
-                    <td style="padding: var(--spacing-sm);" data-label="Sprache">${song.language || '-'}</td>
                     <td style="padding: var(--spacing-sm); text-align: center;" data-label="PDF">
                         ${this.renderSongDocumentPreviewButtons(song)}
                     </td>
+                    <td style="padding: var(--spacing-sm); white-space: nowrap;" data-label="Titel">${this.escapeHtml(song.title)}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="BPM">${song.bpm || '-'}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Time">${song.timeSignature || '-'}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Tonart">${song.key || '-'}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Genre">${this.escapeHtml(song.genre || '-')}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Sprache">${song.language || '-'}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Sichtbar">${getVisibilityBadge(song)}</td>
                     <td style="padding: var(--spacing-sm); font-family: monospace; font-size: 0.9em;" data-label="CCLI">${song.ccli || '-'}</td>
                 </tr>
             `).join('')
@@ -11216,9 +11847,6 @@ const App = {
                         <p class="band-setlist-description">${this.escapeHtml(description)}</p>
                     </div>
                     <div class="band-setlist-toolbar-actions">
-                        <button class="btn btn-secondary btn-sm" id="songpoolExportPDF" title="Sichtbare Songs als PDF">
-                            <img src="images/pdf-download.png" class="btn-icon-img" alt="PDF icon"><span class="btn-text-mobile-hide">Als PDF herunterladen</span>
-                        </button>
                         <input type="file" id="songpoolFileUpload" accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf" multiple style="display: none;">
                         <button id="songpoolImportBtn" class="btn btn-secondary btn-sm" title="PDFs oder ChordPro-Dateien importieren">
                             <img src="images/pdf-download.png" class="btn-icon-img" alt="Import icon"><span class="btn-text-mobile-hide">PDF / ChordPro import</span>
@@ -11248,7 +11876,7 @@ const App = {
                 </div>
                 <div class="band-setlist-bulkactions">
                     <button id="songpoolBulkDelete" class="btn btn-danger btn-sm">Auswahl löschen</button>
-                    <button id="songpoolBulkPDF" class="btn btn-secondary btn-sm">Auswahl als PDF exportieren</button>
+                    <button id="songpoolBulkPDF" class="btn btn-secondary btn-sm">Auswahl herunterladen</button>
                 </div>
             </div>
 
@@ -11260,15 +11888,15 @@ const App = {
                                 <input type="checkbox" id="selectAllSongpoolSongs">
                             </th>
                             <th style="padding: var(--spacing-sm); text-align: center; width: 108px;">Aktionen</th>
-                            <th class="sortable-header songpool-col-visibility ${getSortClass('visibility')}" data-field="visibility" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Sichtbar</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th style="padding: var(--spacing-sm); text-align: center;">PDF</th>
                             <th class="sortable-header sortable-col-title ${getSortClass('title')}" data-field="title" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Titel</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-artist ${getSortClass('artist')}" data-field="artist" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Interpret</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
-                            <th class="sortable-header sortable-col-genre ${getSortClass('genre')}" data-field="genre" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Genre</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-bpm ${getSortClass('bpm')}" data-field="bpm" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">BPM</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-time ${getSortClass('timeSignature')}" data-field="timeSignature" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Time</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-key ${getSortClass('key')}" data-field="key" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Tonart</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
+                            <th class="sortable-header sortable-col-genre ${getSortClass('genre')}" data-field="genre" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Genre</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-language ${getSortClass('language')}" data-field="language" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Sprache</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
-                            <th style="padding: var(--spacing-sm); text-align: center;">PDF</th>
+                            <th class="sortable-header songpool-col-visibility ${getSortClass('visibility')}" data-field="visibility" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Sichtbar</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-ccli ${getSortClass('ccli')}" data-field="ccli" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">CCLI</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                         </tr>
                     </thead>
@@ -11339,13 +11967,6 @@ const App = {
             });
         }
 
-        const exportButton = document.getElementById('songpoolExportPDF');
-        if (exportButton) {
-            exportButton.addEventListener('click', () => {
-                this.downloadSongListPDF(this.currentSongpoolSongs || [], 'Songpool', 'Studio-Repertoire', true);
-            });
-        }
-
         const checkboxRows = container.querySelectorAll('.songpool-song-checkbox-row');
         const selectAll = document.getElementById('selectAllSongpoolSongs');
         const bulkActionsBar = document.getElementById('songpoolBulkActions');
@@ -11389,6 +12010,9 @@ const App = {
 
             if (bulkPDFBtn) {
                 bulkPDFBtn.disabled = checkedCount === 0;
+                bulkPDFBtn.title = checkedCount === 0
+                    ? 'Bitte wähle mindestens einen Song aus.'
+                    : 'Lädt einen Anhang direkt herunter oder bündelt mehrere PDFs und ChordPro-Dateien als ZIP.';
             }
 
             if (selectAll) {
@@ -11461,9 +12085,9 @@ const App = {
         }
 
         if (bulkPDFBtn) {
-            bulkPDFBtn.addEventListener('click', () => {
+            bulkPDFBtn.addEventListener('click', async () => {
                 const selectedSongs = getSelectedSongs();
-                this.downloadSongListPDF(selectedSongs, 'Songpool Auswahl', 'Studio-Repertoire', true);
+                await this.downloadSongDocumentsBatch(selectedSongs);
             });
         }
 
