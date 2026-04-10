@@ -1827,6 +1827,7 @@ const App = {
 
         if (frame) {
             frame.src = '';
+            frame.srcdoc = '';
         }
 
         if (loading) {
@@ -1859,7 +1860,7 @@ const App = {
                 label: 'Ganzer Ablauf mit Details'
             },
             'full-compact': {
-                label: 'Ganzer Ablauf kompakt'
+                label: 'Ganzer Ablauf ohne Details'
             },
             'songs-full': {
                 label: 'Nur Songs mit allen Infos'
@@ -2038,6 +2039,7 @@ const App = {
         if (!modal || modal.dataset.bound === 'true') return;
 
         const nameInput = document.getElementById('rundownPdfFileName');
+        const fontScaleInput = document.getElementById('rundownPdfFontScale');
         const modeInputs = modal.querySelectorAll('input[name="rundownPdfMode"]');
         const cancelBtn = document.getElementById('rundownPdfExportCancel');
         const downloadBtn = document.getElementById('rundownPdfExportDownload');
@@ -2049,6 +2051,17 @@ const App = {
                 this.currentRundownPdfExportSession.isDirty = true;
                 this.updateRundownPdfExportModalMeta();
                 this.scheduleRundownPdfPreviewRefresh(220);
+            });
+        }
+
+        if (fontScaleInput) {
+            fontScaleInput.addEventListener('input', () => {
+                if (!this.currentRundownPdfExportSession) return;
+                const nextScale = Math.min(1.2, Math.max(0.85, (Number(fontScaleInput.value) || 100) / 100));
+                this.currentRundownPdfExportSession.fontScale = nextScale;
+                this.currentRundownPdfExportSession.isDirty = true;
+                this.updateRundownPdfExportModalMeta();
+                this.scheduleRundownPdfPreviewRefresh(80);
             });
         }
 
@@ -2082,11 +2095,17 @@ const App = {
         const previewTitle = document.getElementById('rundownPdfPreviewTitle');
         const previewContext = document.getElementById('rundownPdfPreviewContext');
         const filenameEl = document.getElementById('rundownPdfPreviewFilename');
+        const previewMode = document.getElementById('rundownPdfPreviewMode');
+        const previewModeLabel = document.getElementById('rundownPdfPreviewModeLabel');
+        const fontScaleInput = document.getElementById('rundownPdfFontScale');
+        const fontScaleValue = document.getElementById('rundownPdfFontScaleValue');
 
         const resolvedTitle = session.title || session.defaultTitle || 'Ablauf';
+        const resolvedModeLabel = this.getRundownPdfExportModeLabel(session.mode || 'full-details');
         const resolvedFilename = typeof PDFGenerator !== 'undefined' && typeof PDFGenerator.sanitizeFilename === 'function'
             ? PDFGenerator.sanitizeFilename(resolvedTitle, 'ablauf.pdf')
             : `${resolvedTitle || 'ablauf'}.pdf`;
+        const resolvedFontScale = Math.min(1.2, Math.max(0.85, Number(session.fontScale) || 1));
 
         if (previewTitle) {
             previewTitle.textContent = resolvedTitle;
@@ -2096,9 +2115,157 @@ const App = {
             previewContext.textContent = `${session.items.length} Punkte · ${session.songs.length} Songs`;
         }
 
+        if (previewMode) {
+            previewMode.textContent = resolvedModeLabel;
+        }
+
+        if (previewModeLabel) {
+            previewModeLabel.textContent = resolvedModeLabel;
+        }
+
         if (filenameEl) {
             filenameEl.textContent = resolvedFilename;
         }
+
+        if (fontScaleInput) {
+            fontScaleInput.value = String(Math.round(resolvedFontScale * 100));
+        }
+
+        if (fontScaleValue) {
+            fontScaleValue.textContent = `${Math.round(resolvedFontScale * 100)}%`;
+        }
+    },
+
+    buildRundownPdfPreviewDocument(session = null) {
+        if (!session || typeof PDFGenerator === 'undefined' || typeof PDFGenerator.buildRundownPDFPages !== 'function') {
+            return '';
+        }
+
+        const pages = PDFGenerator.buildRundownPDFPages({
+            title: session.title || session.defaultTitle || 'Ablauf',
+            subtitle: session.subtitle || '',
+            mode: session.mode || 'full-details',
+            eventMeta: session.eventMeta || {},
+            items: session.items || [],
+            songs: session.songs || [],
+            fontScale: session.fontScale || 1
+        });
+
+        const pageMarkup = (Array.isArray(pages) ? pages : []).map((page) => `
+            <section class="preview-page-wrap">
+                <div class="preview-page-sheet">${page}</div>
+            </section>
+        `).join('');
+
+        return `
+            <!doctype html>
+            <html lang="de">
+                <head>
+                    <meta charset="utf-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <title>${this.escapeHtml(session.title || session.defaultTitle || 'Ablauf')}</title>
+                    <style>
+                        * { box-sizing: border-box; }
+                        html, body { margin: 0; min-height: 100%; }
+                        @page { size: A4; margin: 0; }
+                        body {
+                            font-family: Inter, Arial, sans-serif;
+                            background:
+                                radial-gradient(circle at top, rgba(79, 125, 243, 0.12), transparent 34%),
+                                #0b1220;
+                            color: #e2e8f0;
+                        }
+                        .preview-shell {
+                            min-height: 100vh;
+                            padding: 18px;
+                        }
+                        .preview-page-wrap {
+                            width: min(100%, 860px);
+                            margin: 0 auto 20px;
+                        }
+                        .preview-page-sheet {
+                            border-radius: 18px;
+                            overflow: hidden;
+                            background: #ffffff;
+                            box-shadow:
+                                0 22px 40px rgba(0, 0, 0, 0.24),
+                                0 0 0 1px rgba(255, 255, 255, 0.06);
+                        }
+                        .preview-page-sheet > * {
+                            width: 100% !important;
+                            margin: 0 !important;
+                        }
+                        @media print {
+                            html, body {
+                                background: #ffffff !important;
+                            }
+                            .preview-shell {
+                                padding: 0;
+                            }
+                            .preview-page-wrap {
+                                width: 210mm;
+                                margin: 0 auto;
+                                break-after: page;
+                                page-break-after: always;
+                            }
+                            .preview-page-wrap:last-child {
+                                break-after: auto;
+                                page-break-after: auto;
+                            }
+                            .preview-page-sheet {
+                                border-radius: 0;
+                                box-shadow: none;
+                                border: none;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="preview-shell">
+                        ${pageMarkup || '<div style="color:#e2e8f0;">Keine Vorschau verfügbar.</div>'}
+                    </div>
+                </body>
+            </html>
+        `;
+    },
+
+    buildRundownPdfPreviewErrorDocument(message = 'Die Vorschau konnte nicht geladen werden.') {
+        return `
+            <!doctype html>
+            <html lang="de">
+                <head>
+                    <meta charset="utf-8">
+                    <style>
+                        html, body {
+                            margin: 0;
+                            min-height: 100%;
+                            font-family: Inter, Arial, sans-serif;
+                            background: #0b1220;
+                            color: #e2e8f0;
+                        }
+                        body {
+                            display: flex;
+                            align-items: center;
+                            justify-content: center;
+                            padding: 24px;
+                            box-sizing: border-box;
+                        }
+                        .preview-error {
+                            max-width: 420px;
+                            padding: 22px 24px;
+                            border-radius: 20px;
+                            border: 1px solid rgba(148, 163, 184, 0.18);
+                            background: rgba(15, 23, 42, 0.82);
+                            text-align: center;
+                            line-height: 1.55;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="preview-error">${this.escapeHtml(message)}</div>
+                </body>
+            </html>
+        `;
     },
 
     scheduleRundownPdfPreviewRefresh(delay = 160) {
@@ -2125,6 +2292,56 @@ const App = {
         }
     },
 
+    shouldUseRundownPrintFallback() {
+        const ua = navigator.userAgent || '';
+        const isSafari = /Safari/i.test(ua) && !/Chrome|CriOS|Chromium|Edg|OPR|Firefox|FxiOS/i.test(ua);
+        return isSafari;
+    },
+
+    async openRundownPdfPrintDialog() {
+        const frame = document.getElementById('rundownPdfPreviewFrame');
+        const session = this.currentRundownPdfExportSession;
+        if (!session) return false;
+
+        const triggerPrint = async (targetFrame) => {
+            if (!targetFrame?.contentWindow) return false;
+            try {
+                targetFrame.contentWindow.focus();
+                await new Promise((resolve) => setTimeout(resolve, 80));
+                targetFrame.contentWindow.print();
+                return true;
+            } catch (error) {
+                console.warn('[Rundown PDF] Print dialog failed:', error);
+                return false;
+            }
+        };
+
+        if (frame?.contentWindow?.document?.body?.children?.length) {
+            return triggerPrint(frame);
+        }
+
+        const tempFrame = document.createElement('iframe');
+        tempFrame.style.position = 'fixed';
+        tempFrame.style.right = '0';
+        tempFrame.style.bottom = '0';
+        tempFrame.style.width = '1px';
+        tempFrame.style.height = '1px';
+        tempFrame.style.opacity = '0';
+        tempFrame.style.pointerEvents = 'none';
+        tempFrame.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(tempFrame);
+
+        try {
+            await new Promise((resolve) => {
+                tempFrame.addEventListener('load', resolve, { once: true });
+                tempFrame.srcdoc = this.buildRundownPdfPreviewDocument(session);
+            });
+            return await triggerPrint(tempFrame);
+        } finally {
+            setTimeout(() => tempFrame.remove(), 1200);
+        }
+    },
+
     async waitForRundownPdfPreviewIdle(maxWaitMs = 15000) {
         const startedAt = Date.now();
 
@@ -2139,7 +2356,7 @@ const App = {
     async refreshRundownPdfPreview(force = false) {
         const session = this.currentRundownPdfExportSession;
         const frame = document.getElementById('rundownPdfPreviewFrame');
-        if (!session || !frame || typeof PDFGenerator === 'undefined' || typeof PDFGenerator.generateRundownPDF !== 'function') {
+        if (!session || !frame || typeof PDFGenerator === 'undefined' || typeof PDFGenerator.buildRundownPDFPages !== 'function') {
             return;
         }
 
@@ -2162,34 +2379,37 @@ const App = {
         this.updateRundownPdfExportModalMeta();
 
         try {
-            const pdfData = await PDFGenerator.generateRundownPDF({
-                title: resolvedTitle,
-                subtitle: session.subtitle || '',
-                mode: session.mode || 'full-details',
-                eventMeta: session.eventMeta || {},
-                items: session.items || [],
-                songs: session.songs || [],
-                filename: resolvedTitle,
-                previewOnly: true
-            });
+            const previewDocument = this.buildRundownPdfPreviewDocument(session);
+            const resolvedFilename = typeof PDFGenerator !== 'undefined' && typeof PDFGenerator.sanitizeFilename === 'function'
+                ? PDFGenerator.sanitizeFilename(resolvedTitle, 'ablauf.pdf')
+                : `${resolvedTitle || 'ablauf'}.pdf`;
 
             if (requestId !== this.currentRundownPdfPreviewRequestId || !this.currentRundownPdfExportSession) {
-                if (pdfData?.blobUrl) {
-                    URL.revokeObjectURL(pdfData.blobUrl);
-                }
                 return;
             }
 
-            if (this.currentRundownPdfPreview?.blobUrl) {
-                URL.revokeObjectURL(this.currentRundownPdfPreview.blobUrl);
-            }
+            await new Promise((resolve) => {
+                let finished = false;
+                const finish = () => {
+                    if (finished) return;
+                    finished = true;
+                    clearTimeout(timeoutId);
+                    resolve();
+                };
+                const timeoutId = setTimeout(finish, 180);
+                frame.addEventListener('load', finish, { once: true });
+                frame.removeAttribute('src');
+                frame.srcdoc = previewDocument;
+            });
 
-            this.currentRundownPdfPreview = pdfData;
-            frame.src = `${pdfData.blobUrl}#view=FitH`;
+            this.currentRundownPdfPreview = {
+                filename: resolvedFilename,
+                ready: true
+            };
 
             const filenameEl = document.getElementById('rundownPdfPreviewFilename');
-            if (filenameEl && pdfData?.filename) {
-                filenameEl.textContent = pdfData.filename;
+            if (filenameEl) {
+                filenameEl.textContent = resolvedFilename;
             }
 
             const downloadBtn = document.getElementById('rundownPdfExportDownload');
@@ -2198,6 +2418,9 @@ const App = {
             }
         } catch (error) {
             console.error('[Rundown PDF] Preview generation failed:', error);
+            this.currentRundownPdfPreview = null;
+            frame.removeAttribute('src');
+            frame.srcdoc = this.buildRundownPdfPreviewErrorDocument('Die Vorschau konnte nicht geladen werden. Du kannst es direkt erneut versuchen oder gleich exportieren.');
             UI.showToast('Die Ablauf-PDF konnte nicht erstellt werden.', 'error');
         } finally {
             const activeSession = this.currentRundownPdfExportSession;
@@ -2212,7 +2435,7 @@ const App = {
             }
 
             const downloadBtn = document.getElementById('rundownPdfExportDownload');
-            if (downloadBtn && !this.currentRundownPdfPreview?.blobUrl) {
+            if (downloadBtn && !this.currentRundownPdfPreview?.ready) {
                 downloadBtn.disabled = true;
             }
         }
@@ -2226,23 +2449,64 @@ const App = {
             await this.waitForRundownPdfPreviewIdle();
         }
 
-        if (session.isDirty || !this.currentRundownPdfPreview?.blobUrl) {
+        if (session.isDirty || !this.currentRundownPdfPreview?.ready) {
             await this.refreshRundownPdfPreview(true);
             await this.waitForRundownPdfPreviewIdle();
         }
 
-        const pdfData = this.currentRundownPdfPreview;
-        if (!pdfData?.blobUrl) {
-            UI.showToast('Es konnte keine PDF-Datei vorbereitet werden.', 'warning');
+        const downloadBtn = document.getElementById('rundownPdfExportDownload');
+        const originalLabel = downloadBtn ? downloadBtn.innerHTML : '';
+        const resolvedTitle = session.title || session.defaultTitle || 'Ablauf';
+
+        if (downloadBtn) {
+            downloadBtn.disabled = true;
+            downloadBtn.textContent = this.shouldUseRundownPrintFallback()
+                ? 'Druckdialog wird geöffnet...'
+                : 'PDF wird erstellt...';
+        }
+
+        if (this.shouldUseRundownPrintFallback()) {
+            try {
+                const opened = await this.openRundownPdfPrintDialog();
+                if (!opened) {
+                    UI.showToast('Der Druckdialog konnte nicht geöffnet werden.', 'error');
+                }
+            } finally {
+                if (downloadBtn) {
+                    downloadBtn.innerHTML = originalLabel;
+                    downloadBtn.disabled = false;
+                }
+            }
             return;
         }
 
-        const link = document.createElement('a');
-        link.href = pdfData.blobUrl;
-        link.download = pdfData.filename || 'ablauf.pdf';
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+        try {
+            await PDFGenerator.generateRundownPDF({
+                title: resolvedTitle,
+                subtitle: session.subtitle || '',
+                mode: session.mode || 'full-details',
+                eventMeta: session.eventMeta || {},
+                items: session.items || [],
+                songs: session.songs || [],
+                fontScale: session.fontScale || 1,
+                filename: resolvedTitle,
+                previewOnly: false
+            });
+        } catch (error) {
+            console.error('[Rundown PDF] Export failed:', error);
+            const fallbackOpened = await this.openRundownPdfPrintDialog();
+            if (fallbackOpened) {
+                UI.showToast('Direkter PDF-Download war nicht möglich. Der Druckdialog wurde als Fallback geöffnet.', 'warning');
+            } else {
+                UI.showToast('Die Ablauf-PDF konnte nicht exportiert werden.', 'error');
+            }
+            return;
+        } finally {
+            if (downloadBtn) {
+                downloadBtn.innerHTML = originalLabel;
+                downloadBtn.disabled = false;
+            }
+        }
     },
 
     async openRundownPdfExportModal(payload = null) {
@@ -2259,14 +2523,20 @@ const App = {
             defaultTitle: payload.title || 'Ablauf',
             title: payload.title || 'Ablauf',
             mode: 'full-details',
+            fontScale: 1,
             isDirty: true,
             isRendering: false,
             refreshQueued: false
         };
 
         const nameInput = document.getElementById('rundownPdfFileName');
+        const fontScaleInput = document.getElementById('rundownPdfFontScale');
         if (nameInput) {
             nameInput.value = this.currentRundownPdfExportSession.title;
+        }
+
+        if (fontScaleInput) {
+            fontScaleInput.value = '100';
         }
 
         document.querySelectorAll('#rundownPdfExportModal input[name="rundownPdfMode"]').forEach((input) => {
@@ -5831,6 +6101,19 @@ const App = {
                     <path d="M7.5 10.15h5M7.5 12.6h5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path>
                 </svg>
             `,
+            download: `
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M10 3.75v7.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                    <path d="m6.9 8.8 3.1 3.35 3.1-3.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M4.75 13.75v1.1c0 .62.5 1.15 1.15 1.15h8.2c.64 0 1.15-.53 1.15-1.15v-1.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            `,
+            plus: `
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M10 4.5v11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                    <path d="M4.5 10h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                </svg>
+            `,
             chordpro: `
                 <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
                     <path d="M12.75 4.25v8.15a2.35 2.35 0 1 1-1.5-2.22V7.1l4-1.2v5.1a2.35 2.35 0 1 1-1.5-2.22V4.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
@@ -6150,10 +6433,9 @@ const App = {
 
     async renderEventRundownEditor() {
         const container = document.getElementById('eventRundownList');
-        const startInput = document.getElementById('eventRundownStart');
         const presetToolbar = document.getElementById('eventRundownPresetToolbar');
         const pdfButton = document.getElementById('eventRundownPdfBtn');
-        if (!container || !startInput || !presetToolbar) return;
+        if (!container || !presetToolbar) return;
 
         if (!this.draftEventRundown || typeof this.draftEventRundown !== 'object') {
             this.draftEventRundown = this.normalizeEventRundownData();
@@ -6172,7 +6454,7 @@ const App = {
                 });
                 
                 document.addEventListener('click', (e) => {
-                    if (!dropdownMenu.contains(e.target) && e.target !== dropdownBtn) {
+                    if (!dropdownMenu.contains(e.target) && !dropdownBtn.contains(e.target)) {
                         dropdownMenu.classList.remove('active');
                     }
                 });
@@ -6183,14 +6465,6 @@ const App = {
                     this.addDraftEventRundownItem(button.dataset.rundownType || 'custom');
                     if (dropdownMenu) dropdownMenu.classList.remove('active');
                 });
-            });
-        }
-
-        if (!startInput.dataset.bound) {
-            startInput.dataset.bound = 'true';
-            startInput.addEventListener('change', () => {
-                this.draftEventRundown.startTime = this.normalizeEventRundownTime(startInput.value);
-                this.renderEventRundownEditor();
             });
         }
 
@@ -6220,8 +6494,6 @@ const App = {
         }
 
         const fallbackStart = this.getEventRundownFallbackStartTime();
-        startInput.value = normalized.startTime || fallbackStart || '';
-
         const timeline = this.getEventRundownTimeline(normalized, fallbackStart);
 
         if (timeline.length === 0) {

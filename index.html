@@ -2676,7 +2676,6 @@
                 <div class="scheduler-modal-title-group">
                     <span class="scheduler-modal-kicker">Planung</span>
                     <h2 id="rehearsalModalTitle">Neuen Probetermin erstellen</h2>
-                    <p class="scheduler-modal-subtitle">Plane festen Termin oder Abstimmung mit Band, Ort und Beteiligten in einer klaren Arbeitsfläche.</p>
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
@@ -2684,39 +2683,28 @@
                 <input type="hidden" id="editRehearsalId">
                 <div class="scheduler-form-scroll">
                     <section class="scheduler-panel scheduler-panel-basics">
-                        <div class="scheduler-panel-head">
-                            <div>
-                                <span class="scheduler-panel-eyebrow">Grunddaten</span>
-                                <h3>Rahmen der Probe</h3>
-                            </div>
-                            <p>Lege Titel, Band, Ort und optionale Verknüpfungen in einer klaren Reihenfolge fest.</p>
-                        </div>
                         <div class="form-grid-2 scheduler-grid scheduler-grid-basics">
                             <div class="form-group scheduler-span-2">
                                 <label for="rehearsalTitle">Titel <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <input type="text" id="rehearsalTitle" placeholder="z. B. Bandprobe März, Akustikprobe oder Generalprobe" required>
-                                <small class="scheduler-field-note">Wähle einen klaren Titel, damit die Abstimmung später sofort verständlich ist.</small>
                             </div>
                             <div class="form-group scheduler-span-2">
                                 <label for="rehearsalBand">Band <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <select id="rehearsalBand" required>
                                     <option value="">Band auswählen</option>
                                 </select>
-                                <small class="scheduler-field-note">Hier werden nur Bands angezeigt, bei denen du Leiter oder Co-Leiter bist. Nur für diese Bands kannst du Proben erstellen.</small>
                             </div>
                             <div class="form-group scheduler-span-2">
-                                <label for="rehearsalLocation">Probeort (optional)</label>
+                                <label for="rehearsalLocation">Probeort</label>
                                 <select id="rehearsalLocation">
                                     <option value="">Kein Ort ausgewählt</option>
                                 </select>
-                                <small class="scheduler-field-note">Wenn ein Ort gewählt ist, prüfen wir die Vorschläge automatisch auf Konflikte.</small>
                             </div>
                             <div class="form-group scheduler-span-2">
-                                <label for="rehearsalEvent">Zugewiesener Auftritt (optional)</label>
+                                <label for="rehearsalEvent">Auftritt</label>
                                 <select id="rehearsalEvent">
                                     <option value="">Kein Auftritt ausgewählt</option>
                                 </select>
-                                <small class="scheduler-field-note">Hilfreich, wenn die Probe direkt zu einem bevorstehenden Auftritt gehört.</small>
                             </div>
                             <div class="form-group scheduler-span-2">
                                 <label for="rehearsalDescription">Beschreibung</label>
@@ -2726,41 +2714,25 @@
                     </section>
 
                     <section class="scheduler-panel scheduler-panel-highlight scheduler-panel-schedule">
-                        <div class="scheduler-panel-head">
-                            <div>
-                                <span class="scheduler-panel-eyebrow">Termin</span>
-                                <h3>Terminfestlegung</h3>
-                            </div>
-                            <p>Lege fest, ob die Probe schon verbindlich steht oder ob du zuerst mehrere Terminoptionen mit der Band abstimmst.</p>
-                        </div>
                         <div class="scheduler-schedule-stack">
                             <div class="form-group scheduler-span-2" id="rehearsalScheduleModeSection">
-                                <span class="scheduler-choice-label">Terminart</span>
                                 <div class="event-schedule-mode-grid" role="radiogroup" aria-label="Terminart des Probetermins">
                                     <label class="event-schedule-mode-option">
                                         <input type="radio" name="rehearsalScheduleMode" id="rehearsalScheduleModeFixed" value="fixed" checked>
                                         <span class="event-schedule-mode-option-body">
                                             <strong>Termin steht fest</strong>
-                                            <small>Datum und Uhrzeit der Probe sind bereits verbindlich.</small>
                                         </span>
                                     </label>
                                     <label class="event-schedule-mode-option">
                                         <input type="radio" name="rehearsalScheduleMode" id="rehearsalScheduleModeProposals" value="proposals">
                                         <span class="event-schedule-mode-option-body">
                                             <strong>Termin wird abgestimmt</strong>
-                                            <small>Du sammelst mehrere mögliche Probezeiten für die Band.</small>
                                         </span>
                                     </label>
                                 </div>
-                                <small class="scheduler-field-note">Wähle eine Variante. Danach zeigt dir die Karte nur noch die passenden Termin-Felder.</small>
                             </div>
 
                             <div id="rehearsalFixedDateSection" class="scheduler-schedule-subpanel">
-                                <div class="scheduler-schedule-subpanel-head">
-                                    <span class="scheduler-panel-eyebrow">Fixer Termin</span>
-                                    <h4>Datum und Uhrzeit</h4>
-                                    <p>Trage hier den endgültigen Termin ein, wenn die Probe bereits fix ist.</p>
-                                </div>
                                 <div class="form-group">
                                     <label for="rehearsalFixedDate">Datum und Uhrzeit</label>
                                     <div class="date-time-range rehearsal-fixed-date-range">
@@ -2774,11 +2746,6 @@
                             </div>
 
                             <div id="rehearsalDateProposalsSection" class="scheduler-schedule-subpanel">
-                                <div class="scheduler-schedule-subpanel-head">
-                                    <span class="scheduler-panel-eyebrow">Terminfindung</span>
-                                    <h4>Terminvorschläge</h4>
-                                    <p>Falls der Probetermin noch nicht feststeht, kannst du hier mehrere mögliche Zeitfenster sammeln.</p>
-                                </div>
                                 <div id="dateProposals" class="date-proposals">
                                     <div class="date-proposal-item" data-confirmed="false">
                                         <div class="date-time-range">
@@ -3079,7 +3046,6 @@
                 <div class="scheduler-modal-title-group">
                     <span class="scheduler-modal-kicker">Auftrittsplanung</span>
                     <h2 id="eventModalTitle">Neuen Auftritt erstellen</h2>
-                    <p class="scheduler-modal-subtitle">Plane Termin, Beteiligte und Setlist in einer klaren Arbeitsfläche.</p>
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
@@ -3087,70 +3053,44 @@
                 <input type="hidden" id="editEventId">
                 <div class="scheduler-form-scroll">
                     <section class="scheduler-panel scheduler-panel-basics">
-                        <div class="scheduler-panel-head">
-                            <div>
-                                <span class="scheduler-panel-eyebrow">Grunddaten</span>
-                                <h3>Rahmen des Auftritts</h3>
-                            </div>
-                            <p>Lege Titel, Band und Ort in einer klaren Reihenfolge fest.</p>
-                        </div>
                         <div class="form-grid-2 scheduler-grid scheduler-grid-basics">
                             <div class="form-group scheduler-span-2">
-                                <label for="eventTitle">Titel / Anlass <span class="required-indicator" title="Pflichtfeld">*</span></label>
+                                <label for="eventTitle">Titel <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <input type="text" id="eventTitle" placeholder="z. B. Hochzeit, Firmenfeier oder Stadtfest" required>
-                                <small class="scheduler-field-note">Wähle einen klaren Anlass, damit der Auftritt später sofort verständlich zugeordnet werden kann.</small>
                             </div>
                             <div class="form-group scheduler-span-2">
                                 <label for="eventBand">Band <span class="required-indicator" title="Pflichtfeld">*</span></label>
                                 <select id="eventBand" required>
                                     <option value="">Band auswählen</option>
                                 </select>
-                                <small class="scheduler-field-note">Hier werden nur Bands angezeigt, bei denen du Leiter oder Co-Leiter bist. Nur für diese Bands kannst du Auftritte erstellen.</small>
                             </div>
                             <div class="form-group scheduler-span-2">
-                                <label for="eventLocation">Ort des Auftrittes</label>
+                                <label for="eventLocation">Ort</label>
                                 <input type="text" id="eventLocation" placeholder="Musterstadt, Hauptstr 1">
-                                <small class="scheduler-field-note">Trage hier den Veranstaltungsort oder die vollständige Adresse ein.</small>
                             </div>
                         </div>
                     </section>
 
                     <section class="scheduler-panel scheduler-panel-highlight scheduler-panel-schedule">
-                        <div class="scheduler-panel-head">
-                            <div>
-                                <span class="scheduler-panel-eyebrow">Termin</span>
-                                <h3>Terminfestlegung</h3>
-                            </div>
-                            <p>Lege fest, ob der Auftritt bereits verbindlich steht oder ob du zuerst mögliche Termine zur Abstimmung sammelst.</p>
-                        </div>
                         <div class="scheduler-schedule-stack">
                             <div class="form-group scheduler-span-2" id="eventScheduleModeSection">
-                                <span class="scheduler-choice-label">Terminart</span>
                                 <div class="event-schedule-mode-grid" role="radiogroup" aria-label="Terminart des Auftritts">
                                     <label class="event-schedule-mode-option">
                                         <input type="radio" name="eventScheduleMode" id="eventScheduleModeFixed" value="fixed" checked>
                                         <span class="event-schedule-mode-option-body">
                                             <strong>Termin steht fest</strong>
-                                            <small>Datum und Uhrzeit sind bereits verbindlich.</small>
                                         </span>
                                     </label>
                                     <label class="event-schedule-mode-option">
                                         <input type="radio" name="eventScheduleMode" id="eventScheduleModeProposals" value="proposals">
                                         <span class="event-schedule-mode-option-body">
                                             <strong>Termin wird abgestimmt</strong>
-                                            <small>Du sammelst mehrere mögliche Termine für die Band.</small>
                                         </span>
                                     </label>
                                 </div>
-                                <small class="scheduler-field-note">Wähle eine Variante. Danach zeigt dir die Karte nur noch die passenden Termin-Felder.</small>
                             </div>
 
                             <div id="eventFixedDateSection" class="scheduler-schedule-subpanel">
-                                <div class="scheduler-schedule-subpanel-head">
-                                    <span class="scheduler-panel-eyebrow">Fixer Termin</span>
-                                    <h4>Datum und Uhrzeit</h4>
-                                    <p>Trage hier den endgültigen Termin ein, wenn der Auftritt bereits fix ist.</p>
-                                </div>
                                 <div class="form-group">
                                     <label for="eventDate">Datum und Uhrzeit</label>
                                     <input type="datetime-local" id="eventDate">
@@ -3159,11 +3099,6 @@
                             </div>
 
                             <div id="eventDateProposalsSection" class="scheduler-schedule-subpanel">
-                                <div class="scheduler-schedule-subpanel-head">
-                                    <span class="scheduler-panel-eyebrow">Terminfindung</span>
-                                    <h4>Terminvorschläge</h4>
-                                    <p>Falls der Auftritt noch nicht fix ist, kannst du hier mögliche Termine sammeln.</p>
-                                </div>
                                 <div id="eventDateProposals" class="date-proposals">
                                     <div class="date-proposal-item" data-confirmed="false">
                                         <div class="date-time-range">
@@ -3245,37 +3180,58 @@
                                 <span class="scheduler-panel-eyebrow">Ablauf & Musik</span>
                                 <label class="section-title">Ablauf & Setlist</label>
                             </div>
-                            <div class="event-rundown-start-group">
+                            <div class="event-rundown-toolbar" id="eventRundownPresetToolbar">
                                 <button type="button" id="eventRundownSaveTemplateBtn" class="btn btn-secondary btn-sm">
                                     Als Vorlage speichern
                                 </button>
                                 <button type="button" id="eventRundownLoadTemplateBtn" class="btn btn-secondary btn-sm">
                                     Aus Vorlage laden
                                 </button>
-                                <button type="button" id="eventRundownPdfBtn" class="btn btn-secondary btn-sm">
-                                    Ablauf als PDF
+                                <button
+                                    type="button"
+                                    id="eventRundownPdfBtn"
+                                    class="btn btn-primary btn-sm event-rundown-mobile-icon-btn"
+                                    aria-label="Ablauf als PDF exportieren"
+                                    title="Ablauf als PDF exportieren"
+                                >
+                                    <span class="btn-inline-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 20 20" fill="none">
+                                            <path d="M10 3.75v7.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                            <path d="m6.9 8.8 3.1 3.35 3.1-3.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            <path d="M4.75 13.75v1.1c0 .62.5 1.15 1.15 1.15h8.2c.64 0 1.15-.53 1.15-1.15v-1.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="event-rundown-toolbar-label">Ablauf als PDF</span>
                                 </button>
-                                <label for="eventRundownStart">Start des Abends</label>
-                                <input type="time" id="eventRundownStart" step="60">
-                            </div>
-                        </div>
-                        <div class="event-rundown-preset-toolbar" id="eventRundownPresetToolbar">
-                            <div class="rundown-dropdown-wrapper" style="position: relative; display: inline-block;">
-                                <button type="button" class="btn btn-secondary btn-sm" id="eventRundownDropdownBtn">
-                                    Punkt hinzufügen
-                                </button>
-                                <div id="eventRundownDropdownMenu" class="rundown-dropdown-menu">
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="countdown">Countdown</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="songblock">Liederblock</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="vortrag">Vortrag</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="predigt">Predigt</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="abendmahl">Abendmahl</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="pause">Pause</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="video">Video Vortrag</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="rede">Rede</button>
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="ankuendigungen">Ankündigungen</button>
-                                    <hr class="rundown-dropdown-separator">
-                                    <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="custom">Leerer Block</button>
+                                <div class="rundown-dropdown-wrapper event-rundown-add-wrapper">
+                                    <button
+                                        type="button"
+                                        class="btn btn-secondary btn-sm event-rundown-mobile-icon-btn"
+                                        id="eventRundownDropdownBtn"
+                                        aria-label="Punkt hinzufügen"
+                                        title="Punkt hinzufügen"
+                                    >
+                                        <span class="btn-inline-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 20 20" fill="none">
+                                                <path d="M10 4.5v11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                                                <path d="M4.5 10h11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                                            </svg>
+                                        </span>
+                                        <span class="event-rundown-toolbar-label">Punkt hinzufügen</span>
+                                    </button>
+                                    <div id="eventRundownDropdownMenu" class="rundown-dropdown-menu">
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="countdown">Countdown</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="songblock">Liederblock</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="vortrag">Vortrag</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="predigt">Predigt</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="abendmahl">Abendmahl</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="pause">Pause</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="video">Video Vortrag</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="rede">Rede</button>
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="ankuendigungen">Ankündigungen</button>
+                                        <hr class="rundown-dropdown-separator">
+                                        <button type="button" class="rundown-dropdown-item event-rundown-preset-btn" data-rundown-type="custom">Leerer Block</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -3867,9 +3823,18 @@
             <div class="modal-body" style="flex: 1; padding: 0; overflow: hidden; position: relative;">
                 <iframe id="pdfPreviewFrame" src="" style="width: 100%; height: 100%; border: none;"></iframe>
             </div>
-            <div class="modal-actions" style="padding: var(--spacing-md); border-top: 1px solid var(--color-border);">
-                <a id="pdfPreviewDownload" href="#" download class="btn btn-secondary">📥 Jetzt herunterladen</a>
+            <div class="modal-actions pdf-preview-footer" style="padding: var(--spacing-md); border-top: 1px solid var(--color-border);">
                 <button type="button" class="btn cancel" id="pdfPreviewCancel">Schließen</button>
+                <a id="pdfPreviewDownload" href="#" download class="btn btn-secondary">
+                    <span class="btn-inline-icon" aria-hidden="true">
+                        <svg viewBox="0 0 20 20" fill="none">
+                            <path d="M10 3.75v7.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                            <path d="m6.9 8.8 3.1 3.35 3.1-3.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M4.75 13.75v1.1c0 .62.5 1.15 1.15 1.15h8.2c.64 0 1.15-.53 1.15-1.15v-1.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </span>
+                    <span>Jetzt herunterladen</span>
+                </a>
             </div>
         </div>
     </div>
@@ -3880,76 +3845,76 @@
                 <div class="rundown-pdf-modal-copy">
                     <span class="rundown-pdf-modal-kicker">Ablauf PDF</span>
                     <h2>Ablauf exportieren</h2>
-                    <p>Links stellst du den Export ein, rechts siehst du sofort die fertige PDF-Vorschau.</p>
+                    <p>Stelle links Titel und Format ein. Rechts aktualisiert sich die Exportvorschau direkt mit.</p>
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
             <div class="modal-body rundown-pdf-modal-body">
                 <aside class="rundown-pdf-editor-panel">
-                    <div class="rundown-pdf-editor-section">
-                        <label for="rundownPdfFileName" class="rundown-pdf-section-label">PDF-Name</label>
+                    <div class="rundown-pdf-toolbar-card">
+                        <div class="rundown-pdf-card-head">
+                            <span class="rundown-pdf-section-label">PDF-Name & Schriftgröße</span>
+                        </div>
                         <input type="text" id="rundownPdfFileName" class="form-input" placeholder="z. B. Abendplan Hochzeit">
-                        <p class="rundown-pdf-input-hint">Dieser Name erscheint in der Vorschau und wird als Dateiname verwendet.</p>
+                        <div class="rundown-pdf-slider-field">
+                            <div class="rundown-pdf-slider-head">
+                                <span class="rundown-pdf-slider-label">Schriftgröße Inhalt</span>
+                                <strong id="rundownPdfFontScaleValue">100%</strong>
+                            </div>
+                            <input
+                                type="range"
+                                id="rundownPdfFontScale"
+                                min="85"
+                                max="120"
+                                step="5"
+                                value="100"
+                            >
+                        </div>
                     </div>
 
-                    <div class="rundown-pdf-editor-section">
-                        <div class="rundown-pdf-section-head">
-                            <span class="rundown-pdf-section-label">Anzeige</span>
-                            <span class="rundown-pdf-preview-context" id="rundownPdfPreviewContext">Live-Vorschau</span>
+                    <div class="rundown-pdf-toolbar-card">
+                        <div class="rundown-pdf-card-head">
+                            <span class="rundown-pdf-section-label">Format</span>
                         </div>
                         <div class="rundown-pdf-mode-list" id="rundownPdfModeList">
                             <label class="rundown-pdf-mode-option">
                                 <input type="radio" name="rundownPdfMode" value="full-details" checked>
-                                <span class="rundown-pdf-mode-copy">
-                                    <strong>Ganzer Ablauf mit Details</strong>
-                                    <span>Alle Ablaufpunkte, Zeiten, Notizen, Songs und ausgefüllten Event-Infos.</span>
-                                </span>
+                                <span class="rundown-pdf-mode-indicator" aria-hidden="true"></span>
+                                <strong>Ganzer Ablauf mit Details</strong>
                             </label>
                             <label class="rundown-pdf-mode-option">
                                 <input type="radio" name="rundownPdfMode" value="full-compact">
-                                <span class="rundown-pdf-mode-copy">
-                                    <strong>Ganzer Ablauf kompakt</strong>
-                                    <span>Der komplette Ablauf in einer klaren, reduzierten Listenansicht.</span>
-                                </span>
+                                <span class="rundown-pdf-mode-indicator" aria-hidden="true"></span>
+                                <strong>Ganzer Ablauf ohne Details</strong>
                             </label>
                             <label class="rundown-pdf-mode-option">
                                 <input type="radio" name="rundownPdfMode" value="songs-full">
-                                <span class="rundown-pdf-mode-copy">
-                                    <strong>Nur Songs mit allen Infos</strong>
-                                    <span>Alle Songs aus dem Ablauf mit voller Song-Info und Reihenfolge.</span>
-                                </span>
+                                <span class="rundown-pdf-mode-indicator" aria-hidden="true"></span>
+                                <strong>Nur Songs mit allen Infos</strong>
                             </label>
                             <label class="rundown-pdf-mode-option">
                                 <input type="radio" name="rundownPdfMode" value="songs-language">
-                                <span class="rundown-pdf-mode-copy">
-                                    <strong>Nur Songs mit Sprache</strong>
-                                    <span>Songtitel plus Sprache, wenn sie hinterlegt ist.</span>
-                                </span>
+                                <span class="rundown-pdf-mode-indicator" aria-hidden="true"></span>
+                                <strong>Nur Songs mit Sprache</strong>
                             </label>
                             <label class="rundown-pdf-mode-option">
                                 <input type="radio" name="rundownPdfMode" value="songs-large">
-                                <span class="rundown-pdf-mode-copy">
-                                    <strong>Große nummerierte Songtitel</strong>
-                                    <span>Nur die Songtitel, groß und gut lesbar auf dem Blatt.</span>
-                                </span>
+                                <span class="rundown-pdf-mode-indicator" aria-hidden="true"></span>
+                                <strong>Große nummerierte Songtitel</strong>
                             </label>
                         </div>
                     </div>
+
                 </aside>
 
                 <div class="rundown-pdf-preview-panel">
-                    <div class="rundown-pdf-preview-head">
-                        <div>
-                            <span class="rundown-pdf-preview-kicker">Vorschau</span>
-                            <h3 id="rundownPdfPreviewTitle">Ablauf PDF</h3>
-                        </div>
-                        <span class="rundown-pdf-preview-filename" id="rundownPdfPreviewFilename">-</span>
-                    </div>
                     <div class="rundown-pdf-preview-stage">
                         <div class="rundown-pdf-preview-loading" id="rundownPdfPreviewLoading" hidden>
                             Vorschau wird aktualisiert...
                         </div>
-                        <iframe id="rundownPdfPreviewFrame" title="Ablauf PDF Vorschau" src=""></iframe>
+                        <div class="rundown-pdf-preview-paper">
+                            <iframe id="rundownPdfPreviewFrame" title="Ablauf PDF Vorschau" src=""></iframe>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -3975,15 +3940,17 @@
                 </div>
             </div>
             <div class="modal-actions chordpro-preview-modal-actions">
+                <button type="button" class="btn cancel" id="chordproPreviewCancel">Schließen</button>
                 <a id="chordproPreviewDownload" href="#" download class="btn btn-secondary">
                     <span class="btn-inline-icon" aria-hidden="true">
                         <svg viewBox="0 0 20 20" fill="none">
-                            <path d="M12.75 4.25v8.15a2.35 2.35 0 1 1-1.5-2.22V7.1l4-1.2v5.1a2.35 2.35 0 1 1-1.5-2.22V4.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M10 3.75v7.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                            <path d="m6.9 8.8 3.1 3.35 3.1-3.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                            <path d="M4.75 13.75v1.1c0 .62.5 1.15 1.15 1.15h8.2c.64 0 1.15-.53 1.15-1.15v-1.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
                         </svg>
                     </span>
                     <span>ChordPro herunterladen</span>
                 </a>
-                <button type="button" class="btn cancel" id="chordproPreviewCancel">Schließen</button>
             </div>
         </div>
     </div>
@@ -4175,11 +4142,31 @@
     <!-- Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then((registration) => {
+            const isLocalDevHost = ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
 
-                    })
+            window.addEventListener('load', () => {
+                if (isLocalDevHost) {
+                    navigator.serviceWorker.getRegistrations()
+                        .then((registrations) => Promise.all(
+                            registrations.map((registration) => registration.unregister())
+                        ))
+                        .then(() => {
+                            if ('caches' in window) {
+                                return caches.keys().then((cacheNames) => Promise.all(
+                                    cacheNames
+                                        .filter((cacheName) => cacheName.startsWith('band-planning-'))
+                                        .map((cacheName) => caches.delete(cacheName))
+                                ));
+                            }
+                            return null;
+                        })
+                        .catch((error) => {
+                            console.warn('Local service worker cleanup failed:', error);
+                        });
+                    return;
+                }
+
+                navigator.serviceWorker.register('/sw.js')
                     .catch((error) => {
                         console.error('Service Worker registration failed:', error);
                     });

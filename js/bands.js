@@ -381,13 +381,21 @@ const Bands = {
         }
 
         if (canEdit) {
+            const editIconMarkup = (typeof App !== 'undefined' && typeof App.getRundownInlineIcon === 'function')
+                ? App.getRundownInlineIcon('edit')
+                : `
+                    <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <path d="M4 13.75V16h2.25L14.8 7.45l-2.25-2.25L4 13.75Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                        <path d="M11.95 5.8 14.2 8.05" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                    </svg>
+                `;
             nameHeader.style.display = 'flex';
             nameHeader.style.alignItems = 'center';
             nameHeader.style.flexWrap = 'wrap';
             nameHeader.style.gap = '0.75rem';
             nameHeader.innerHTML = `
                 <span class="band-details-name-text">${this.escapeHtml(band.name)}</span>
-                <button class="btn-icon band-details-edit-btn edit-band-name" title="Bandnamen ändern">✏️</button>
+                <button class="btn-icon band-details-edit-btn edit-band-name" title="Bandnamen ändern" aria-label="Bandnamen ändern">${editIconMarkup}</button>
             `;
 
             // Add edit handler

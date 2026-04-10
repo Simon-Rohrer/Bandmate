@@ -680,7 +680,10 @@ const Events = {
                         <h4>Abendplan</h4>
                     </div>
                     <div class="event-rundown-display-meta">
-                        <button type="button" class="btn btn-secondary btn-sm download-rundown-pdf" data-event-id="${event.id}">Ablauf als PDF</button>
+                        <button type="button" class="btn btn-primary btn-sm download-rundown-pdf" data-event-id="${event.id}">
+                            <span class="btn-inline-icon" aria-hidden="true">${App.getRundownInlineIcon('download')}</span>
+                            <span class="download-rundown-label">Ablauf als PDF</span>
+                        </button>
                     </div>
                 </div>
                 <div class="event-rundown-board is-display">
