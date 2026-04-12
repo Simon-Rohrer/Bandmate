@@ -1,10 +1,11 @@
 const Notifications = {
     initialized: false,
     isOpen: false,
-    pollIntervalMs: 30000,
+    pollIntervalMs: 10000,
     pollTimer: null,
     currentNotifications: [],
     unreadCount: 0,
+    repairDisabled: false,
     pendingActionRequestIds: new Set(),
     processedMembershipNotificationIds: new Set(),
     lastUserId: null,
@@ -26,10 +27,24 @@ const Notifications = {
         });
 
         dropdown.addEventListener('click', (event) => {
+            const closeButton = event.target.closest('[data-notification-close]');
+            if (closeButton) {
+                event.preventDefault();
+                this.closeDropdown();
+                return;
+            }
             event.stopPropagation();
         });
 
         list.addEventListener('click', async (event) => {
+            const removeButton = event.target.closest('[data-notification-remove]');
+            if (removeButton) {
+                event.preventDefault();
+                event.stopPropagation();
+                await this.handleRemoveButton(removeButton);
+                return;
+            }
+
             const actionButton = event.target.closest('[data-notification-action]');
             if (actionButton) {
                 event.preventDefault();
@@ -44,11 +59,11 @@ const Notifications = {
             }
         });
 
-        document.addEventListener('click', (event) => {
+        document.addEventListener('pointerdown', (event) => {
             if (!this.isOpen) return;
             if (dropdown.contains(event.target) || bellButton.contains(event.target)) return;
             this.closeDropdown();
-        });
+        }, true);
 
         document.addEventListener('keydown', (event) => {
             if (event.key === 'Escape' && this.isOpen) {
@@ -68,6 +83,7 @@ const Notifications = {
 
         if (this.lastUserId !== user.id) {
             this.processedMembershipNotificationIds.clear();
+            this.repairDisabled = false;
         }
 
         this.lastUserId = user.id;
@@ -94,6 +110,7 @@ const Notifications = {
         this.isOpen = false;
         this.currentNotifications = [];
         this.unreadCount = 0;
+        this.repairDisabled = false;
         this.pendingActionRequestIds.clear();
         this.processedMembershipNotificationIds.clear();
         this.lastUserId = null;
@@ -108,7 +125,7 @@ const Notifications = {
     },
 
     async refresh(options = {}) {
-        const { quiet = false, skipAutoRead = false } = options;
+        const { quiet = false } = options;
         const user = Auth.getCurrentUser();
 
         if (!user) {
@@ -117,26 +134,229 @@ const Notifications = {
         }
 
         try {
-            const [notifications, unreadCount] = await Promise.all([
+            let [notifications, unreadCount] = await Promise.all([
                 Storage.getNotificationsForUser(user.id, { limit: 30 }),
                 Storage.getUnreadNotificationCount(user.id)
             ]);
 
-            this.currentNotifications = Array.isArray(notifications) ? notifications : [];
-            this.unreadCount = Number.isFinite(Number(unreadCount)) ? Number(unreadCount) : 0;
+            const repairedNotifications = this.repairDisabled
+                ? 0
+                : await this.repairPendingMembershipNotifications(user);
+            if (repairedNotifications > 0) {
+                [notifications, unreadCount] = await Promise.all([
+                    Storage.getNotificationsForUser(user.id, { limit: 30 }),
+                    Storage.getUnreadNotificationCount(user.id)
+                ]);
+            }
+
+            const dismissedIds = this.getDismissedNotificationIds(user.id);
+            const visibleNotifications = Array.isArray(notifications)
+                ? notifications.filter((notification) => !dismissedIds.has(String(notification?.id || '')))
+                : [];
+
+            this.currentNotifications = await this.enrichNotificationsWithRequestState(visibleNotifications);
+            const unreadFromQuery = Number.isFinite(Number(unreadCount)) ? Number(unreadCount) : 0;
+            const unreadFromList = this.currentNotifications.filter(notification => notification.status === 'unread').length;
+            this.unreadCount = Math.max(unreadFromQuery, unreadFromList);
             this.renderNotifications(this.currentNotifications);
             this.updateBadge(this.unreadCount);
             await this.syncMembershipContext(this.currentNotifications);
-
-            if (this.isOpen && !skipAutoRead) {
-                await this.markVisibleAsRead();
-            }
         } catch (error) {
             console.error('[Notifications.refresh] Error:', error);
             if (!quiet && typeof UI !== 'undefined' && UI.showToast) {
                 UI.showToast('Benachrichtigungen konnten nicht geladen werden', 'error');
             }
         }
+    },
+
+    async repairPendingMembershipNotifications(user) {
+        if (!user?.id) return 0;
+
+        try {
+            const userBands = await Storage.getUserBands(user.id);
+            const leaderBandIds = (Array.isArray(userBands) ? userBands : [])
+                .filter((band) => band && ['leader', 'co-leader'].includes(String(band.role || '').toLowerCase()))
+                .map((band) => band.id)
+                .filter(Boolean);
+
+            const pendingRequests = await Storage.getPendingMembershipRequestsForUserContext(user.id, leaderBandIds);
+            if (!Array.isArray(pendingRequests) || pendingRequests.length === 0) return 0;
+
+            let repairedCount = 0;
+            for (const request of pendingRequests) {
+                try {
+                    repairedCount += await this.ensurePendingRequestNotifications(request, {
+                        currentUserId: user.id,
+                        scope: 'self'
+                    });
+                } catch (error) {
+                    const message = String(error?.message || error || '');
+                    if (message.includes('row-level security policy for table "notifications"')) {
+                        this.repairDisabled = true;
+                        console.warn('[Notifications] Repair disabled until reload because notifications RLS is not fully applied yet.');
+                        break;
+                    }
+                    throw error;
+                }
+            }
+
+            return repairedCount;
+        } catch (error) {
+            console.error('[Notifications.repairPendingMembershipNotifications] Error:', error);
+            return 0;
+        }
+    },
+
+    async ensurePendingRequestNotifications(request, options = {}) {
+        if (!request || request.status !== 'pending') return 0;
+
+        const currentUserId = String(options.currentUserId || '');
+        const scope = options.scope || 'all';
+        const existingNotifications = await Storage.getNotificationsByRequest(request.id);
+        const existingByUserAndType = new Set(
+            (Array.isArray(existingNotifications) ? existingNotifications : [])
+                .map((notification) => `${String(notification.userId || '')}::${String(notification.type || '')}`)
+        );
+
+        const band = options.band || await Storage.getBand(request.bandId);
+        if (!band) return 0;
+
+        const requestedRole = request.requestedRole || 'member';
+        const roleLabel = UI.getRoleDisplayName(requestedRole);
+        const notificationsToCreate = [];
+
+        const hasNotification = (userId, type) => existingByUserAndType.has(`${String(userId || '')}::${String(type || '')}`);
+        const shouldIncludeRecipient = (userId) => scope === 'all' || String(userId || '') === currentUserId;
+
+        if (request.type === 'invite') {
+            const inviter = options.inviter || await Storage.getById('users', request.createdByUserId);
+            const invitee = options.invitee || await Storage.getById('users', request.targetUserId);
+            const inviterName = UI.getUserDisplayName(inviter || { name: 'Bandmate' });
+            const inviteeName = UI.getUserDisplayName(invitee || { name: 'Mitglied' });
+            const inviterImage = inviter?.profile_image_url || '';
+            const inviteeImage = invitee?.profile_image_url || '';
+
+            if (!hasNotification(request.targetUserId, 'invite_received') && shouldIncludeRecipient(request.targetUserId)) {
+                notificationsToCreate.push({
+                    userId: request.targetUserId,
+                    requestId: request.id,
+                    bandId: request.bandId,
+                    type: 'invite_received',
+                    title: `Einladung zu ${band.name}`,
+                    message: `${inviterName} hat dich als ${roleLabel} zur Band ${band.name} eingeladen.`,
+                    actionType: 'respond_invite',
+                    actionStatus: 'pending',
+                    actorUserId: request.createdByUserId,
+                    actorName: inviterName,
+                    actorImageUrl: inviterImage,
+                    bandName: band.name,
+                    requestedRole
+                });
+            }
+
+            if (!hasNotification(request.createdByUserId, 'invite_pending') && shouldIncludeRecipient(request.createdByUserId)) {
+                notificationsToCreate.push({
+                    userId: request.createdByUserId,
+                    requestId: request.id,
+                    bandId: request.bandId,
+                    type: 'invite_pending',
+                    title: 'Einladung versendet',
+                    message: `${inviteeName} wurde eingeladen und muss die Anfrage fuer ${band.name} noch bestaetigen.`,
+                    actorUserId: request.targetUserId,
+                    actorName: inviteeName,
+                    actorImageUrl: inviteeImage,
+                    bandName: band.name,
+                    requestedRole
+                });
+            }
+        } else if (request.type === 'join_request') {
+            const requester = options.requester || await Storage.getById('users', request.createdByUserId);
+            const leadershipMembers = options.leadershipMembers || await Storage.getBandLeadershipMembers(request.bandId);
+            const requesterName = UI.getUserDisplayName(requester || { name: 'Bandmate' });
+            const requesterImage = requester?.profile_image_url || '';
+
+            (Array.isArray(leadershipMembers) ? leadershipMembers : []).forEach((member) => {
+                if (!member?.userId || hasNotification(member.userId, 'join_request_received') || !shouldIncludeRecipient(member.userId)) return;
+                notificationsToCreate.push({
+                    userId: member.userId,
+                    requestId: request.id,
+                    bandId: request.bandId,
+                    type: 'join_request_received',
+                    title: 'Neue Beitrittsanfrage',
+                    message: `${requesterName} moechte der Band ${band.name} als ${roleLabel} beitreten.`,
+                    actionType: 'review_join_request',
+                    actionStatus: 'pending',
+                    actorUserId: request.createdByUserId,
+                    actorName: requesterName,
+                    actorImageUrl: requesterImage,
+                    bandName: band.name,
+                    requestedRole
+                });
+            });
+
+            if (!hasNotification(request.createdByUserId, 'join_request_pending') && shouldIncludeRecipient(request.createdByUserId)) {
+                notificationsToCreate.push({
+                    userId: request.createdByUserId,
+                    requestId: request.id,
+                    bandId: request.bandId,
+                    type: 'join_request_pending',
+                    title: 'Anfrage gesendet',
+                    message: `Deine Anfrage fuer ${band.name} wartet jetzt auf die Rueckmeldung der Bandleitung.`,
+                    actorUserId: request.createdByUserId,
+                    actorName: requesterName,
+                    actorImageUrl: requesterImage,
+                    bandName: band.name,
+                    requestedRole
+                });
+            }
+        }
+
+        if (notificationsToCreate.length === 0) return 0;
+
+        await Promise.all(notificationsToCreate.map((notification) => Storage.createNotification(notification)));
+        return notificationsToCreate.length;
+    },
+
+    async enrichNotificationsWithRequestState(notifications) {
+        if (!Array.isArray(notifications) || notifications.length === 0) return [];
+
+        const requestIds = [...new Set(
+            notifications
+                .map(notification => notification?.requestId)
+                .filter(Boolean)
+                .map(value => String(value))
+        )];
+
+        if (requestIds.length === 0) return notifications;
+
+        const requests = await Storage.getBatchByIds('bandMembershipRequests', requestIds);
+        const requestMap = new Map(
+            (Array.isArray(requests) ? requests : [])
+                .filter(request => request?.id)
+                .map(request => [String(request.id), request])
+        );
+
+        return notifications.map(notification => {
+            if (!notification?.requestId) return notification;
+
+            const request = requestMap.get(String(notification.requestId));
+            if (!request) return notification;
+
+            const requestStatus = request.status === 'accepted' || request.status === 'declined'
+                ? request.status
+                : 'pending';
+
+            const nextNotification = {
+                ...notification,
+                requestStatus
+            };
+
+            if (notification.actionType) {
+                nextNotification.actionStatus = requestStatus;
+            }
+
+            return nextNotification;
+        });
     },
 
     async toggleDropdown(forceState = null) {
@@ -177,6 +397,39 @@ const Notifications = {
         } else {
             badge.hidden = true;
             badge.textContent = '0';
+        }
+    },
+
+    getDismissedStorageKey(userId) {
+        return userId ? `bandmate.notifications.dismissed.${userId}` : '';
+    },
+
+    getDismissedNotificationIds(userId) {
+        const storageKey = this.getDismissedStorageKey(userId);
+        if (!storageKey) return new Set();
+
+        try {
+            const rawValue = localStorage.getItem(storageKey);
+            if (!rawValue) return new Set();
+            const parsedValue = JSON.parse(rawValue);
+            if (!Array.isArray(parsedValue)) return new Set();
+            return new Set(parsedValue.map((value) => String(value)));
+        } catch (error) {
+            console.warn('[Notifications] Could not read dismissed notification ids:', error);
+            return new Set();
+        }
+    },
+
+    persistDismissedNotificationId(userId, notificationId) {
+        const storageKey = this.getDismissedStorageKey(userId);
+        if (!storageKey || !notificationId) return;
+
+        try {
+            const dismissedIds = this.getDismissedNotificationIds(userId);
+            dismissedIds.add(String(notificationId));
+            localStorage.setItem(storageKey, JSON.stringify([...dismissedIds]));
+        } catch (error) {
+            console.warn('[Notifications] Could not persist dismissed notification id:', error);
         }
     },
 
@@ -221,7 +474,21 @@ const Notifications = {
                             ${badgeMarkup}
                             ${statusMarkup}
                         </div>
-                        <span class="notification-item-time">${timestamp}</span>
+                        <div class="notification-item-top-actions">
+                            <span class="notification-item-time">${timestamp}</span>
+                            <button
+                                type="button"
+                                class="notification-remove-btn"
+                                data-notification-remove="true"
+                                data-notification-id="${this.escapeHtml(notification.id)}"
+                                aria-label="Benachrichtigung löschen"
+                                title="Benachrichtigung löschen"
+                            >
+                                <svg viewBox="0 0 20 20" aria-hidden="true">
+                                    <path d="M5 5L15 15M15 5L5 15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                     <h4 class="notification-item-title">${title}</h4>
                     <p class="notification-item-copy">${message}</p>
@@ -252,11 +519,13 @@ const Notifications = {
     },
 
     getStatusMarkup(notification) {
-        if (notification.actionStatus === 'accepted') {
+        const effectiveStatus = this.getEffectiveActionStatus(notification);
+
+        if (effectiveStatus === 'accepted') {
             return '<span class="notification-status-chip is-success">Angenommen</span>';
         }
 
-        if (notification.actionStatus === 'declined') {
+        if (effectiveStatus === 'declined') {
             return '<span class="notification-status-chip is-danger">Abgelehnt</span>';
         }
 
@@ -302,8 +571,19 @@ const Notifications = {
             notification &&
             notification.requestId &&
             notification.actionType &&
-            notification.actionStatus === 'pending'
+            this.getEffectiveActionStatus(notification) === 'pending'
         );
+    },
+
+    getEffectiveActionStatus(notification) {
+        if (!notification) return null;
+        if (notification.requestStatus === 'accepted' || notification.requestStatus === 'declined' || notification.requestStatus === 'pending') {
+            return notification.requestStatus;
+        }
+        if (notification.actionStatus === 'accepted' || notification.actionStatus === 'declined' || notification.actionStatus === 'pending') {
+            return notification.actionStatus;
+        }
+        return null;
     },
 
     async markVisibleAsRead() {
@@ -362,6 +642,40 @@ const Notifications = {
         if (!requestId || !action) return;
 
         await this.respondToRequest(requestId, action, notificationId);
+    },
+
+    async handleRemoveButton(button) {
+        const notificationId = button.dataset.notificationId;
+        if (!notificationId) return;
+        await this.deleteNotification(notificationId);
+    },
+
+    async deleteNotification(notificationId) {
+        const user = Auth.getCurrentUser();
+        if (!user || !notificationId) return;
+
+        const target = this.currentNotifications.find(notification => String(notification.id) === String(notificationId));
+        if (target?.status === 'unread') {
+            const marked = await Storage.markNotificationsRead(user.id, [notificationId]);
+            if (!marked) {
+                UI.showToast('Benachrichtigung konnte nicht entfernt werden.', 'error');
+                return;
+            }
+        }
+
+        this.persistDismissedNotificationId(user.id, notificationId);
+
+        this.currentNotifications = this.currentNotifications.filter(
+            notification => String(notification.id) !== String(notificationId)
+        );
+
+        if (target?.status === 'unread') {
+            this.unreadCount = Math.max(0, this.unreadCount - 1);
+        }
+
+        this.renderNotifications(this.currentNotifications);
+        this.updateBadge(this.unreadCount);
+        UI.showToast('Benachrichtigung entfernt.', 'success');
     },
 
     async respondToRequest(requestId, action, sourceNotificationId = null) {
@@ -537,6 +851,14 @@ const Notifications = {
 
         const pendingRequest = await Storage.getPendingBandMembershipRequest(bandId, invitedUser.id);
         if (pendingRequest) {
+            await this.ensurePendingRequestNotifications(pendingRequest, {
+                band,
+                currentUserId: currentUser.id,
+                scope: 'all',
+                inviter: currentUser,
+                invitee: invitedUser
+            });
+            await this.refresh({ quiet: true });
             throw new Error(this.getDuplicateRequestMessage(pendingRequest, band.name, 'invite'));
         }
 
@@ -600,6 +922,13 @@ const Notifications = {
 
         const pendingRequest = await Storage.getPendingBandMembershipRequest(bandId, currentUser.id);
         if (pendingRequest) {
+            await this.ensurePendingRequestNotifications(pendingRequest, {
+                band,
+                currentUserId: currentUser.id,
+                scope: 'all',
+                requester: currentUser
+            });
+            await this.refresh({ quiet: true });
             throw new Error(this.getDuplicateRequestMessage(pendingRequest, band.name, 'join'));
         }
 

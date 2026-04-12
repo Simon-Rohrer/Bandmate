@@ -534,6 +534,49 @@ const Storage = {
         return data || null;
     },
 
+    async getPendingMembershipRequestsForUserContext(userId, leaderBandIds = []) {
+        if (!userId) return [];
+
+        const sb = SupabaseClient.getClient();
+        const uniqueRequests = new Map();
+
+        const { data: selfRequests, error: selfError } = await sb
+            .from('bandMembershipRequests')
+            .select('*')
+            .eq('status', 'pending')
+            .or(`createdByUserId.eq.${userId},targetUserId.eq.${userId}`);
+
+        if (selfError) {
+            console.error('Supabase getPendingMembershipRequestsForUserContext self error', selfError);
+        } else {
+            (selfRequests || []).forEach((request) => {
+                if (request?.id != null) uniqueRequests.set(String(request.id), request);
+            });
+        }
+
+        const cleanedLeaderBandIds = Array.isArray(leaderBandIds)
+            ? [...new Set(leaderBandIds.filter(Boolean).map((value) => String(value)))]
+            : [];
+
+        if (cleanedLeaderBandIds.length > 0) {
+            const { data: leaderRequests, error: leaderError } = await sb
+                .from('bandMembershipRequests')
+                .select('*')
+                .eq('status', 'pending')
+                .in('bandId', cleanedLeaderBandIds);
+
+            if (leaderError) {
+                console.error('Supabase getPendingMembershipRequestsForUserContext leader error', leaderError);
+            } else {
+                (leaderRequests || []).forEach((request) => {
+                    if (request?.id != null) uniqueRequests.set(String(request.id), request);
+                });
+            }
+        }
+
+        return [...uniqueRequests.values()];
+    },
+
     async getBandLeadershipMembers(bandId) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb
@@ -564,7 +607,24 @@ const Storage = {
             requestedRole: '',
             ...notificationData
         };
-        return await this.save('notifications', notification);
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb.from('notifications').insert(notification);
+
+        if (error) {
+            const isNetworkError = error.message && (
+                error.message.includes('FetchError') ||
+                error.message.includes('network') ||
+                error.message.includes('connection') ||
+                error.message.includes('Load failed')
+            );
+            if (isNetworkError) {
+                throw new Error('Verbindungsproblem: Speichern in notifications fehlgeschlagen.');
+            }
+            Logger.error('Supabase save error in notifications', error);
+            throw new Error(`Fehler beim Speichern in notifications: ${error.message}`);
+        }
+
+        return notification;
     },
 
     async getNotificationsForUser(userId, options = {}) {
@@ -576,6 +636,7 @@ const Storage = {
             .from('notifications')
             .select('*')
             .eq('userId', userId)
+            .neq('status', 'dismissed')
             .order('createdAt', { ascending: false })
             .limit(limit);
 
@@ -619,6 +680,25 @@ const Storage = {
 
         if (error) {
             console.error('Supabase markNotificationsRead error', error);
+            return false;
+        }
+
+        return true;
+    },
+
+    async dismissNotification(userId, notificationId) {
+        if (!userId || !notificationId) return false;
+
+        const sb = SupabaseClient.getClient();
+        const timestamp = new Date().toISOString();
+        const { error } = await sb
+            .from('notifications')
+            .update({ status: 'dismissed', readAt: timestamp })
+            .eq('userId', userId)
+            .eq('id', notificationId);
+
+        if (error) {
+            console.error('Supabase dismissNotification error', error);
             return false;
         }
 
