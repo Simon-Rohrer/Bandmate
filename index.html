@@ -819,6 +819,16 @@
                                         </span>
                                         <span>Probe hier anlegen</span>
                                     </button>
+                                    <button id="dashboardCreateAbsenceShortcut" class="header-quick-add-item" type="button" role="menuitem">
+                                        <span class="header-quick-add-item-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24">
+                                                <path d="M5 20h14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                <path d="M7 20V9a5 5 0 0 1 10 0v11" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                                                <path d="M7 13h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"></path>
+                                            </svg>
+                                        </span>
+                                        <span>Abwesenheit eintragen</span>
+                                    </button>
                                 </div>
                             </div>
                             <button
@@ -2090,16 +2100,86 @@
                                     <div class="absences-form-section">
                                         <form id="createAbsenceFormSettings">
                                             <input type="hidden" id="editAbsenceIdSettings">
-                                            <div class="form-group-row">
-                                                <div class="form-group">
-                                                    <label for="absenceStartSettings">Von</label>
-                                                    <input type="date" id="absenceStartSettings" class="profile-form-input" required>
+                                            <input type="hidden" id="editAbsenceSeriesIdSettings">
+                                            <input type="hidden" id="absenceModeSettings" value="single">
+                                            <input type="hidden" id="absenceQuickDurationSettings" value="">
+
+                                            <div class="absence-mode-toggle" role="tablist" aria-label="Abwesenheitsmodus">
+                                                <button type="button" class="absence-mode-btn is-active" data-absence-mode="single">Einzeln</button>
+                                                <button type="button" class="absence-mode-btn" data-absence-mode="series">Serie</button>
+                                            </div>
+
+                                            <div class="absence-mode-panel" data-absence-mode-panel="single">
+                                                <div class="form-group-row">
+                                                    <div class="form-group">
+                                                        <label for="absenceStartSettings">Von</label>
+                                                        <input type="date" id="absenceStartSettings" class="profile-form-input" required>
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="absenceEndSettings">Bis (optional)</label>
+                                                        <input type="date" id="absenceEndSettings" class="profile-form-input">
+                                                    </div>
                                                 </div>
-                                                <div class="form-group">
-                                                    <label for="absenceEndSettings">Bis</label>
-                                                    <input type="date" id="absenceEndSettings" class="profile-form-input" required>
+
+                                                <div class="form-group-row absence-time-row">
+                                                    <div class="form-group">
+                                                        <label for="absenceStartTimeSettings">Startzeit</label>
+                                                        <input type="time" id="absenceStartTimeSettings" class="profile-form-input">
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="absenceEndTimeSettings">Endzeit</label>
+                                                        <input type="time" id="absenceEndTimeSettings" class="profile-form-input">
+                                                    </div>
+                                                </div>
+
+                                                <div class="absence-quick-select">
+                                                    <span class="absence-quick-select-label">Schnellauswahl</span>
+                                                    <div class="absence-quick-select-actions">
+                                                        <button type="button" class="absence-quick-btn" data-absence-quick-days="1">1 Tag</button>
+                                                        <button type="button" class="absence-quick-btn" data-absence-quick-days="2">2 Tage</button>
+                                                        <button type="button" class="absence-quick-btn" data-absence-quick-days="3">3 Tage</button>
+                                                    </div>
                                                 </div>
                                             </div>
+
+                                            <div class="absence-mode-panel" data-absence-mode-panel="series" hidden>
+                                                <div class="form-group-row">
+                                                    <div class="form-group">
+                                                        <label for="absenceSeriesStartSettings">Von</label>
+                                                        <input type="date" id="absenceSeriesStartSettings" class="profile-form-input">
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="absenceSeriesEndSettings">Bis</label>
+                                                        <input type="date" id="absenceSeriesEndSettings" class="profile-form-input">
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-group-row absence-time-row">
+                                                    <div class="form-group">
+                                                        <label for="absenceSeriesStartTimeSettings">Startzeit</label>
+                                                        <input type="time" id="absenceSeriesStartTimeSettings" class="profile-form-input">
+                                                    </div>
+                                                    <div class="form-group">
+                                                        <label for="absenceSeriesEndTimeSettings">Endzeit</label>
+                                                        <input type="time" id="absenceSeriesEndTimeSettings" class="profile-form-input">
+                                                    </div>
+                                                </div>
+
+                                                <div class="form-group">
+                                                    <label for="absenceSeriesWeekdaySettings">Wiederholung</label>
+                                                    <select id="absenceSeriesWeekdaySettings" class="profile-form-input">
+                                                        <option value="1">Jeden Montag</option>
+                                                        <option value="2">Jeden Dienstag</option>
+                                                        <option value="3">Jeden Mittwoch</option>
+                                                        <option value="4">Jeden Donnerstag</option>
+                                                        <option value="5">Jeden Freitag</option>
+                                                        <option value="6">Jeden Samstag</option>
+                                                        <option value="0">Jeden Sonntag</option>
+                                                    </select>
+                                                    <div class="profile-form-help">Es werden einzelne Abwesenheiten fuer jeden passenden Wochentag im gewaehlten Zeitraum angelegt.</div>
+                                                </div>
+                                            </div>
+
                                             <div class="form-group">
                                                 <label for="absenceReasonSettings">Grund (optional)</label>
                                                 <input type="text" id="absenceReasonSettings" class="profile-form-input" placeholder="Urlaub, Krankheit, ...">

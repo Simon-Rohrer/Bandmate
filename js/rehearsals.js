@@ -353,7 +353,7 @@ const Rehearsals = {
             return {
                 ...conflict,
                 name: userName,
-                reason: conflict.reason || 'Abwesend'
+                reason: Storage.getAbsenceDisplayReason(conflict) || 'Abwesend'
             };
         });
     },
@@ -2557,6 +2557,10 @@ const Rehearsals = {
             await App.updateDashboard();
         }
 
+        if (typeof App !== 'undefined' && App.refreshPersonalCalendarAfterPlanningChange) {
+            await App.refreshPersonalCalendarAfterPlanningChange();
+        }
+
         return savedRehearsal;
     },
 
@@ -2690,6 +2694,10 @@ const Rehearsals = {
         UI.closeModal('createRehearsalModal');
         this.invalidateCache();
         await this.renderRehearsals(this.currentFilter);
+
+        if (typeof App !== 'undefined' && App.refreshPersonalCalendarAfterPlanningChange) {
+            await App.refreshPersonalCalendarAfterPlanningChange();
+        }
     },
 
     async deleteRehearsal(rehearsalId) {
@@ -2714,6 +2722,9 @@ const Rehearsals = {
 
             // Liste aktualisieren (invalidiert den alten Cache)
             this.invalidateCache();
+            if (typeof App !== 'undefined' && App.refreshPersonalCalendarAfterPlanningChange) {
+                await App.refreshPersonalCalendarAfterPlanningChange();
+            }
             await this.renderRehearsals(this.currentFilter, true);
         }
     },

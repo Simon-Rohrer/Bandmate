@@ -521,7 +521,7 @@ const Auth = {
         if (!this.currentUser) return [];
 
         if (this.isAdmin()) {
-            return (await Storage.getAllBands()) || [];
+            return (await Storage.getUserBands(this.currentUser.id)) || [];
         }
 
         const userBands = (await Storage.getUserBands(this.currentUser.id)) || [];

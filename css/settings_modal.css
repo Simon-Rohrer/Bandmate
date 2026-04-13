@@ -375,6 +375,13 @@
     box-shadow: var(--shadow-sm);
 }
 
+.absences-form-section .form-group-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
 .form-group-row {
     display: flex;
     flex-direction: column;
@@ -418,6 +425,30 @@
 .absence-actions {
     display: flex;
     gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+.absence-actions .btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.3rem;
+    height: 2.3rem;
+    padding: 0;
+    border-radius: 10px;
+    background: transparent;
+    border: 1px solid var(--color-border);
+}
+
+.absence-actions .btn-icon svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.absence-mode-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
 /* Responsive Absences */
@@ -429,6 +460,22 @@
 
     .absences-form-section {
         order: -1; /* Form on top on mobile */
+    }
+
+    .absences-form-section .form-group-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 640px) {
+    .absence-quick-select {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .absence-quick-select-actions {
+        width: 100%;
+        justify-content: flex-start;
     }
 }
 
@@ -1403,6 +1450,7 @@
     border-radius: 14px;
     padding: 0.85rem 0.9rem;
     background: var(--settings-surface-muted);
+    align-items: flex-start;
 }
 
 #settingsModal .absence-item-card:hover {
@@ -1415,12 +1463,26 @@
     font-size: 0.92rem;
 }
 
+#settingsModal .absence-time-range {
+    margin-top: 0.2rem;
+}
+
 #settingsModal .absence-reason {
     line-height: 1.45;
 }
 
+#settingsModal .absence-series-meta {
+    margin-top: 0.35rem;
+}
+
+#settingsModal .absence-item-card.is-series {
+    border-color: rgba(134, 169, 255, 0.24);
+    background: linear-gradient(180deg, rgba(134, 169, 255, 0.08), rgba(15, 23, 42, 0.08));
+}
+
 #settingsModal .absence-actions {
     gap: 0.6rem;
+    align-self: center;
 }
 
 #settingsModal .absence-actions .btn-icon {

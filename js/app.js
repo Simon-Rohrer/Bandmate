@@ -1058,9 +1058,10 @@ const App = {
         const quickAddMenu = document.getElementById('headerQuickAddMenu');
         const createEventShortcut = document.getElementById('dashboardCreateEventShortcut');
         const createRehearsalShortcut = document.getElementById('dashboardCreateRehearsalShortcut');
+        const createAbsenceShortcut = document.getElementById('dashboardCreateAbsenceShortcut');
         const openCalendarShortcut = document.getElementById('dashboardOpenCalendarShortcut');
 
-        if (!shortcutBar || !quickAddWrapper || !quickAddBtn || !quickAddMenu || !createEventShortcut || !createRehearsalShortcut || !openCalendarShortcut) {
+        if (!shortcutBar || !quickAddWrapper || !quickAddBtn || !quickAddMenu || !createEventShortcut || !createRehearsalShortcut || !createAbsenceShortcut || !openCalendarShortcut) {
             return;
         }
 
@@ -1109,6 +1110,12 @@ const App = {
             event.preventDefault();
             closeQuickAddMenu();
             this.openCreateRehearsalModal();
+        };
+
+        createAbsenceShortcut.onclick = async (event) => {
+            event.preventDefault();
+            closeQuickAddMenu();
+            await this.openAbsencesSettings();
         };
 
         openCalendarShortcut.onclick = (event) => {
@@ -4388,9 +4395,9 @@ const App = {
         // Create rehearsal form
         const createRehearsalForm = document.getElementById('createRehearsalForm');
         if (createRehearsalForm) {
-            createRehearsalForm.onsubmit = (e) => {
+            createRehearsalForm.onsubmit = async (e) => {
                 e.preventDefault();
-                this.handleCreateRehearsal();
+                await this.handleCreateRehearsal();
             };
         }
 
@@ -4468,9 +4475,14 @@ const App = {
         // Create event form
         const createEventForm = document.getElementById('createEventForm');
         if (createEventForm) {
-            createEventForm.onsubmit = (e) => {
+            createEventForm.onsubmit = async (e) => {
                 e.preventDefault();
-                this.handleCreateEvent();
+                if (typeof Events !== 'undefined' && typeof Events.handleSaveEvent === 'function') {
+                    await Events.handleSaveEvent();
+                    return;
+                }
+
+                await this.handleCreateEvent();
             };
         }
 
@@ -13254,6 +13266,7 @@ const App = {
             });
             absenceFormSettings._bound = true;
         }
+        this.setupAbsenceSettingsControls();
 
         // Create location form (scoped to settings view)
         const createLocationForm = effectiveRoot.querySelector('#createLocationForm');
@@ -13540,38 +13553,494 @@ const App = {
         }
     },
 
+    parseAbsenceDateInputValue(value) {
+        if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return null;
+        }
+
+        const [year, month, day] = value.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+        return Number.isNaN(date.getTime()) ? null : date;
+    },
+
+    formatAbsenceDateInputValue(date) {
+        if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+            return '';
+        }
+
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    },
+
+    shiftAbsenceDateInputValue(value, offsetDays = 0) {
+        const date = this.parseAbsenceDateInputValue(value);
+        if (!date) return '';
+
+        date.setDate(date.getDate() + Number(offsetDays || 0));
+        return this.formatAbsenceDateInputValue(date);
+    },
+
+    extractAbsenceDateInputValue(value) {
+        if (typeof value !== 'string' || !value) return '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return value;
+        }
+
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? '' : this.formatAbsenceDateInputValue(date);
+    },
+
+    extractAbsenceTimeInputValue(value) {
+        if (typeof value !== 'string' || !value || !value.includes('T')) return '';
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    },
+
+    buildAbsenceDateTimeValue(dateValue, timeValue = '') {
+        if (!dateValue) return '';
+        if (!timeValue) return dateValue;
+
+        const date = this.parseAbsenceDateInputValue(dateValue);
+        if (!date) return '';
+
+        const [hours, minutes] = String(timeValue).split(':').map(Number);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+            return dateValue;
+        }
+
+        date.setHours(hours, minutes, 0, 0);
+        return date.toISOString();
+    },
+
+    formatAbsenceTimeRangeLabel(startValue, endValue) {
+        const startTime = this.extractAbsenceTimeInputValue(startValue);
+        const endTime = this.extractAbsenceTimeInputValue(endValue);
+        if (!startTime && !endTime) return '';
+        if (startTime && endTime) return `${startTime} - ${endTime} Uhr`;
+        if (startTime) return `ab ${startTime} Uhr`;
+        return `bis ${endTime} Uhr`;
+    },
+
+    getAbsenceWeekdayLabel(weekdayValue) {
+        const labels = {
+            0: 'Sonntag',
+            1: 'Montag',
+            2: 'Dienstag',
+            3: 'Mittwoch',
+            4: 'Donnerstag',
+            5: 'Freitag',
+            6: 'Samstag'
+        };
+        return labels[Number(weekdayValue)] || 'Wochentag';
+    },
+
+    getAbsenceSeriesEntries(absences = [], seriesId = '') {
+        return (Array.isArray(absences) ? absences : [])
+            .filter(absence => {
+                const meta = Storage.getAbsenceRecurrenceMeta(absence);
+                return meta?.type === 'series' && meta.seriesId === seriesId;
+            })
+            .sort((left, right) => new Date(left.startDate) - new Date(right.startDate));
+    },
+
+    buildAbsenceSeriesGroups(absences = []) {
+        const groups = new Map();
+
+        (Array.isArray(absences) ? absences : []).forEach(absence => {
+            const meta = Storage.getAbsenceRecurrenceMeta(absence);
+            if (meta?.type === 'series' && meta.seriesId) {
+                const key = `series:${meta.seriesId}`;
+                if (!groups.has(key)) {
+                    groups.set(key, {
+                        kind: 'series',
+                        key,
+                        seriesId: meta.seriesId,
+                        items: [],
+                        meta
+                    });
+                }
+                groups.get(key).items.push(absence);
+                return;
+            }
+
+            groups.set(`single:${absence.id}`, {
+                kind: 'single',
+                key: `single:${absence.id}`,
+                items: [absence]
+            });
+        });
+
+        return Array.from(groups.values()).map(group => {
+            const items = [...group.items].sort((left, right) => new Date(left.startDate) - new Date(right.startDate));
+            const firstItem = items[0];
+            const lastItem = items[items.length - 1];
+            const latestStart = [...items].sort((left, right) => new Date(right.startDate) - new Date(left.startDate))[0];
+
+            return {
+                ...group,
+                items,
+                firstItem,
+                lastItem,
+                reason: Storage.getAbsenceDisplayReason(firstItem),
+                dateLabel: UI.formatDateOnly(firstItem.startDate) === UI.formatDateOnly(lastItem.endDate)
+                    ? UI.formatDateOnly(firstItem.startDate)
+                    : `${UI.formatDateOnly(firstItem.startDate)} - ${UI.formatDateOnly(lastItem.endDate)}`,
+                timeLabel: this.formatAbsenceTimeRangeLabel(firstItem.startDate, firstItem.endDate),
+                weekdayLabel: this.getAbsenceWeekdayLabel(group.meta?.weekday ?? new Date(firstItem.startDate).getDay()),
+                countLabel: items.length === 1 ? '1 Termin' : `${items.length} Termine`,
+                sortDate: latestStart?.startDate || firstItem.startDate
+            };
+        }).sort((left, right) => new Date(right.sortDate) - new Date(left.sortDate));
+    },
+
+    getAbsenceSettingsMode() {
+        return document.getElementById('absenceModeSettings')?.value === 'series' ? 'series' : 'single';
+    },
+
+    setAbsenceSettingsMode(mode = 'single') {
+        const normalizedMode = mode === 'series' ? 'series' : 'single';
+        const modeInput = document.getElementById('absenceModeSettings');
+        const singlePanel = document.querySelector('[data-absence-mode-panel="single"]');
+        const seriesPanel = document.querySelector('[data-absence-mode-panel="series"]');
+        const modeButtons = document.querySelectorAll('[data-absence-mode]');
+        const singleStartInput = document.getElementById('absenceStartSettings');
+        const seriesStartInput = document.getElementById('absenceSeriesStartSettings');
+        const seriesEndInput = document.getElementById('absenceSeriesEndSettings');
+        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
+
+        if (modeInput) {
+            modeInput.value = normalizedMode;
+        }
+
+        modeButtons.forEach(button => {
+            const isActive = button.dataset.absenceMode === normalizedMode;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        if (singlePanel) {
+            singlePanel.hidden = normalizedMode !== 'single';
+        }
+
+        if (seriesPanel) {
+            seriesPanel.hidden = normalizedMode !== 'series';
+        }
+
+        if (singleStartInput) {
+            singleStartInput.required = normalizedMode === 'single';
+        }
+
+        if (seriesStartInput) {
+            seriesStartInput.required = normalizedMode === 'series';
+            if (normalizedMode === 'series' && !seriesStartInput.value && singleStartInput?.value) {
+                seriesStartInput.value = singleStartInput.value;
+            }
+        }
+
+        if (seriesEndInput) {
+            seriesEndInput.required = normalizedMode === 'series';
+            if (normalizedMode === 'series' && !seriesEndInput.value) {
+                seriesEndInput.value = seriesStartInput?.value || singleStartInput?.value || '';
+            }
+        }
+
+        if (seriesWeekdayInput) {
+            seriesWeekdayInput.required = normalizedMode === 'series';
+        }
+
+        if (normalizedMode === 'series') {
+            this.setAbsenceSettingsQuickDuration(0);
+        }
+    },
+
+    setAbsenceSettingsModeLocked(isLocked = false) {
+        const toggle = document.querySelector('.absence-mode-toggle');
+        const modeButtons = document.querySelectorAll('[data-absence-mode]');
+
+        if (toggle) {
+            toggle.classList.toggle('is-locked', Boolean(isLocked));
+        }
+
+        modeButtons.forEach(button => {
+            button.disabled = Boolean(isLocked);
+        });
+    },
+
+    setAbsenceSettingsQuickDuration(days = 0) {
+        const normalizedDays = Number.isFinite(Number(days)) ? Math.max(0, Number(days)) : 0;
+        const quickInput = document.getElementById('absenceQuickDurationSettings');
+        const startInput = document.getElementById('absenceStartSettings');
+        const endInput = document.getElementById('absenceEndSettings');
+        const quickButtons = document.querySelectorAll('[data-absence-quick-days]');
+
+        if (quickInput) {
+            quickInput.value = normalizedDays > 0 ? String(normalizedDays) : '';
+        }
+
+        quickButtons.forEach(button => {
+            const isActive = Number(button.dataset.absenceQuickDays) === normalizedDays && normalizedDays > 0;
+            button.classList.toggle('is-active', isActive);
+            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+
+        if (normalizedDays > 0 && startInput?.value && endInput) {
+            endInput.value = this.shiftAbsenceDateInputValue(startInput.value, normalizedDays - 1);
+        }
+    },
+
+    buildRecurringAbsenceEntries(startValue, endValue, weekdayValue, options = {}) {
+        const startDate = this.parseAbsenceDateInputValue(startValue);
+        const endDate = this.parseAbsenceDateInputValue(endValue);
+        const weekday = Number(weekdayValue);
+
+        if (!startDate || !endDate || Number.isNaN(weekday) || weekday < 0 || weekday > 6 || startDate > endDate) {
+            return [];
+        }
+
+        const cursor = new Date(startDate.getTime());
+        const offset = (weekday - cursor.getDay() + 7) % 7;
+        cursor.setDate(cursor.getDate() + offset);
+
+        const entries = [];
+        while (cursor <= endDate) {
+            const dateValue = this.formatAbsenceDateInputValue(cursor);
+            entries.push({
+                startDate: this.buildAbsenceDateTimeValue(dateValue, options.startTime || ''),
+                endDate: this.buildAbsenceDateTimeValue(dateValue, options.endTime || '')
+            });
+            cursor.setDate(cursor.getDate() + 7);
+        }
+
+        return entries;
+    },
+
+    setupAbsenceSettingsControls() {
+        const form = document.getElementById('createAbsenceFormSettings');
+        if (!form || form.dataset.absenceControlsBound === 'true') return;
+
+        const singleStartInput = document.getElementById('absenceStartSettings');
+        const singleEndInput = document.getElementById('absenceEndSettings');
+        const seriesStartInput = document.getElementById('absenceSeriesStartSettings');
+        const seriesEndInput = document.getElementById('absenceSeriesEndSettings');
+        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
+        const quickInput = document.getElementById('absenceQuickDurationSettings');
+
+        form.querySelectorAll('[data-absence-mode]').forEach(button => {
+            button.addEventListener('click', () => {
+                if (button.disabled) return;
+                this.setAbsenceSettingsMode(button.dataset.absenceMode);
+            });
+        });
+
+        form.querySelectorAll('[data-absence-quick-days]').forEach(button => {
+            button.addEventListener('click', () => {
+                const days = Number(button.dataset.absenceQuickDays);
+                const currentDays = Number(quickInput?.value || 0);
+                this.setAbsenceSettingsQuickDuration(currentDays === days ? 0 : days);
+            });
+        });
+
+        if (singleStartInput && singleEndInput) {
+            singleStartInput.addEventListener('change', () => {
+                singleEndInput.min = singleStartInput.value || '';
+
+                const activeQuickDays = Number(quickInput?.value || 0);
+                if (activeQuickDays > 0) {
+                    this.setAbsenceSettingsQuickDuration(activeQuickDays);
+                }
+            });
+
+            singleEndInput.addEventListener('change', () => {
+                const activeQuickDays = Number(quickInput?.value || 0);
+                if (!activeQuickDays || !singleStartInput.value || !singleEndInput.value) return;
+
+                const expectedEnd = this.shiftAbsenceDateInputValue(singleStartInput.value, activeQuickDays - 1);
+                if (singleEndInput.value !== expectedEnd) {
+                    this.setAbsenceSettingsQuickDuration(0);
+                }
+            });
+        }
+
+        if (seriesStartInput && seriesEndInput) {
+            seriesStartInput.addEventListener('change', () => {
+                seriesEndInput.min = seriesStartInput.value || '';
+
+                if (seriesWeekdayInput && !seriesWeekdayInput.dataset.userSet && seriesStartInput.value) {
+                    const parsed = this.parseAbsenceDateInputValue(seriesStartInput.value);
+                    if (parsed) {
+                        seriesWeekdayInput.value = String(parsed.getDay());
+                    }
+                }
+            });
+        }
+
+        if (seriesWeekdayInput) {
+            seriesWeekdayInput.addEventListener('change', () => {
+                seriesWeekdayInput.dataset.userSet = 'true';
+            });
+        }
+
+        this.setAbsenceSettingsMode('single');
+        this.setAbsenceSettingsQuickDuration(0);
+        form.dataset.absenceControlsBound = 'true';
+    },
+
     async handleCreateAbsenceFromSettings() {
         const startInput = document.getElementById('absenceStartSettings');
         const endInput = document.getElementById('absenceEndSettings');
+        const startTimeInput = document.getElementById('absenceStartTimeSettings');
+        const endTimeInput = document.getElementById('absenceEndTimeSettings');
+        const seriesStartInput = document.getElementById('absenceSeriesStartSettings');
+        const seriesEndInput = document.getElementById('absenceSeriesEndSettings');
+        const seriesStartTimeInput = document.getElementById('absenceSeriesStartTimeSettings');
+        const seriesEndTimeInput = document.getElementById('absenceSeriesEndTimeSettings');
+        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
         const reasonInput = document.getElementById('absenceReasonSettings');
         const editIdInput = document.getElementById('editAbsenceIdSettings');
+        const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
+        const quickDurationInput = document.getElementById('absenceQuickDurationSettings');
 
-        const start = startInput.value;
-        const end = endInput.value;
         const reason = reasonInput.value.trim();
         const editId = editIdInput.value;
-
+        const editSeriesId = editSeriesIdInput?.value || '';
         const user = Auth.getCurrentUser();
         if (!user) return;
+        const mode = editId ? 'single' : (editSeriesId ? 'series' : this.getAbsenceSettingsMode());
 
-        if (editId) {
-            // Update existing absence
-            await Storage.update('absences', editId, {
-                startDate: start,
-                endDate: end,
-                reason
+        if (mode === 'series') {
+            const seriesStart = seriesStartInput?.value || '';
+            const seriesEnd = seriesEndInput?.value || '';
+            const seriesStartTime = seriesStartTimeInput?.value || '';
+            const seriesEndTime = seriesEndTimeInput?.value || '';
+            const weekday = seriesWeekdayInput?.value;
+
+            if (!seriesStart || !seriesEnd) {
+                UI.showToast('Bitte gib den Zeitraum fuer die Serie vollstaendig ein.', 'error');
+                return;
+            }
+
+            if ((seriesStartTime && !seriesEndTime) || (!seriesStartTime && seriesEndTime)) {
+                UI.showToast('Bitte gib fuer die Serie Start- und Endzeit gemeinsam an.', 'error');
+                return;
+            }
+
+            const recurringEntries = this.buildRecurringAbsenceEntries(seriesStart, seriesEnd, weekday, {
+                startTime: seriesStartTime,
+                endTime: seriesEndTime
             });
-            UI.showToast('Abwesenheit aktualisiert', 'success');
+            if (recurringEntries.length === 0) {
+                UI.showToast('Im gewaehlten Zeitraum wurde kein passender Wochentag gefunden.', 'error');
+                return;
+            }
+
+            const existingAbsences = await Storage.getUserAbsences(user.id) || [];
+            const existingKeys = new Set(existingAbsences
+                .filter(absence => Storage.getAbsenceRecurrenceMeta(absence)?.seriesId !== editSeriesId)
+                .map(absence => {
+                    return `${absence.startDate || ''}__${absence.endDate || ''}`;
+                }));
+
+            const entriesToCreate = recurringEntries.filter(entry => !existingKeys.has(`${entry.startDate || ''}__${entry.endDate || ''}`));
+
+            if (entriesToCreate.length === 0) {
+                UI.showToast(editSeriesId
+                    ? 'Die neue Serie überschneidet sich vollständig mit bereits vorhandenen Abwesenheiten.'
+                    : 'Diese Serien-Abwesenheiten sind bereits eingetragen.', 'info');
+                return;
+            }
+
+            if (editSeriesId) {
+                const currentSeriesEntries = this.getAbsenceSeriesEntries(existingAbsences, editSeriesId);
+                await Promise.all(currentSeriesEntries.map(absence => Storage.deleteAbsence(absence.id)));
+            }
+
+            const seriesId = editSeriesId || Storage.generateId();
+            const createdAt = new Date().toISOString();
+            const seriesMeta = {
+                type: 'series',
+                seriesId,
+                frequency: 'weekly',
+                weekday: Number(weekday),
+                startTime: seriesStartTime,
+                endTime: seriesEndTime
+            };
+
+            for (const entry of entriesToCreate) {
+                await Storage.createAbsence(user.id, entry.startDate, entry.endDate, reason, {
+                    meta: seriesMeta,
+                    createdAt
+                });
+            }
+
+            const skippedCount = recurringEntries.length - entriesToCreate.length;
+            const successText = editSeriesId
+                ? 'Serie aktualisiert'
+                : (entriesToCreate.length === 1
+                    ? '1 Serien-Abwesenheit eingetragen'
+                    : `${entriesToCreate.length} Serien-Abwesenheiten eingetragen`);
+            UI.showToast(successText, 'success');
+
+            if (skippedCount > 0) {
+                UI.showToast(`${skippedCount} bereits vorhandene Termine wurden uebersprungen.`, 'info');
+            }
         } else {
-            // Create new absence
-            await Storage.createAbsence(user.id, start, end, reason);
-            UI.showToast('Abwesenheit eingetragen', 'success');
+            const start = startInput.value;
+            const startTime = startTimeInput?.value || '';
+            const endTime = endTimeInput?.value || '';
+            const quickDuration = Number(quickDurationInput?.value || 0);
+            const end = endInput.value || (quickDuration > 0 ? this.shiftAbsenceDateInputValue(start, quickDuration - 1) : start);
+
+            if (!start) {
+                UI.showToast('Bitte waehle mindestens ein Startdatum aus.', 'error');
+                return;
+            }
+
+            if ((startTime && !endTime) || (!startTime && endTime)) {
+                UI.showToast('Bitte gib Start- und Endzeit gemeinsam an.', 'error');
+                return;
+            }
+
+            const startDate = this.parseAbsenceDateInputValue(start);
+            const endDate = this.parseAbsenceDateInputValue(end);
+            if (!startDate || !endDate) {
+                UI.showToast('Bitte pruefe die Datumsangaben.', 'error');
+                return;
+            }
+
+            if (startDate > endDate) {
+                UI.showToast('Das Bis-Datum muss nach dem Von-Datum liegen.', 'error');
+                return;
+            }
+
+            const startValue = this.buildAbsenceDateTimeValue(start, startTime);
+            const endValue = this.buildAbsenceDateTimeValue(end, endTime);
+
+            if (new Date(startValue) > new Date(endValue)) {
+                UI.showToast('Das Ende muss nach dem Beginn liegen.', 'error');
+                return;
+            }
+
+            if (editId) {
+                await Storage.update('absences', editId, {
+                    startDate: startValue,
+                    endDate: endValue,
+                    reason
+                });
+                UI.showToast('Abwesenheit aktualisiert', 'success');
+            } else {
+                await Storage.createAbsence(user.id, startValue, endValue, reason);
+                UI.showToast('Abwesenheit eingetragen', 'success');
+            }
         }
 
         this.resetAbsenceFormSettings();
 
         // Update absence indicator
         await this.updateAbsenceIndicator();
+        await this.refreshPersonalCalendarAfterAbsenceChange();
 
         // Invalidate cache
         this.absencesCache = null;
@@ -13586,6 +14055,8 @@ const App = {
 
         const editIdInput = document.getElementById('editAbsenceIdSettings');
         if (editIdInput) editIdInput.value = '';
+        const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
+        if (editSeriesIdInput) editSeriesIdInput.value = '';
 
         const saveBtn = document.getElementById('saveAbsenceBtnSettings');
         if (saveBtn) saveBtn.textContent = 'Abwesenheit hinzufügen';
@@ -13595,6 +14066,15 @@ const App = {
             cancelBtn.style.display = 'none';
             cancelBtn.onclick = null;
         }
+
+        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
+        if (seriesWeekdayInput) {
+            delete seriesWeekdayInput.dataset.userSet;
+        }
+
+        this.setAbsenceSettingsModeLocked(false);
+        this.setAbsenceSettingsMode('single');
+        this.setAbsenceSettingsQuickDuration(0);
     },
 
     async renderAbsencesListSettings() {
@@ -13620,18 +14100,27 @@ const App = {
             return;
         }
 
-        container.innerHTML = absences.map(absence => `
-            <div class="absence-item-card" data-absence-id="${absence.id}">
+        const groups = this.buildAbsenceSeriesGroups(absences);
+
+        container.innerHTML = groups.map(group => `
+            <div class="absence-item-card${group.kind === 'series' ? ' is-series' : ''}"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`}>
                 <div class="absence-info">
                     <div class="absence-date-range">
-                        <span style="margin-right:0.25rem;">📅</span>
-                        ${UI.formatDateOnly(absence.startDate)} - ${UI.formatDateOnly(absence.endDate)}
+                        ${Bands.escapeHtml(group.dateLabel)}
                     </div>
-                    ${absence.reason ? `<div class="absence-reason">${Bands.escapeHtml(absence.reason)}</div>` : ''}
+                    ${group.timeLabel ? `<div class="absence-time-range">${Bands.escapeHtml(group.timeLabel)}</div>` : ''}
+                    ${group.reason ? `<div class="absence-reason">${Bands.escapeHtml(group.reason)}</div>` : ''}
+                    ${group.kind === 'series' ? `
+                        <div class="absence-series-meta">
+                            <span class="absence-series-pill">Serie</span>
+                            <span>${Bands.escapeHtml(`Jeden ${group.weekdayLabel}`)}</span>
+                            <span>${Bands.escapeHtml(group.countLabel)}</span>
+                        </div>
+                    ` : ''}
                 </div>
                 <div class="absence-actions">
-                    <button class="btn btn-sm btn-icon edit-absence-settings" data-absence-id="${absence.id}" title="Bearbeiten" style="background:transparent; border:none; font-size:1.1rem; padding:0.25rem;">✏️</button>
-                    <button class="btn btn-sm btn-icon delete-absence-settings" data-absence-id="${absence.id}" title="Löschen" style="background:transparent; border:none; font-size:1.1rem; padding:0.25rem;">🗑️</button>
+                    <button class="btn btn-sm btn-icon edit-absence-settings"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`} title="Bearbeiten" aria-label="Abwesenheit bearbeiten">${this.getRundownInlineIcon('edit')}</button>
+                    <button class="btn btn-sm btn-icon delete-absence-settings"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`} title="Löschen" aria-label="Abwesenheit löschen">${this.getRundownInlineIcon('trash')}</button>
                 </div>
             </div>
     `).join('');
@@ -13639,6 +14128,12 @@ const App = {
         // Attach event listeners
         container.querySelectorAll('.edit-absence-settings').forEach(btn => {
             btn.addEventListener('click', () => {
+                const seriesId = btn.dataset.absenceSeriesId;
+                if (seriesId) {
+                    this.editAbsenceSeriesSettings(seriesId);
+                    return;
+                }
+
                 const id = btn.dataset.absenceId;
                 this.editAbsenceSettings(id);
             });
@@ -13646,6 +14141,12 @@ const App = {
 
         container.querySelectorAll('.delete-absence-settings').forEach(btn => {
             btn.addEventListener('click', async () => {
+                const seriesId = btn.dataset.absenceSeriesId;
+                if (seriesId) {
+                    await this.deleteAbsenceSeriesSettings(seriesId);
+                    return;
+                }
+
                 const id = btn.dataset.absenceId;
                 await this.deleteAbsenceSettings(id);
             });
@@ -13653,14 +14154,67 @@ const App = {
     },
 
     async editAbsenceSettings(absenceId) {
-        const absence = await Storage.getById('absences', absenceId);
+        const absence = await Storage.getAbsenceById(absenceId);
         if (!absence) return;
 
-        document.getElementById('absenceStartSettings').value = (absence.startDate || absence.start || '').slice(0, 10);
-        document.getElementById('absenceEndSettings').value = (absence.endDate || absence.end || '').slice(0, 10);
-        document.getElementById('absenceReasonSettings').value = absence.reason || '';
+        this.setAbsenceSettingsMode('single');
+        this.setAbsenceSettingsModeLocked(true);
+        this.setAbsenceSettingsQuickDuration(0);
+        document.getElementById('absenceStartSettings').value = this.extractAbsenceDateInputValue(absence.startDate || absence.start || '');
+        document.getElementById('absenceEndSettings').value = this.extractAbsenceDateInputValue(absence.endDate || absence.end || '');
+        const startTimeInput = document.getElementById('absenceStartTimeSettings');
+        const endTimeInput = document.getElementById('absenceEndTimeSettings');
+        if (startTimeInput) startTimeInput.value = this.extractAbsenceTimeInputValue(absence.startDate || '');
+        if (endTimeInput) endTimeInput.value = this.extractAbsenceTimeInputValue(absence.endDate || '');
+        document.getElementById('absenceReasonSettings').value = Storage.getAbsenceDisplayReason(absence);
         document.getElementById('editAbsenceIdSettings').value = absenceId;
+        const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
+        if (editSeriesIdInput) editSeriesIdInput.value = '';
         document.getElementById('saveAbsenceBtnSettings').textContent = 'Änderungen speichern';
+        document.getElementById('cancelEditAbsenceBtnSettings').style.display = 'inline-block';
+
+        const cancelBtn = document.getElementById('cancelEditAbsenceBtnSettings');
+        cancelBtn.onclick = () => {
+            this.resetAbsenceFormSettings();
+        };
+    },
+
+    async editAbsenceSeriesSettings(seriesId) {
+        const user = Auth.getCurrentUser();
+        if (!user || !seriesId) return;
+
+        const absences = this.absencesCache || await Storage.getUserAbsences(user.id) || [];
+        const seriesEntries = this.getAbsenceSeriesEntries(absences, seriesId);
+        if (seriesEntries.length === 0) return;
+
+        const firstEntry = seriesEntries[0];
+        const lastEntry = seriesEntries[seriesEntries.length - 1];
+        const meta = Storage.getAbsenceRecurrenceMeta(firstEntry) || {};
+
+        this.setAbsenceSettingsMode('series');
+        this.setAbsenceSettingsModeLocked(true);
+        this.setAbsenceSettingsQuickDuration(0);
+
+        document.getElementById('absenceSeriesStartSettings').value = this.extractAbsenceDateInputValue(firstEntry.startDate || '');
+        document.getElementById('absenceSeriesEndSettings').value = this.extractAbsenceDateInputValue(lastEntry.endDate || '');
+        const weekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
+        if (weekdayInput) {
+            weekdayInput.value = String(Number.isFinite(Number(meta.weekday)) ? Number(meta.weekday) : new Date(firstEntry.startDate).getDay());
+            weekdayInput.dataset.userSet = 'true';
+        }
+        const seriesStartTimeInput = document.getElementById('absenceSeriesStartTimeSettings');
+        const seriesEndTimeInput = document.getElementById('absenceSeriesEndTimeSettings');
+        if (seriesStartTimeInput) {
+            seriesStartTimeInput.value = meta.startTime || this.extractAbsenceTimeInputValue(firstEntry.startDate || '');
+        }
+        if (seriesEndTimeInput) {
+            seriesEndTimeInput.value = meta.endTime || this.extractAbsenceTimeInputValue(firstEntry.endDate || '');
+        }
+        document.getElementById('absenceReasonSettings').value = Storage.getAbsenceDisplayReason(firstEntry);
+        document.getElementById('editAbsenceIdSettings').value = '';
+        const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
+        if (editSeriesIdInput) editSeriesIdInput.value = seriesId;
+        document.getElementById('saveAbsenceBtnSettings').textContent = 'Serie speichern';
         document.getElementById('cancelEditAbsenceBtnSettings').style.display = 'inline-block';
 
         const cancelBtn = document.getElementById('cancelEditAbsenceBtnSettings');
@@ -13680,7 +14234,74 @@ const App = {
             this.absencesCache = null; // Invalidate cache
             UI.showToast('Abwesenheit gelöscht', 'success');
             await this.updateAbsenceIndicator(); // Update header immediately
+            await this.refreshPersonalCalendarAfterAbsenceChange();
             await this.renderAbsencesListSettings();
+        }
+    },
+
+    async deleteAbsenceSeriesSettings(seriesId) {
+        const user = Auth.getCurrentUser();
+        if (!user || !seriesId) return;
+
+        const confirmed = await UI.confirmDelete('Möchtest du diese Serie wirklich löschen?');
+        if (!confirmed) return;
+
+        const absences = this.absencesCache || await Storage.getUserAbsences(user.id) || [];
+        const seriesEntries = this.getAbsenceSeriesEntries(absences, seriesId);
+        if (seriesEntries.length === 0) return;
+
+        await Promise.all(seriesEntries.map(absence => Storage.deleteAbsence(absence.id)));
+
+        const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
+        if (!editSeriesIdInput || editSeriesIdInput.value === seriesId) {
+            this.resetAbsenceFormSettings();
+        }
+
+        this.absencesCache = null;
+        UI.showToast('Serie gelöscht', 'success');
+        await this.updateAbsenceIndicator();
+        await this.refreshPersonalCalendarAfterAbsenceChange();
+        await this.renderAbsencesListSettings();
+    },
+
+    async refreshPersonalCalendarAfterAbsenceChange() {
+        if (typeof window === 'undefined' || !window.PersonalCalendar) return;
+
+        try {
+            const user = Auth.getCurrentUser();
+            if (!user) return;
+
+            const personalCalendar = window.PersonalCalendar;
+            const freshAbsences = await Storage.getUserAbsences(user.id);
+            personalCalendar.absences = Array.isArray(freshAbsences) ? freshAbsences : [];
+
+            if (this.currentView === 'kalender' && document.getElementById('personalCalendarContainer')) {
+                personalCalendar.clearCache();
+                await personalCalendar.loadPersonalCalendar();
+                return;
+            }
+
+            await personalCalendar.syncCalendarBackground();
+        } catch (error) {
+            console.warn('[App.refreshPersonalCalendarAfterAbsenceChange] Failed:', error);
+        }
+    },
+
+    async refreshPersonalCalendarAfterPlanningChange() {
+        if (typeof window === 'undefined' || !window.PersonalCalendar) return;
+
+        try {
+            const personalCalendar = window.PersonalCalendar;
+            personalCalendar.clearCache();
+
+            if (this.currentView === 'kalender' && document.getElementById('personalCalendarContainer')) {
+                await personalCalendar.loadPersonalCalendar();
+                return;
+            }
+
+            await personalCalendar.syncCalendarBackground();
+        } catch (error) {
+            console.warn('[App.refreshPersonalCalendarAfterPlanningChange] Failed:', error);
         }
     },
 
@@ -16671,6 +17292,7 @@ const App = {
             // Clear deleted songs list - changes are being saved
             this.deletedEventSongs = [];
             let savedEventId = editId || null;
+            const isUpdate = Boolean(editId);
 
             if (editId) {
                 // Update existing
@@ -16694,13 +17316,19 @@ const App = {
                 });
                 this.resetDraftEventState();
             }
+
+            UI.showToast(isUpdate ? 'Auftritt aktualisiert' : 'Auftritt erstellt', 'success');
+            UI.closeModal('createEventModal');
+
+            if (typeof Events !== 'undefined' && typeof Events.renderEvents === 'function') {
+                await Events.renderEvents(Events.currentFilter, true);
+            }
+
             // Always update dashboard after event changes
             await this.updateDashboard();
 
-            // Clear Personal Calendar cache and sync to cloud
-            if (window.PersonalCalendar) {
-                window.PersonalCalendar.clearCache();
-                window.PersonalCalendar.syncCalendarBackground();
+            if (this.refreshPersonalCalendarAfterPlanningChange) {
+                await this.refreshPersonalCalendarAfterPlanningChange();
             }
         };
 
@@ -16805,6 +17433,8 @@ const App = {
 
         // Re-render lists
         await this.renderUserAbsences();
+        await this.updateAbsenceIndicator();
+        await this.refreshPersonalCalendarAfterAbsenceChange();
         // If band details modal open and has absences tab, re-render band absences
         if (typeof Bands !== 'undefined' && Bands.currentBandId) {
             Bands.renderBandAbsences(Bands.currentBandId);
@@ -16870,7 +17500,7 @@ const App = {
             <div class="absence-item" data-id="${a.id}" style="padding:8px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                 <div>
                     <div><strong>${UI.formatDateOnly(a.startDate)} — ${UI.formatDateOnly(a.endDate)}</strong></div>
-                    ${a.reason ? `<div class="help-text">${Bands.escapeHtml(a.reason)}</div>` : ''}
+                    ${Storage.getAbsenceDisplayReason(a) ? `<div class="help-text">${Bands.escapeHtml(Storage.getAbsenceDisplayReason(a))}</div>` : ''}
                 </div>
                 <div style="display:flex; gap:0.5rem;">
                     <button class="btn btn-secondary btn-sm edit-absence" data-id="${a.id}">✏️ Bearbeiten</button>
@@ -16897,6 +17527,7 @@ const App = {
                     await Storage.deleteAbsence(id);
                     UI.showToast('Abwesenheit gelöscht', 'success');
                     await this.updateAbsenceIndicator(); // Update header immediately
+                    await this.refreshPersonalCalendarAfterAbsenceChange();
                     await this.renderUserAbsences();
                     if (typeof Bands !== 'undefined' && Bands.currentBandId) {
                         Bands.renderBandAbsences(Bands.currentBandId);
@@ -16918,7 +17549,7 @@ const App = {
         // populate form
         document.getElementById('absenceStart').value = a.startDate.slice(0, 10);
         document.getElementById('absenceEnd').value = a.endDate.slice(0, 10);
-        document.getElementById('absenceReason').value = a.reason || '';
+        document.getElementById('absenceReason').value = Storage.getAbsenceDisplayReason(a);
         document.getElementById('editAbsenceId').value = a.id;
 
         // change submit button text and show cancel

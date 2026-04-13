@@ -176,7 +176,7 @@ const PersonalCalendar = {
     },
 
     getAbsenceTitle(absence) {
-        const reason = (absence.reason || '').trim();
+        const reason = Storage.getAbsenceDisplayReason(absence);
         return reason || 'Abwesenheit';
     },
 
@@ -193,7 +193,16 @@ const PersonalCalendar = {
             month: '2-digit',
             year: 'numeric'
         });
-        return startLabel === endLabel ? 'Nicht verfügbar' : `${startLabel} – ${endLabel}`;
+
+        const timeLabel = typeof App !== 'undefined' && typeof App.formatAbsenceTimeRangeLabel === 'function'
+            ? App.formatAbsenceTimeRangeLabel(absence.startDate, absence.endDate)
+            : '';
+
+        if (startLabel === endLabel) {
+            return timeLabel ? `Nicht verfügbar · ${timeLabel}` : 'Nicht verfügbar';
+        }
+
+        return timeLabel ? `${startLabel} – ${endLabel} · ${timeLabel}` : `${startLabel} – ${endLabel}`;
     },
 
     renderCalendar() {
@@ -1372,20 +1381,20 @@ const PersonalCalendar = {
             const user = Auth.getCurrentUser();
             if (!user) return;
 
-            // CRITICAL FIX: Reload data if cache is empty!
-            if (!this.events || this.events.length === 0 || !this.rehearsals || this.rehearsals.length === 0) {
+            // Reload core data if cache is empty or stale
+            if (!this.events || this.events.length === 0 || !this.rehearsals || this.rehearsals.length === 0 || !Array.isArray(this.absences)) {
                 const userBands = await Storage.getUserBands(user.id);
-                if (userBands && Array.isArray(userBands) && userBands.length > 0) {
-                    this.userBands = userBands;
-                    const bandIds = userBands.map(b => b.id);
-                    const [allEvents, allRehearsals] = await Promise.all([
-                        this.loadUserEvents(bandIds),
-                        this.loadUserRehearsals(bandIds)
-                    ]);
-                    this.events = allEvents || [];
-                    this.rehearsals = allRehearsals || [];
-                    console.log(`[PersonalCalendar] Reloaded ${this.events.length} events and ${this.rehearsals.length} rehearsals for sync`);
-                }
+                this.userBands = Array.isArray(userBands) ? userBands : [];
+                const bandIds = this.userBands.map(b => b.id);
+                const [allEvents, allRehearsals, allAbsences] = await Promise.all([
+                    bandIds.length > 0 ? this.loadUserEvents(bandIds) : [],
+                    bandIds.length > 0 ? this.loadUserRehearsals(bandIds) : [],
+                    this.loadUserAbsences(user.id)
+                ]);
+                this.events = allEvents || [];
+                this.rehearsals = allRehearsals || [];
+                this.absences = allAbsences || [];
+                console.log(`[PersonalCalendar] Reloaded ${this.events.length} events, ${this.rehearsals.length} rehearsals and ${this.absences.length} absences for sync`);
             }
 
             const icsContent = this.generateICSContent();

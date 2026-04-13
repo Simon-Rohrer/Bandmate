@@ -14,6 +14,8 @@ const Storage = {
     SONG_CHORDPRO_PREVIEW_LABEL: 'ChordPro hinterlegt',
     songChordProSaveField: null,
     SONG_CHORDPRO_FIELD_STORAGE_KEY: 'bandplanning.songChordProSaveField',
+    ABSENCE_META_PREFIX: '[[ABSENCE_META]]',
+    ABSENCE_META_SUFFIX: '[[/ABSENCE_META]]',
 
     // Löscht einen User aus der eigenen Datenbank
     async deleteUser(userId) {
@@ -83,6 +85,96 @@ const Storage = {
         } catch (err) {
             console.warn('[Storage] Could not persist ChordPro save field preference:', err);
         }
+    },
+
+    buildAbsenceReasonPayload(reason = '', meta = null) {
+        const visibleReason = String(reason || '').trim();
+        if (!meta || typeof meta !== 'object' || Object.keys(meta).length === 0) {
+            return visibleReason;
+        }
+
+        try {
+            return `${this.ABSENCE_META_PREFIX}${JSON.stringify(meta)}${this.ABSENCE_META_SUFFIX}${visibleReason}`;
+        } catch (error) {
+            console.warn('[Storage] Could not serialize absence meta:', error);
+            return visibleReason;
+        }
+    },
+
+    parseAbsenceReasonPayload(reasonValue = '') {
+        const raw = typeof reasonValue === 'string' ? reasonValue : '';
+        if (!raw.startsWith(this.ABSENCE_META_PREFIX)) {
+            return {
+                raw,
+                text: raw.trim(),
+                meta: null
+            };
+        }
+
+        const metaEndIndex = raw.indexOf(this.ABSENCE_META_SUFFIX, this.ABSENCE_META_PREFIX.length);
+        if (metaEndIndex === -1) {
+            return {
+                raw,
+                text: raw.trim(),
+                meta: null
+            };
+        }
+
+        const metaPayload = raw.slice(this.ABSENCE_META_PREFIX.length, metaEndIndex);
+        const visibleText = raw.slice(metaEndIndex + this.ABSENCE_META_SUFFIX.length).trim();
+
+        try {
+            return {
+                raw,
+                text: visibleText,
+                meta: JSON.parse(metaPayload)
+            };
+        } catch (error) {
+            console.warn('[Storage] Could not parse absence meta:', error);
+            return {
+                raw,
+                text: visibleText || raw.trim(),
+                meta: null
+            };
+        }
+    },
+
+    decorateAbsence(absence) {
+        if (!absence) return absence;
+        const parsed = this.parseAbsenceReasonPayload(absence.reason || '');
+        return {
+            ...absence,
+            displayReason: parsed.text,
+            recurrenceMeta: parsed.meta
+        };
+    },
+
+    getAbsenceDisplayReason(absenceOrReason) {
+        if (!absenceOrReason) return '';
+        if (typeof absenceOrReason === 'string') {
+            return this.parseAbsenceReasonPayload(absenceOrReason).text;
+        }
+        if (typeof absenceOrReason === 'object') {
+            if (typeof absenceOrReason.displayReason === 'string') {
+                return absenceOrReason.displayReason.trim();
+            }
+            return this.parseAbsenceReasonPayload(absenceOrReason.reason || '').text;
+        }
+        return '';
+    },
+
+    getAbsenceRecurrenceMeta(absenceOrReason) {
+        if (!absenceOrReason) return null;
+        if (typeof absenceOrReason === 'string') {
+            return this.parseAbsenceReasonPayload(absenceOrReason).meta;
+        }
+        if (typeof absenceOrReason === 'object') {
+            if (absenceOrReason.recurrenceMeta && typeof absenceOrReason.recurrenceMeta === 'object') {
+                return absenceOrReason.recurrenceMeta;
+            }
+            return this.parseAbsenceReasonPayload(absenceOrReason.reason || '').meta;
+        }
+        return null;
     },
 
     normalizeVoteRecord(vote) {
@@ -1142,26 +1234,28 @@ const Storage = {
     },
 
     // Absence operations
-    async createAbsence(userId, startDate, endDate, reason = '') {
+    async createAbsence(userId, startDate, endDate, reason = '', options = {}) {
+        const meta = options?.meta || null;
         const absence = {
             id: this.generateId(),
             userId,
             startDate,
             endDate,
-            reason,
-            createdAt: new Date().toISOString()
+            reason: this.buildAbsenceReasonPayload(reason, meta),
+            createdAt: options?.createdAt || new Date().toISOString()
         };
-        return await this.save('absences', absence);
+        const saved = await this.save('absences', absence);
+        return this.decorateAbsence(saved);
     },
 
     async getUserAbsences(userId) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb
             .from('absences')
-            .select('id, userId, startDate, endDate, reason')
+            .select('id, userId, startDate, endDate, reason, createdAt')
             .eq('userId', userId);
         if (error) { console.error('Supabase getUserAbsences error', error); return []; }
-        return data || [];
+        return (data || []).map(absence => this.decorateAbsence(absence));
     },
 
     async getAbsencesForUsers(userIds) {
@@ -1169,10 +1263,26 @@ const Storage = {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb
             .from('absences')
-            .select('id, userId, startDate, endDate, reason')
+            .select('id, userId, startDate, endDate, reason, createdAt')
             .in('userId', userIds);
         if (error) { console.error('Supabase getAbsencesForUsers error', error); return []; }
-        return data || [];
+        return (data || []).map(absence => this.decorateAbsence(absence));
+    },
+
+    async getAbsenceById(absenceId) {
+        if (!absenceId) return null;
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('absences')
+            .select('id, userId, startDate, endDate, reason, createdAt')
+            .eq('id', absenceId)
+            .limit(1)
+            .maybeSingle();
+        if (error) {
+            console.error('Supabase getAbsenceById error', error);
+            return null;
+        }
+        return data ? this.decorateAbsence(data) : null;
     },
 
 
@@ -1196,12 +1306,12 @@ const Storage = {
         // Optimized columns
         const { data, error } = await sb
             .from('absences')
-            .select('id, userId, startDate, endDate, reason')
+            .select('id, userId, startDate, endDate, reason, createdAt')
             .in('userId', userIds);
 
         if (error) { console.error('Supabase getAbsentUsersDuringRange error', error); return []; }
 
-        const absences = data || [];
+        const absences = (data || []).map(absence => this.decorateAbsence(absence));
         const rangeStart = new Date(startDate);
         const rangeEnd = new Date(endDate);
 

@@ -9,6 +9,8 @@ const Notifications = {
     pendingActionRequestIds: new Set(),
     processedMembershipNotificationIds: new Set(),
     lastUserId: null,
+    hoverOpenTimer: null,
+    hoverCloseTimer: null,
 
     init() {
         if (this.initialized) return;
@@ -17,6 +19,7 @@ const Notifications = {
         const bellButton = document.getElementById('notificationBellBtn');
         const dropdown = document.getElementById('notificationDropdown');
         const list = document.getElementById('notificationList');
+        const hoverContainer = bellButton?.closest('.header-notifications');
 
         if (!bellButton || !dropdown || !list) return;
 
@@ -25,6 +28,32 @@ const Notifications = {
             event.stopPropagation();
             await this.toggleDropdown();
         });
+
+        if (hoverContainer && window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+            hoverContainer.addEventListener('mouseenter', () => {
+                window.clearTimeout(this.hoverCloseTimer);
+                this.hoverCloseTimer = null;
+
+                if (this.isOpen) return;
+
+                window.clearTimeout(this.hoverOpenTimer);
+                this.hoverOpenTimer = window.setTimeout(() => {
+                    this.toggleDropdown(true).catch(error => {
+                        console.error('[Notifications] Hover open failed:', error);
+                    });
+                }, 80);
+            });
+
+            hoverContainer.addEventListener('mouseleave', () => {
+                window.clearTimeout(this.hoverOpenTimer);
+                this.hoverOpenTimer = null;
+
+                window.clearTimeout(this.hoverCloseTimer);
+                this.hoverCloseTimer = window.setTimeout(() => {
+                    this.closeDropdown();
+                }, 120);
+            });
+        }
 
         dropdown.addEventListener('click', (event) => {
             const closeButton = event.target.closest('[data-notification-close]');
@@ -107,6 +136,10 @@ const Notifications = {
 
     stop() {
         this.stopPolling();
+        window.clearTimeout(this.hoverOpenTimer);
+        window.clearTimeout(this.hoverCloseTimer);
+        this.hoverOpenTimer = null;
+        this.hoverCloseTimer = null;
         this.isOpen = false;
         this.currentNotifications = [];
         this.unreadCount = 0;
@@ -360,6 +393,11 @@ const Notifications = {
     },
 
     async toggleDropdown(forceState = null) {
+        window.clearTimeout(this.hoverOpenTimer);
+        window.clearTimeout(this.hoverCloseTimer);
+        this.hoverOpenTimer = null;
+        this.hoverCloseTimer = null;
+
         const nextState = forceState === null ? !this.isOpen : Boolean(forceState);
         if (!nextState) {
             this.closeDropdown();

@@ -1597,6 +1597,9 @@ const Events = {
                     }
 
                     if (App.updateDashboard) await App.updateDashboard();
+                    if (App.refreshPersonalCalendarAfterPlanningChange) {
+                        await App.refreshPersonalCalendarAfterPlanningChange();
+                    }
                 }
 
                 UI.closeModal('createEventModal');
@@ -1659,6 +1662,9 @@ const Events = {
         if (await UI.confirmDelete('Wirklich löschen?')) {
             await Storage.deleteEvent(eventId);
             UI.showToast('Gelöscht', 'success');
+            if (typeof App !== 'undefined' && App.refreshPersonalCalendarAfterPlanningChange) {
+                await App.refreshPersonalCalendarAfterPlanningChange();
+            }
             await this.renderEvents(this.currentFilter, true);
         }
     },
@@ -1853,7 +1859,7 @@ const Events = {
             return {
                 ...conflict,
                 name: userName,
-                reason: conflict.reason || 'Abwesend'
+                reason: Storage.getAbsenceDisplayReason(conflict) || 'Abwesend'
             };
         });
     },
