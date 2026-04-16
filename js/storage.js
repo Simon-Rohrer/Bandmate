@@ -177,6 +177,51 @@ const Storage = {
         return null;
     },
 
+    getAbsenceRange(absence) {
+        if (!absence || !absence.startDate) return null;
+
+        const start = new Date(absence.startDate);
+        const end = new Date(absence.endDate || absence.startDate);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return null;
+        }
+
+        const startHasExplicitTime = typeof absence.startDate === 'string' && absence.startDate.includes('T');
+        const endHasExplicitTime = typeof absence.endDate === 'string' && absence.endDate.includes('T');
+
+        if (!startHasExplicitTime) {
+            start.setHours(0, 0, 0, 0);
+        }
+
+        const endIsMidnight = end.getHours() === 0
+            && end.getMinutes() === 0
+            && end.getSeconds() === 0
+            && end.getMilliseconds() === 0;
+
+        if (!endHasExplicitTime || endIsMidnight) {
+            end.setHours(23, 59, 59, 999);
+        }
+
+        return {
+            start,
+            end,
+            hasExplicitTime: startHasExplicitTime || endHasExplicitTime
+        };
+    },
+
+    absenceOverlapsRange(absence, rangeStartValue, rangeEndValue = null) {
+        const absenceRange = this.getAbsenceRange(absence);
+        if (!absenceRange) return false;
+
+        const rangeStart = new Date(rangeStartValue);
+        const rangeEnd = new Date(rangeEndValue || rangeStartValue);
+        if (Number.isNaN(rangeStart.getTime()) || Number.isNaN(rangeEnd.getTime())) {
+            return false;
+        }
+
+        return absenceRange.start <= rangeEnd && absenceRange.end >= rangeStart;
+    },
+
     normalizeVoteRecord(vote) {
         if (!vote) return vote;
 
@@ -1292,12 +1337,7 @@ const Storage = {
 
     async isUserAbsentOnDate(userId, date) {
         const absences = await this.getUserAbsences(userId);
-        const checkDate = new Date(date);
-        return absences.some(a => {
-            const start = new Date(a.startDate);
-            const end = new Date(a.endDate);
-            return checkDate >= start && checkDate <= end;
-        });
+        return absences.some(absence => this.absenceOverlapsRange(absence, date, date));
     },
 
     async getAbsentUsersDuringRange(userIds, startDate, endDate) {
@@ -1315,11 +1355,7 @@ const Storage = {
         const rangeStart = new Date(startDate);
         const rangeEnd = new Date(endDate);
 
-        return absences.filter(a => {
-            const absStart = new Date(a.startDate);
-            const absEnd = new Date(a.endDate);
-            return (absStart <= rangeEnd && absEnd >= rangeStart);
-        });
+        return absences.filter(absence => this.absenceOverlapsRange(absence, rangeStart, rangeEnd));
     },
 
     // News operations
@@ -1569,6 +1605,28 @@ const Storage = {
         return data || null;
     },
 
+    async getSongpoolSongsByIds(songIds = []) {
+        const normalizedIds = [...new Set(
+            (Array.isArray(songIds) ? songIds : [])
+                .map((songId) => String(songId || '').trim())
+                .filter(Boolean)
+        )];
+
+        if (!normalizedIds.length) return [];
+
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('songpool_songs')
+            .select('*')
+            .in('id', normalizedIds);
+
+        if (error) {
+            throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Songs konnten nicht geladen werden.'));
+        }
+
+        return data || [];
+    },
+
     async getSongpoolSongs(userId, options = {}) {
         if (!userId) return [];
 
@@ -1650,23 +1708,107 @@ const Storage = {
         return updatedSong;
     },
 
-    async deleteSongpoolSong(songId) {
-        const existingSong = await this.getSongpoolSong(songId);
+    async deleteSongpoolSongs(songIds = [], options = {}) {
+        const normalizedIds = [...new Set(
+            (Array.isArray(songIds) ? songIds : [])
+                .map((songId) => String(songId || '').trim())
+                .filter(Boolean)
+        )];
+
+        if (!normalizedIds.length) {
+            return {
+                deletedCount: 0,
+                cleanedPdfCount: 0,
+                skippedCleanupCount: 0,
+                missingCount: 0
+            };
+        }
+
+        const onProgress = typeof options.onProgress === 'function' ? options.onProgress : null;
+        const existingSongs = await this.getSongpoolSongsByIds(normalizedIds);
+        const songLookup = new Map(existingSongs.map((song) => [String(song.id), song]));
+        const existingIds = normalizedIds.filter((songId) => songLookup.has(songId));
+
+        if (!existingIds.length) {
+            return {
+                deletedCount: 0,
+                cleanedPdfCount: 0,
+                skippedCleanupCount: 0,
+                missingCount: normalizedIds.length
+            };
+        }
+
+        if (onProgress) {
+            onProgress({
+                phase: 'delete',
+                current: 0,
+                total: existingIds.length
+            });
+        }
+
         const sb = SupabaseClient.getClient();
         const { error } = await sb
             .from('songpool_songs')
             .delete()
-            .eq('id', songId);
+            .in('id', existingIds);
 
         if (error) {
             throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Song konnte nicht gelöscht werden.'));
         }
 
-        if (existingSong?.pdf_url) {
-            await this.cleanupSongPdfStorage(existingSong.pdf_url);
+        if (onProgress) {
+            onProgress({
+                phase: 'delete',
+                current: existingIds.length,
+                total: existingIds.length
+            });
         }
 
-        return true;
+        const uniquePdfUrls = [...new Set(
+            existingIds
+                .map((songId) => songLookup.get(songId)?.pdf_url)
+                .filter(Boolean)
+        )];
+
+        let cleanedPdfCount = 0;
+        let skippedCleanupCount = 0;
+
+        for (let index = 0; index < uniquePdfUrls.length; index++) {
+            if (onProgress) {
+                onProgress({
+                    phase: 'cleanup',
+                    current: index,
+                    total: uniquePdfUrls.length
+                });
+            }
+
+            const cleanupResult = await this.cleanupSongPdfStorage(uniquePdfUrls[index]);
+            if (cleanupResult?.removed) {
+                cleanedPdfCount += 1;
+            } else {
+                skippedCleanupCount += 1;
+            }
+        }
+
+        if (onProgress && uniquePdfUrls.length > 0) {
+            onProgress({
+                phase: 'cleanup',
+                current: uniquePdfUrls.length,
+                total: uniquePdfUrls.length
+            });
+        }
+
+        return {
+            deletedCount: existingIds.length,
+            cleanedPdfCount,
+            skippedCleanupCount,
+            missingCount: normalizedIds.length - existingIds.length
+        };
+    },
+
+    async deleteSongpoolSong(songId, options = {}) {
+        const result = await this.deleteSongpoolSongs([songId], options);
+        return result.deletedCount > 0;
     },
 
     async getEventSongs(eventId) {

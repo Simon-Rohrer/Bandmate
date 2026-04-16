@@ -516,8 +516,6 @@ const Events = {
     },
 
     _renderEventDetailsGrid(event, dataContext) {
-        const proposedBy = dataContext.members[event.createdBy];
-        const proposedByName = this._getUserName(proposedBy);
         const members = (event.members || []).map(memberId => {
             const member = dataContext.members ? dataContext.members[memberId] : null;
             return member ? this._getUserName(member) : 'Unbekannt';
@@ -527,24 +525,15 @@ const Events = {
         const visibleInfo = (typeof App !== 'undefined' && typeof App.extractEventVisibleInfo === 'function')
             ? App.extractEventVisibleInfo(event.info || '')
             : (event.info || '');
-        const creatorAvatarContent = proposedBy && proposedBy.profile_image_url
-            ? `<img src="${proposedBy.profile_image_url}" class="creator-avatar-img" alt="${Bands.escapeHtml(proposedByName)}">`
-            : UI.getUserInitials(proposedByName);
         const hasLineup = members.length > 0 || guests.length > 0;
+        const lineupItems = [
+            ...members.map(name => ({ name, isGuest: false })),
+            ...guests.map(name => ({ name, isGuest: true }))
+        ];
 
         let html = `
             <div class="event-details-grid">
                 <div class="event-details-meta-row">
-                    <div class="detail-item detail-item-compact detail-item-creator">
-                        <div class="detail-label">Erstellt von</div>
-                        <div class="detail-stack-value">
-                            <div class="creator-avatar detail-meta-avatar" style="background: ${proposedBy ? UI.getAvatarColor(proposedByName) : 'var(--color-primary)'};">
-                                ${creatorAvatarContent}
-                            </div>
-                            <span class="detail-value">${Bands.escapeHtml(proposedByName)}</span>
-                        </div>
-                    </div>
-
                     ${event.status === 'confirmed' ? `
                     <div class="detail-item detail-item-compact">
                         <div class="detail-label">Datum & Zeit</div>
@@ -581,11 +570,18 @@ const Events = {
 
                 <div class="detail-item detail-item-wide detail-item-lineup">
                     <div class="detail-label">Besetzung</div>
-                    <div class="detail-value detail-chip-list ${hasLineup ? '' : 'is-empty'}">
-                        ${members.map(m => `<span class="member-tag">${Bands.escapeHtml(m)}</span>`).join('')}
-                        ${guests.map(g => `<span class="member-tag guest-tag">${Bands.escapeHtml(g)} (Gast)</span>`).join('')}
-                        ${!hasLineup ? '<span class="detail-empty-copy">Noch keine Besetzung hinterlegt</span>' : ''}
-                    </div>
+                    ${hasLineup ? `
+                    <ul class="detail-lineup-list">
+                        ${lineupItems.map(item => `
+                            <li class="detail-lineup-item${item.isGuest ? ' is-guest' : ''}">
+                                <span class="detail-lineup-name">${Bands.escapeHtml(item.name)}</span>
+                                ${item.isGuest ? '<span class="detail-lineup-role">Gast</span>' : ''}
+                            </li>
+                        `).join('')}
+                    </ul>
+                    ` : `
+                    <div class="detail-value detail-lineup-empty">Noch keine Besetzung hinterlegt</div>
+                    `}
                 </div>
             </div>
         `;
@@ -1358,14 +1354,12 @@ const Events = {
             <div class="date-time-range">
                 <input type="date" class="event-date-input-date">
                 <input type="time" class="event-date-input-start">
+                <button type="button" class="btn-icon remove-event-date" aria-label="Terminvorschlag löschen" title="Terminvorschlag löschen">
+                    ${this.getDateProposalRemoveIcon()}
+                </button>
             </div>
             <div class="date-proposal-footer">
                 <span class="event-date-availability date-availability"></span>
-                <div class="date-proposal-actions">
-                    <button type="button" class="btn-icon remove-event-date" aria-label="Terminvorschlag löschen" title="Terminvorschlag löschen">
-                        ${this.getDateProposalRemoveIcon()}
-                    </button>
-                </div>
             </div>
         `;
         container.appendChild(row);
@@ -1413,49 +1407,94 @@ const Events = {
 
         const votedUserIds = new Set(votes.map(v => v.userId));
         const notVoted = members.filter(m => !votedUserIds.has(m.userId));
+        const notVotedNames = notVoted.length > 0
+            ? await Promise.all(notVoted.map(async m => {
+                const u = await Storage.getById('users', m.userId);
+                return Bands.escapeHtml(u ? UI.getUserDisplayName(u) : 'Unbekannt');
+            }))
+            : [];
 
         document.getElementById('eventDetailsTitle').textContent = event.title;
         document.getElementById('eventDetailsContent').innerHTML = `
-            <div class="rehearsal-details-view">
-                <div class="detail-section">
-                    <h3>📊 Abstimmungsübersicht</h3>
-                    <p><strong>Band:</strong> ${Bands.escapeHtml(band?.name || '')}</p>
-                    <p><strong>Abgestimmt:</strong> ${votedUserIds.size} von ${members.length} Mitgliedern</p>
-                    ${notVoted.length > 0 ? `
-                        <p><strong>Noch nicht abgestimmt:</strong> ${await Promise.all(notVoted.map(async m => {
-            const u = await Storage.getById('users', m.userId);
-            return Bands.escapeHtml(u ? UI.getUserDisplayName(u) : 'Unbekannt');
-        })).then(names => names.join(', '))}</p>
-                    ` : ''}
-                </div>
-
-                <div class="detail-section">
-                    <h3>🏆 Termine zur Auswahl</h3>
-                    ${dateStats.sort((a, b) => b.score - a.score).map((stat, idx) => `
-                        <div class="best-date-option ${idx === 0 ? 'is-best' : ''}">
-                            <div class="date-header">
-                                ${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '📅'} 
-                                ${UI.formatDate(stat.date.start)}
-                            </div>
-                            <div class="vote-breakdown">
-                                ✅ ${stat.yesCount} können • ❌ ${stat.noCount} können nicht
-                            </div>
-                            ${Object.keys(stat.timeSuggestions).length > 0 ? `
-                                <div class="time-suggestions-compact">
-                                    <strong>🕐 Zeitvorschläge:</strong>
-                                    ${Object.entries(stat.timeSuggestions).map(([time, users]) => `
-                                        <span class="time-suggestion-tag">${time} (${users.join(', ')})</span>
-                                    `).join('')}
-                                </div>
-                            ` : ''}
-                            <button class="btn btn-primary select-event-date-btn" 
-                                    data-date-index="${stat.index}"
-                                    data-date="${stat.date.start}">
-                                Diesen Termin auswählen
-                            </button>
+            <div class="proposal-overview-shell">
+                <section class="proposal-overview-panel proposal-overview-summary">
+                    <div class="proposal-overview-section-head">
+                        <span class="proposal-overview-section-icon" aria-hidden="true">${App.getRundownInlineIcon('stats')}</span>
+                        <div class="proposal-overview-section-copy">
+                            <h3>Abstimmungsübersicht</h3>
+                            <p>Hier siehst du den aktuellen Stand der Rückmeldungen und kannst direkt einen Termin festlegen.</p>
                         </div>
-                    `).join('')}
-                </div>
+                    </div>
+                    <div class="proposal-overview-stats">
+                        <article class="proposal-overview-stat">
+                            <span class="proposal-overview-stat-label">Band</span>
+                            <strong class="proposal-overview-stat-value">${Bands.escapeHtml(band?.name || 'Nicht angegeben')}</strong>
+                        </article>
+                        <article class="proposal-overview-stat">
+                            <span class="proposal-overview-stat-label">Abgestimmt</span>
+                            <strong class="proposal-overview-stat-value">${votedUserIds.size} von ${members.length} Mitgliedern</strong>
+                        </article>
+                        <article class="proposal-overview-stat ${notVotedNames.length > 0 ? '' : 'is-muted'}">
+                            <span class="proposal-overview-stat-label">Noch offen</span>
+                            <strong class="proposal-overview-stat-value">${notVotedNames.length > 0 ? notVotedNames.join(', ') : 'Alle haben abgestimmt'}</strong>
+                        </article>
+                    </div>
+                </section>
+
+                <section class="proposal-overview-panel">
+                    <div class="proposal-overview-section-head">
+                        <span class="proposal-overview-section-icon" aria-hidden="true">${App.getRundownInlineIcon('trophy')}</span>
+                        <div class="proposal-overview-section-copy">
+                            <h3>Termine zur Auswahl</h3>
+                            <p>Die Termine sind nach Zusagen sortiert. Den besten Vorschlag kannst du direkt aus diesem Fenster bestätigen.</p>
+                        </div>
+                    </div>
+                    <div class="proposal-option-list">
+                        ${dateStats.sort((a, b) => b.score - a.score).map((stat, idx) => `
+                            <article class="best-date-option proposal-option-card ${idx === 0 ? 'is-best' : ''}">
+                                <div class="proposal-option-head">
+                                    <div class="proposal-option-date-block">
+                                        <span class="proposal-option-rank">${idx === 0 ? 'Beste Wahl' : `${idx + 1}. Vorschlag`}</span>
+                                        <h4 class="proposal-option-date">
+                                            <span class="proposal-option-date-icon" aria-hidden="true">${App.getRundownInlineIcon('calendar')}</span>
+                                            <span>${UI.formatDate(stat.date.start)}</span>
+                                        </h4>
+                                    </div>
+                                    <div class="proposal-option-votes">
+                                        <span class="proposal-option-vote-chip is-yes">
+                                            <span class="proposal-option-vote-icon" aria-hidden="true">${App.getRundownInlineIcon('check')}</span>
+                                            <span>${stat.yesCount} können</span>
+                                        </span>
+                                        <span class="proposal-option-vote-chip is-no">
+                                            <span class="proposal-option-vote-icon" aria-hidden="true">${App.getRundownInlineIcon('close')}</span>
+                                            <span>${stat.noCount} können nicht</span>
+                                        </span>
+                                    </div>
+                                </div>
+                                ${Object.keys(stat.timeSuggestions).length > 0 ? `
+                                    <div class="proposal-option-subsection">
+                                        <div class="proposal-option-subsection-label">
+                                            <span class="proposal-option-inline-icon" aria-hidden="true">${App.getRundownInlineIcon('clock')}</span>
+                                            <span>Zeitvorschläge</span>
+                                        </div>
+                                        <div class="proposal-time-suggestion-list">
+                                            ${Object.entries(stat.timeSuggestions).map(([time, users]) => `
+                                                <span class="proposal-time-suggestion-chip">${Bands.escapeHtml(time)} (${users.map(user => Bands.escapeHtml(user)).join(', ')})</span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                <div class="proposal-option-actions">
+                                    <button class="btn btn-primary select-event-date-btn"
+                                            data-date-index="${stat.index}"
+                                            data-date="${stat.date.start}">
+                                        Diesen Termin auswählen
+                                    </button>
+                                </div>
+                            </article>
+                        `).join('')}
+                    </div>
+                </section>
             </div>
         `;
 
@@ -1743,14 +1782,12 @@ const Events = {
                         <div class="date-time-range">
                             <input type="date" class="event-date-input-date" value="${d}">
                             <input type="time" class="event-date-input-start" value="${s}">
+                            <button type="button" class="btn-icon remove-event-date" aria-label="Terminvorschlag löschen" title="Terminvorschlag löschen">
+                                ${this.getDateProposalRemoveIcon()}
+                            </button>
                         </div>
                         <div class="date-proposal-footer">
                             <span class="event-date-availability date-availability"></span>
-                            <div class="date-proposal-actions">
-                                <button type="button" class="btn-icon remove-event-date" aria-label="Terminvorschlag löschen" title="Terminvorschlag löschen">
-                                    ${this.getDateProposalRemoveIcon()}
-                                </button>
-                            </div>
                         </div>
                     `;
                     container.appendChild(row);
@@ -1902,22 +1939,7 @@ const Events = {
 
             const userConflicts = dateValues
                 .filter(dateToCheck => {
-                    const eventDate = new Date(dateToCheck);
-                    return (absences || []).some(absence => {
-                        const start = new Date(absence.startDate);
-                        const end = new Date(absence.endDate);
-
-                        if (!(typeof absence.startDate === 'string' && absence.startDate.includes('T'))) {
-                            start.setHours(0, 0, 0, 0);
-                        }
-
-                        const endIsMidnight = end.getHours() === 0 && end.getMinutes() === 0 && end.getSeconds() === 0 && end.getMilliseconds() === 0;
-                        if (!(typeof absence.endDate === 'string' && absence.endDate.includes('T')) || endIsMidnight) {
-                            end.setHours(23, 59, 59, 999);
-                        }
-
-                        return eventDate >= start && eventDate <= end;
-                    });
+                    return (absences || []).some(absence => Storage.absenceOverlapsRange(absence, dateToCheck, dateToCheck));
                 })
                 .map(dateToCheck => UI.formatDateOnly(new Date(dateToCheck).toISOString()));
 

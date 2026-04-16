@@ -212,7 +212,8 @@ const PersonalCalendar = {
         // Combine and sort all items by date
         const allItems = [
             ...this.events.map(e => ({ ...e, type: 'event', sortDate: new Date(e.date) })),
-            ...this.rehearsals.map(r => ({ ...r, type: 'rehearsal', sortDate: new Date(r.confirmed_date) }))
+            ...this.rehearsals.map(r => ({ ...r, type: 'rehearsal', sortDate: new Date(r.confirmedDate || r.confirmed_date) })),
+            ...this.absences.map(a => ({ ...a, type: 'absence', sortDate: new Date(a.startDate) }))
         ].sort((a, b) => a.sortDate - b.sortDate);
 
         if (allItems.length === 0) {
@@ -267,8 +268,10 @@ const PersonalCalendar = {
             items.forEach(item => {
                 if (item.type === 'event') {
                     html += this.renderEventItem(item);
-                } else {
+                } else if (item.type === 'rehearsal') {
                     html += this.renderRehearsalItem(item);
+                } else {
+                    html += this.renderAbsenceItem(item);
                 }
             });
 
@@ -285,7 +288,11 @@ const PersonalCalendar = {
     groupByMonth(items) {
         const grouped = {};
         items.forEach(item => {
-            const date = item.type === 'event' ? new Date(item.date) : new Date(item.confirmedDate);
+            const date = item.type === 'event'
+                ? new Date(item.date)
+                : item.type === 'rehearsal'
+                    ? new Date(item.confirmedDate || item.confirmed_date)
+                    : new Date(item.startDate);
             const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             if (!grouped[key]) grouped[key] = [];
             grouped[key].push(item);
@@ -333,7 +340,7 @@ const PersonalCalendar = {
     renderRehearsalItem(rehearsal) {
         const band = this.userBands.find(b => b.id === rehearsal.bandId);
         const bandName = band ? band.name : 'Unbekannte Band';
-        const date = new Date(rehearsal.confirmedDate);
+        const date = new Date(rehearsal.confirmedDate || rehearsal.confirmed_date);
         const dateStr = date.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
         const timeStr = rehearsal.confirmedTime || '';
         const isPast = date < new Date();
@@ -355,6 +362,38 @@ const PersonalCalendar = {
                         <span class="calendar-item-date">📅 ${dateStr}</span>
                         ${timeStr ? `<span class="calendar-item-time">🕐 ${this.escapeHtml(timeStr)}</span>` : ''}
                         ${(rehearsal.confirmed_location || rehearsal.location) ? `<span class="calendar-item-location">📍 ${this.escapeHtml(rehearsal.confirmed_location || rehearsal.location)}</span>` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    renderAbsenceItem(absence) {
+        const startDate = this.normalizeDate(absence.startDate);
+        const endDate = this.normalizeDate(absence.endDate || absence.startDate);
+        const absenceRange = typeof Storage !== 'undefined' && typeof Storage.getAbsenceRange === 'function'
+            ? Storage.getAbsenceRange(absence)
+            : null;
+        const startLabel = startDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const endLabel = endDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+        const timeLabel = typeof App !== 'undefined' && typeof App.formatAbsenceTimeRangeLabel === 'function'
+            ? App.formatAbsenceTimeRangeLabel(absence.startDate, absence.endDate)
+            : '';
+        const dateLabel = startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
+        const title = this.getAbsenceTitle(absence);
+        const isPast = absenceRange ? absenceRange.end < new Date() : new Date(absence.endDate || absence.startDate) < new Date();
+
+        return `
+            <div class="calendar-item absence-item ${isPast ? 'past-item' : ''}">
+                <div class="calendar-item-icon">⛔</div>
+                <div class="calendar-item-content">
+                    <div class="calendar-item-header" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
+                        <div class="calendar-item-title">${this.escapeHtml(title)}</div>
+                    </div>
+                    <div class="calendar-item-meta">
+                        <span class="calendar-item-band">Abwesenheit</span>
+                        <span class="calendar-item-date">${this.escapeHtml(dateLabel)}</span>
+                        ${timeLabel ? `<span class="calendar-item-time">${this.escapeHtml(timeLabel)}</span>` : ''}
                     </div>
                 </div>
             </div>
@@ -1080,13 +1119,21 @@ const PersonalCalendar = {
                 year: 'numeric'
             });
             const durationLabel = startLabel === endLabel ? startLabel : `${startLabel} bis ${endLabel}`;
+            const timeLabel = typeof App !== 'undefined' && typeof App.formatAbsenceTimeRangeLabel === 'function'
+                ? App.formatAbsenceTimeRangeLabel(item.startDate, item.endDate)
+                : '';
+            const absenceReason = Storage.getAbsenceDisplayReason(item);
+            const detailTitle = absenceReason || durationLabel;
+            const detailSubtitle = absenceReason
+                ? [durationLabel, timeLabel].filter(Boolean).join(' · ')
+                : (timeLabel || 'Nicht verfügbar');
 
             detailsHTML = `
                 <div class="calendar-details-container">
                     <div class="calendar-detail-header" style="border-left-color: #f59e0b">
                         <div class="calendar-detail-title-group">
-                            <h2 class="calendar-detail-title">${this.escapeHtml(this.getAbsenceTitle(item))}</h2>
-                            <div class="calendar-detail-subtitle" style="color: #f59e0b">Abwesenheit</div>
+                            <h2 class="calendar-detail-title">${this.escapeHtml(detailTitle)}</h2>
+                            ${detailSubtitle ? `<div class="calendar-detail-subtitle" style="color: #f59e0b">${this.escapeHtml(detailSubtitle)}</div>` : ''}
                         </div>
                     </div>
 
@@ -1103,13 +1150,15 @@ const PersonalCalendar = {
                                 <div class="info-value">Nicht verfügbar</div>
                             </div>
                         </div>
+                        ${timeLabel ? `
+                        <div class="calendar-info-item">
+                            <div class="info-content">
+                                <div class="info-label">Uhrzeit</div>
+                                <div class="info-value">${this.escapeHtml(timeLabel)}</div>
+                            </div>
+                        </div>` : ''}
                     </div>
 
-                    ${item.reason ? `
-                    <div class="calendar-detail-section">
-                        <div class="calendar-detail-label">Grund</div>
-                        <div class="calendar-detail-notes">${this.escapeHtml(item.reason)}</div>
-                    </div>` : ''}
                 </div>
             `;
         }

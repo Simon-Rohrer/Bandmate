@@ -212,45 +212,9 @@ const Auth = {
             console.warn('[Auth.register] Supabase reported error but user was created:', error.message);
         }
 
-        // The user profile should be automatically created by the trigger
-        // Wait for the trigger to complete, but if it fails, create manually
         if (data.user) {
-            let profile = null;
-            let attempts = 0;
-            const maxAttempts = 8;
-
-            // Try to wait for trigger-created profile
-            while (!profile && attempts < maxAttempts) {
-                await new Promise(resolve => setTimeout(resolve, 400));
-                profile = await Storage.getById('users', data.user.id);
-                attempts++;
-            }
-
-            // If trigger didn't create profile, create it manually as fallback
-            if (!profile) {
-                console.log('[Auth.register] Trigger did not create profile, creating manually...');
-                try {
-                    profile = await Storage.createUser({
-                        id: data.user.id,
-                        email,
-                        username,
-                        first_name: firstName,
-                        last_name: lastName,
-                        instrument: instrument || '',
-                        isAdmin: false
-                    });
-                    console.log('[Auth.register] Profile created manually:', profile);
-                } catch (createError) {
-                    console.error('[Auth.register] Failed to create profile manually:', createError);
-                    profile = await Storage.getById('users', data.user.id);
-                    if (!profile) {
-                        throw new Error('Profil konnte nicht erstellt werden. Bitte prüfe die Supabase-Users-Tabelle oder versuche es erneut.');
-                    }
-                }
-            } else {
-                console.log('[Auth.register] Profile created by trigger');
-            }
-
+            // Das eigentliche Profil wird erst nach der E-Mail-Bestätigung
+            // auf der confirm-email Seite angelegt.
             if (data.session && data.user) {
                 await this.setCurrentUser(data.user);
             } else {

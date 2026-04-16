@@ -3105,6 +3105,48 @@ const App = {
         UI.showToast('Für die Auswahl konnten keine Dateien heruntergeladen werden.', 'info');
     },
 
+    async deleteSongpoolSongsWithProgress(songs = []) {
+        const queue = [...new Map(
+            (Array.isArray(songs) ? songs : [])
+                .filter(Boolean)
+                .map((song) => [String(song.id || '').trim(), song])
+        ).values()].filter((song) => song?.id);
+
+        if (!queue.length) {
+            return {
+                deletedCount: 0,
+                missingCount: 0
+            };
+        }
+
+        const updateProgress = (progress = {}) => {
+            if (progress.phase === 'cleanup') {
+                const total = Math.max(Number(progress.total) || 0, 1);
+                const current = Math.min(Number(progress.current) || 0, total);
+                UI.showLoading(`Anhänge werden bereinigt (${current}/${total})...`, 0, { timeoutMs: 0 });
+                return;
+            }
+
+            const total = Math.max(Number(progress.total) || queue.length, queue.length);
+            const current = Math.min(Number(progress.current) || 0, total);
+            UI.showLoading(`Songs werden gelöscht (${current}/${total})...`, 0, { timeoutMs: 0 });
+        };
+
+        updateProgress({
+            phase: 'delete',
+            current: 0,
+            total: queue.length
+        });
+
+        try {
+            return await Storage.deleteSongpoolSongs(queue.map((song) => song.id), {
+                onProgress: updateProgress
+            });
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
     setupInstrumentSelector(containerId, inputId, initialValue = "") {
         const container = document.getElementById(containerId);
         const input = document.getElementById(inputId);
@@ -6589,6 +6631,42 @@ const App = {
                     <path d="M6.25 6.25 13.75 13.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
                     <path d="M13.75 6.25 6.25 13.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
                 </svg>
+            `,
+            stats: `
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M4.75 15.25V8.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                    <path d="M10 15.25V4.75" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                    <path d="M15.25 15.25v-5.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                    <path d="M3.75 15.25h12.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                </svg>
+            `,
+            trophy: `
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M6.25 4.5h7.5v2.75a3.75 3.75 0 0 1-7.5 0V4.5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                    <path d="M6.25 5.5H4.9a1.65 1.65 0 0 0-1.65 1.65v.1A2.75 2.75 0 0 0 6 10h.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M13.75 5.5h1.35a1.65 1.65 0 0 1 1.65 1.65v.1A2.75 2.75 0 0 1 14 10h-.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                    <path d="M10 11v2.25" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                    <path d="M7.5 15.5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                </svg>
+            `,
+            calendar: `
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <rect x="3.75" y="5.25" width="12.5" height="11" rx="2" stroke="currentColor" stroke-width="1.6"></rect>
+                    <path d="M6.75 3.75v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                    <path d="M13.25 3.75v3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                    <path d="M3.75 8.25h12.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                </svg>
+            `,
+            clock: `
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <circle cx="10" cy="10" r="6.25" stroke="currentColor" stroke-width="1.6"></circle>
+                    <path d="M10 6.9v3.45l2.35 1.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
+            `,
+            check: `
+                <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <path d="M4.5 10.5 8 14l7.5-7.5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                </svg>
             `
         };
 
@@ -8188,6 +8266,32 @@ const App = {
         return Boolean(Storage.getSongChordPro(entry));
     },
 
+    songpoolEntryRequiresKey(entry = null) {
+        if (!entry) return false;
+
+        if (entry.pdf_url) return true;
+
+        const selectedFileName = String(entry.file?.name || '').trim();
+        if (selectedFileName) {
+            return !this.isChordProLikeFileName(selectedFileName);
+        }
+
+        if (entry.sourceType === 'pdf') return true;
+        if (entry.sourceType === 'chordpro') return false;
+
+        return false;
+    },
+
+    updateSongpoolKeyFieldRequirement(entry = null) {
+        const songKeyLabel = document.querySelector('label[for="songKey"]');
+        if (!songKeyLabel) return;
+
+        const isRequired = this.songpoolEntryRequiresKey(entry);
+        songKeyLabel.innerHTML = isRequired
+            ? 'Tonart <span class="required-indicator" title="Pflichtfeld bei PDF">*</span>'
+            : 'Tonart';
+    },
+
     async saveSongpoolDraftsWithDuplicateReview(drafts = [], options = {}) {
         const normalizedDrafts = (Array.isArray(drafts) ? drafts : [])
             .map((draft) => ({
@@ -8199,7 +8303,7 @@ const App = {
             }))
             .filter((draft) => draft.title);
 
-        const draftsWithoutKey = normalizedDrafts.filter((draft) => !String(draft.key || '').trim());
+        const draftsWithoutKey = normalizedDrafts.filter((draft) => this.songpoolEntryRequiresKey(draft) && !String(draft.key || '').trim());
         if (draftsWithoutKey.length > 0) {
             throw new Error(`Bitte trage für ${draftsWithoutKey.length} Song${draftsWithoutKey.length === 1 ? '' : 's'} eine Tonart ein.`);
         }
@@ -8613,10 +8717,8 @@ const App = {
                 closeModal({ confirmed: false, drafts: [] });
             });
 
-            tempModal.addEventListener('click', (event) => {
-                if (event.target === tempModal) {
-                    closeModal({ confirmed: false, drafts: [] });
-                }
+            this.bindSongpoolTempModalBackdropClose(tempModal, () => {
+                closeModal({ confirmed: false, drafts: [] });
             });
         });
     },
@@ -8627,6 +8729,31 @@ const App = {
 
         this.songpoolImportDrafts = (Array.isArray(this.songpoolImportDrafts) ? this.songpoolImportDrafts : [])
             .filter((draft) => !idSet.has(String(draft.id)));
+    },
+
+    bindSongpoolTempModalBackdropClose(tempModal, onClose) {
+        if (!tempModal || typeof onClose !== 'function') return;
+
+        let backdropMouseDown = false;
+        let backdropMouseUp = false;
+
+        tempModal.addEventListener('mousedown', (event) => {
+            backdropMouseDown = event.target === tempModal;
+        });
+
+        tempModal.addEventListener('mouseup', (event) => {
+            backdropMouseUp = event.target === tempModal;
+        });
+
+        tempModal.addEventListener('click', (event) => {
+            const shouldClose = backdropMouseDown && backdropMouseUp && event.target === tempModal;
+            backdropMouseDown = false;
+            backdropMouseUp = false;
+
+            if (shouldClose) {
+                onClose();
+            }
+        });
     },
 
     async persistSongpoolImportDraftBatch(drafts = [], user, options = {}) {
@@ -8652,10 +8779,13 @@ const App = {
 
                 if (draft.sourceType === 'pdf' && draft.file) {
                     const sb = SupabaseClient.getClient();
-                    const fileName = `song-pdf-${user.id}-${Date.now()}-${progressOffset + index}.pdf`;
+                    const fileName = `${String(user.id || 'user').trim()}/song-pdf-${Date.now()}-${progressOffset + index}.pdf`;
                     const { error: uploadError } = await sb.storage
                         .from('song-pdfs')
-                        .upload(fileName, draft.file, { upsert: true });
+                        .upload(fileName, draft.file, {
+                            cacheControl: '3600',
+                            contentType: draft.file.type || 'application/pdf'
+                        });
 
                     if (uploadError) {
                         throw uploadError;
@@ -8922,32 +9052,202 @@ const App = {
             tempModal.querySelector('[data-action="cancel"]')?.addEventListener('click', () => closeModal(false));
             tempModal.querySelector('[data-action="confirm"]')?.addEventListener('click', () => closeModal(true));
             tempModal.querySelector('.song-pool-close')?.addEventListener('click', () => closeModal(false));
-            tempModal.addEventListener('click', (event) => {
-                if (event.target === tempModal) {
-                    closeModal(false);
-                }
+            this.bindSongpoolTempModalBackdropClose(tempModal, () => {
+                closeModal(false);
             });
         });
     },
 
-    getSongpoolImportedFileBaseName(fileName = '') {
-        return decodeURIComponent(String(fileName || ''))
+    normalizeImportedSongKeyCandidate(value = '') {
+        const normalized = String(value || '')
+            .trim()
+            .replace(/[\[\](){}/\\|]/g, '')
+            .replace(/♯/g, '#')
+            .replace(/♭/g, 'b')
+            .replace(/\s+/g, '');
+
+        if (!normalized) return '';
+
+        const match = normalized.match(/^([A-Ha-h])([#b]?)(maj|min|m|sus\d*|sus|dim|aug|add\d+|\d+)?(?:\/([A-Ha-h])([#b]?))?$/i);
+        if (!match) return '';
+
+        const [, root, accidental = '', quality = '', slashRoot = '', slashAccidental = ''] = match;
+        const normalizedRoot = String(root || '').toUpperCase();
+        const normalizedQuality = quality
+            ? (String(quality).toLowerCase() === 'min' ? 'm' : String(quality))
+            : '';
+        const normalizedSlash = slashRoot
+            ? `/${String(slashRoot).toUpperCase()}${slashAccidental || ''}`
+            : '';
+
+        return `${normalizedRoot}${accidental || ''}${normalizedQuality}${normalizedSlash}`;
+    },
+
+    extractSongpoolTitleAndKeyFromFileName(fileName = '') {
+        const rawBaseName = decodeURIComponent(String(fileName || ''))
             .replace(/\.[^.]+$/, '')
-            .replace(/[_-]+/g, ' ')
-            .replace(/\s{2,}/g, ' ')
             .replace(/\s+\d+$/, '')
             .trim();
+
+        if (!rawBaseName) {
+            return { title: '', key: null };
+        }
+
+        const keyReadyBaseName = rawBaseName
+            .replace(/[“”„"'’`´‚]+/g, ' ')
+            .replace(/[()[\]{}]+/g, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+
+        let titleSource = rawBaseName;
+        let detectedKey = null;
+
+        const trailingKeyPatterns = [
+            /^(.*?)(?:\s*[-_–—,:;|/\\]+\s*)([A-Ha-h][A-Za-z0-9#b♯♭/+_-]*)\s*$/,
+            /^(.*?)(?:\s+)([A-Ha-h][A-Za-z0-9#b♯♭/+_-]*)\s*$/
+        ];
+
+        for (let index = 0; index < trailingKeyPatterns.length; index++) {
+            const match = keyReadyBaseName.match(trailingKeyPatterns[index]);
+            if (!match) continue;
+
+            const potentialTitle = String(match[1] || '').trim();
+            const potentialKey = String(match[2] || '').trim();
+            const normalizedKey = this.normalizeImportedSongKeyCandidate(potentialKey);
+            const plainCandidate = potentialKey.replace(/[^A-Za-zÄÖÜäöüß]/g, '');
+            const keyLooksSpecific = /[#b♯♭/]/.test(potentialKey) || /\d/.test(potentialKey) || plainCandidate.length > 1;
+            const titleTokenCount = potentialTitle.split(/\s+/).filter(Boolean).length;
+            const titleLooksSafe = potentialTitle.length >= 4 || titleTokenCount >= 2;
+            const hasExplicitDelimiter = index === 0;
+
+            if (normalizedKey && (hasExplicitDelimiter || keyLooksSpecific) && titleLooksSafe) {
+                titleSource = potentialTitle;
+                detectedKey = normalizedKey;
+                break;
+            }
+        }
+
+        return {
+            title: this.normalizeImportedSongTitleCandidate(
+                String(titleSource || '')
+                    .replace(/[_-]+/g, ' ')
+                    .replace(/\s{2,}/g, ' ')
+                    .trim()
+            ),
+            key: detectedKey || null
+        };
+    },
+
+    getSongpoolImportedFileBaseName(fileName = '') {
+        return this.extractSongpoolTitleAndKeyFromFileName(fileName).title;
+    },
+
+    getSongpoolImportedFileKey(fileName = '') {
+        return this.extractSongpoolTitleAndKeyFromFileName(fileName).key;
     },
 
     cleanImportedSongTitle(title = '', fallbackTitle = '') {
-        const cleanedTitle = String(title || '')
+        const cleanedTitle = this.normalizeImportedSongTitleCandidate(title);
+        if (cleanedTitle && !this.isWeakImportedSongTitleCandidate(cleanedTitle)) return cleanedTitle;
+
+        const normalizedFallbackTitle = this.normalizeImportedSongTitleCandidate(fallbackTitle);
+        if (normalizedFallbackTitle) return normalizedFallbackTitle;
+        return 'Ohne Titel';
+    },
+
+    normalizeImportedSongTitleCandidate(value = '') {
+        let normalized = String(value || '')
+            .replace(/^\{(?:title|t)\s*:\s*|\}$/gi, '')
+            .replace(/\[[A-H](?:[#b♯♭]|m|maj|min|sus|dim|aug|add|\d|\/)*\]/gi, ' ')
+            .replace(/[_–—-]+/g, ' ')
+            .replace(/[|/\\]+/g, ' ')
+            .replace(/[“”„"’`´]/g, ' ')
+            .replace(/[^\p{L}\p{N}\s()&+]/gu, ' ')
             .replace(/\s{2,}/g, ' ')
-            .replace(/^[\s\-–—:|]+|[\s\-–—:|]+$/g, '')
+            .replace(/\(\s+/g, '(')
+            .replace(/\s+\)/g, ')')
+            .replace(/^[\s\-–—:|,.]+|[\s\-–—:|,.]+$/g, '')
             .trim();
 
-        if (cleanedTitle) return cleanedTitle;
-        if (fallbackTitle) return fallbackTitle;
-        return 'Ohne Titel';
+        if (!normalized) return '';
+
+        normalized = normalized
+            .split(/\s+/)
+            .map((word, index, words) => this.normalizeImportedSongTitleWord(word, index, words.length))
+            .join(' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+
+        return normalized;
+    },
+
+    normalizeImportedSongTitleWord(word = '', index = 0, totalWords = 1) {
+        const match = String(word || '').match(/^(\(*)(.*?)(\)*)$/);
+        if (!match) return word;
+
+        const [, leadingParens, rawCore, trailingParens] = match;
+        const core = String(rawCore || '').trim();
+        if (!core) return word;
+
+        const lowerCore = core.toLowerCase();
+        const lowerSmallWords = new Set([
+            'a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'of', 'on', 'or', 'the', 'to', 'vs',
+            'am', 'an', 'auf', 'aus', 'bei', 'bis', 'das', 'dem', 'den', 'der', 'des', 'die', 'ein', 'eine',
+            'einer', 'eines', 'für', 'fuer', 'im', 'mit', 'nach', 'ohne', 'und', 'vom', 'von', 'vor', 'zum', 'zur'
+        ]);
+
+        const shouldStayLower = index > 0 && index < totalWords - 1 && lowerSmallWords.has(lowerCore);
+        const normalizedCore = shouldStayLower
+            ? lowerCore
+            : lowerCore.charAt(0).toUpperCase() + lowerCore.slice(1);
+
+        return `${leadingParens}${normalizedCore}${trailingParens}`;
+    },
+
+    stripImportedChordLineArtifacts(line = '') {
+        return String(line || '')
+            .replace(/\[[A-H](?:[#b♯♭]|m|maj|min|sus|dim|aug|add|\d|\/)*\]/gi, ' ')
+            .replace(/\s{2,}/g, ' ')
+            .trim();
+    },
+
+    isWeakImportedSongTitleCandidate(title = '') {
+        const normalized = this.normalizeImportedSongTitleCandidate(title);
+        if (!normalized) return true;
+        if (normalized.length < 2 || normalized.length > 120) return true;
+        if (!/[A-Za-zÄÖÜäöüß]/.test(normalized)) return true;
+
+        const tokens = normalized
+            .split(/\s+/)
+            .map((token) => token.replace(/[()]/g, '').trim())
+            .filter(Boolean);
+
+        if (tokens.length === 0) return true;
+        if (tokens.length > 7) return true;
+        if (tokens.length > 5 && normalized.length > 55) return true;
+
+        const singleLetterTokenCount = tokens.filter((token) => token.length === 1).length;
+        if (tokens.length > 4 && singleLetterTokenCount > 1) return true;
+
+        const lower = normalized.toLowerCase();
+        const blockedValues = new Set([
+            'verse', 'vers', 'chorus', 'refrain', 'bridge', 'intro', 'outro', 'ending', 'interlude',
+            'instrumental', 'solo', 'tag', 'pre chorus', 'prechorus', 'strophe', 'stanza', 'teil'
+        ]);
+
+        const lyricTokens = new Set([
+            'i', 'you', 'your', 'me', 'my', 'we', 'our', 'he', 'she', 'they', 'their',
+            'was', 'were', 'am', 'are', 'is', 'with', 'without', 'now', 'then', 'just',
+            'lost', 'broken', 'picked', 'set', 'apart', 'heart'
+        ]);
+        const lyricTokenCount = tokens.filter((token) => lyricTokens.has(token.toLowerCase())).length;
+
+        if (blockedValues.has(lower)) return true;
+        if (/^\{[^}]+\}$/.test(String(title || '').trim())) return true;
+        if (/^(?:c|comment|soc|start_of_chorus|eoc|end_of_chorus)\s*[:\-]/i.test(lower)) return true;
+        if (/^[\d\s().-]+$/.test(normalized)) return true;
+        if (tokens.length >= 6 && lyricTokenCount >= 3) return true;
+        return false;
     },
 
     isLikelyImportedChordLine(line = '') {
@@ -8965,23 +9265,30 @@ const App = {
     },
 
     isLikelyImportedSongTitleLine(line = '') {
-        const normalizedLine = String(line || '').replace(/\s+/g, ' ').trim();
+        const rawLine = String(line || '').replace(/\s+/g, ' ').trim();
+        if (!rawLine) return false;
+        if (/^\{[^}]+\}$/.test(rawLine)) return false;
+
+        const normalizedLine = this.normalizeImportedSongTitleCandidate(this.stripImportedChordLineArtifacts(rawLine));
         if (!normalizedLine) return false;
         if (normalizedLine.length < 2 || normalizedLine.length > 90) return false;
         if (!/[A-Za-zÄÖÜäöüß]/.test(normalizedLine)) return false;
-        if (this.isLikelyImportedChordLine(normalizedLine)) return false;
+        if (this.isLikelyImportedChordLine(rawLine) || this.isLikelyImportedChordLine(normalizedLine)) return false;
+        if (this.isWeakImportedSongTitleCandidate(normalizedLine)) return false;
 
         const lower = normalizedLine.toLowerCase();
         const blockedPrefixes = [
             'key:', 'tonart:', 'tempo:', 'bpm:', 'time:', 'taktart:', 'copyright:',
-            'artist:', 'interpret:', 'verse', 'chorus', 'bridge', 'intro', 'outro'
+            'artist:', 'interpret:', 'verse', 'chorus', 'bridge', 'intro', 'outro', 'comment:'
         ];
         return !blockedPrefixes.some(prefix => lower.startsWith(prefix));
     },
 
-    extractSongpoolMetadataFromText(rawText = '', fileName = '') {
+    extractSongpoolMetadataFromText(rawText = '', fileName = '', options = {}) {
         const text = String(rawText || '').replace(/\r/g, '\n');
-        const fallbackTitle = this.getSongpoolImportedFileBaseName(fileName);
+        const fileNameMeta = this.extractSongpoolTitleAndKeyFromFileName(fileName);
+        const fallbackTitle = fileNameMeta.title;
+        const requireExplicitTitle = Boolean(options && options.requireExplicitTitle);
         const lines = text
             .split('\n')
             .map(line => line.replace(/\s+/g, ' ').trim())
@@ -8996,56 +9303,108 @@ const App = {
             detectedFrom: fallbackTitle ? 'Dateiname' : 'Inhalt'
         };
 
-        for (const line of lines.slice(0, 30)) {
-            const directiveMatch = line.match(/^\{([^:}]+)\s*:\s*([^}]*)\}$/);
+        const applyExplicitMetadataValue = (field, rawValue = '') => {
+            const value = String(rawValue || '').trim();
+            if (!value) return;
+
+            if (field === 'title') {
+                const normalizedDirectiveTitle = this.normalizeImportedSongTitleCandidate(value);
+                if (!this.isWeakImportedSongTitleCandidate(normalizedDirectiveTitle)) {
+                    metadata.title = normalizedDirectiveTitle;
+                    metadata.detectedFrom = 'Dateiinhalt';
+                }
+                return;
+            }
+
+            if (field === 'artist' && !metadata.artist) {
+                metadata.artist = this.normalizeImportedSongTitleCandidate(value);
+                return;
+            }
+
+            if (field === 'key' && !metadata.key) {
+                metadata.key = value.replace(/[\[\]]/g, '').trim() || '';
+                return;
+            }
+
+            if (field === 'timeSignature' && !metadata.timeSignature) {
+                const normalizedTime = value.match(/\d+\s*\/\s*\d+/);
+                metadata.timeSignature = normalizedTime ? normalizedTime[0].replace(/\s+/g, '') : value;
+                return;
+            }
+
+            if (field === 'bpm' && !metadata.bpm) {
+                const normalizedBpm = String(value).match(/\d{1,3}/);
+                metadata.bpm = normalizedBpm ? normalizedBpm[0] : '';
+            }
+        };
+
+        for (const line of lines) {
+            const directiveMatch = line.match(/^\{\s*([^:}]+)\s*:\s*([^}]*)\s*\}$/);
             if (directiveMatch) {
                 const key = directiveMatch[1].trim().toLowerCase();
                 const value = directiveMatch[2].trim();
-                if ((key === 'title' || key === 't') && value) {
-                    metadata.title = value;
-                    metadata.detectedFrom = 'Dateiinhalt';
-                } else if ((key === 'artist' || key === 'subtitle' || key === 'st') && value) {
-                    metadata.artist = value;
-                } else if (key === 'key' && value) {
-                    metadata.key = value;
-                } else if (key === 'time' && value) {
-                    metadata.timeSignature = value;
-                } else if ((key === 'tempo' || key === 'bpm') && value) {
-                    metadata.bpm = value;
+                if (key === 'title' || key === 'titel' || key === 't') {
+                    applyExplicitMetadataValue('title', value);
+                } else if (key === 'artist' || key === 'subtitle' || key === 'st') {
+                    applyExplicitMetadataValue('artist', value);
+                } else if (key === 'key' || key === 'tonart') {
+                    applyExplicitMetadataValue('key', value);
+                } else if (key === 'time' || key === 'taktart' || key === 'meter') {
+                    applyExplicitMetadataValue('timeSignature', value);
+                } else if (key === 'tempo' || key === 'bpm') {
+                    applyExplicitMetadataValue('bpm', value);
+                }
+                continue;
+            }
+
+            const cleanedLine = this.normalizeImportedSongTitleCandidate(this.stripImportedChordLineArtifacts(line));
+
+            if (!metadata.title) {
+                const explicitTitleMatch = line.match(/^(?:title|titel|t)\s*[:\-]\s*(.+)$/i);
+                if (explicitTitleMatch) {
+                    applyExplicitMetadataValue('title', explicitTitleMatch[1]);
+                    continue;
                 }
             }
 
             if (!metadata.artist) {
-                const artistMatch = line.match(/^(?:artist|interpret)\s*[:\-]\s*(.+)$/i);
+                const artistMatch = cleanedLine.match(/^(?:artist|interpret)\s*[:\-]\s*(.+)$/i);
                 if (artistMatch) {
-                    metadata.artist = artistMatch[1].trim();
+                    applyExplicitMetadataValue('artist', artistMatch[1]);
                 }
             }
 
             if (!metadata.key) {
-                const keyMatch = line.match(/(?:key|tonart)\s*[:\-]\s*(\[?[A-H][#b♯♭]?m?\]?)/i);
+                const keyMatch = line.match(/(?:key|tonart)\s*[:\-]\s*([^\n]+)/i);
                 if (keyMatch) {
-                    metadata.key = keyMatch[1].replace(/[\[\]]/g, '').trim();
+                    applyExplicitMetadataValue('key', keyMatch[1]);
                 }
             }
 
             if (!metadata.timeSignature) {
-                const timeMatch = line.match(/(?:time|taktart)\s*[:\-]\s*(\d+\/\d+)/i);
+                const timeMatch = line.match(/(?:time|taktart|meter)\s*[:\-]\s*([^\n]+)/i);
                 if (timeMatch) {
-                    metadata.timeSignature = timeMatch[1];
+                    applyExplicitMetadataValue('timeSignature', timeMatch[1]);
                 }
             }
 
             if (!metadata.bpm) {
-                const bpmMatch = line.match(/(?:tempo|bpm)\s*[:\-]\s*(\d+)/i);
+                const bpmMatch = line.match(/(?:tempo|bpm)\s*[:\-]\s*([^\n]+)/i);
                 if (bpmMatch) {
-                    metadata.bpm = bpmMatch[1];
+                    applyExplicitMetadataValue('bpm', bpmMatch[1]);
                 }
+            }
+
+            if (!requireExplicitTitle && !metadata.title && this.isLikelyImportedSongTitleLine(cleanedLine)) {
+                metadata.title = cleanedLine;
+                metadata.detectedFrom = 'Dateiinhalt';
             }
         }
 
-        if (!metadata.title) {
-            const firstUsableLine = lines.find(line => this.isLikelyImportedSongTitleLine(line));
+        if (!requireExplicitTitle && !metadata.title) {
+            const firstUsableLine = lines
+                .map((line) => this.normalizeImportedSongTitleCandidate(this.stripImportedChordLineArtifacts(line)))
+                .find((line) => this.isLikelyImportedSongTitleLine(line));
             if (firstUsableLine) {
                 metadata.title = firstUsableLine;
                 metadata.detectedFrom = 'Dateiinhalt';
@@ -9056,7 +9415,7 @@ const App = {
         return {
             title,
             artist: metadata.artist || '',
-            key: metadata.key || null,
+            key: metadata.key || fileNameMeta.key || null,
             timeSignature: metadata.timeSignature || null,
             bpm: metadata.bpm ? parseInt(metadata.bpm, 10) || null : null,
             language: this.getDetectedSongLanguage(title, ''),
@@ -9069,7 +9428,8 @@ const App = {
             return this.extractSongpoolMetadataFromText('', '');
         }
 
-        const fallbackTitle = this.getSongpoolImportedFileBaseName(file.name);
+        const fileNameMeta = this.extractSongpoolTitleAndKeyFromFileName(file.name);
+        const fallbackTitle = fileNameMeta.title;
 
         try {
             if (!window.pdfjsLib) {
@@ -9118,7 +9478,7 @@ const App = {
             return {
                 title: this.cleanImportedSongTitle('', fallbackTitle),
                 artist: '',
-                key: null,
+                key: fileNameMeta.key || null,
                 timeSignature: null,
                 bpm: null,
                 language: this.getDetectedSongLanguage(fallbackTitle, ''),
@@ -9149,7 +9509,7 @@ const App = {
             metadata = await this.extractSongpoolMetadataFromPdfFile(file);
         } else {
             const chordProText = await file.text();
-            metadata = this.extractSongpoolMetadataFromText(chordProText, file.name);
+            metadata = this.extractSongpoolMetadataFromText(chordProText, file.name, { requireExplicitTitle: true });
             info = Storage.composeSongInfoWithChordPro('', chordProText);
         }
 
@@ -9330,7 +9690,7 @@ const App = {
                         <input type="number" min="0" step="1" id="songpoolDraftBpm-${draft.id}" data-draft-field="bpm" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.bpm || '')}">
                     </div>
                     <div class="form-group">
-                        <label for="songpoolDraftKey-${draft.id}">Tonart <span class="required-indicator" title="Pflichtfeld">*</span></label>
+                        <label for="songpoolDraftKey-${draft.id}">Tonart${this.songpoolEntryRequiresKey(draft) ? ' <span class="required-indicator" title="Pflichtfeld bei PDF">*</span>' : ''}</label>
                         <input type="text" id="songpoolDraftKey-${draft.id}" data-draft-field="key" data-draft-id="${draft.id}" value="${this.escapeHtml(draft.key || '')}">
                     </div>
                     <div class="form-group">
@@ -9416,7 +9776,7 @@ const App = {
             return;
         }
 
-        const draftsWithoutKey = drafts.filter((draft) => !String(draft.key || '').trim());
+        const draftsWithoutKey = drafts.filter((draft) => this.songpoolEntryRequiresKey(draft) && !String(draft.key || '').trim());
         if (draftsWithoutKey.length > 0) {
             UI.showToast(`Bitte trage für ${draftsWithoutKey.length} Song${draftsWithoutKey.length === 1 ? '' : 's'} eine Tonart ein.`, 'warning');
             const firstMissingKeyInput = document.getElementById(`songpoolDraftKey-${draftsWithoutKey[0].id}`);
@@ -9509,7 +9869,8 @@ const App = {
         if (pdfInput) pdfInput.value = '';
         const currentPdfContainer = document.getElementById('songCurrentPdf');
         const pdfNameSpan = document.getElementById('songPdfName');
-        const songKeyLabel = document.querySelector('label[for="songKey"]');
+        let existingSongpoolPdfUrl = null;
+        let existingSongpoolChordPro = '';
         this.songAutofillCandidates = [];
         if (this.songAutofillSearchTimer) {
             clearTimeout(this.songAutofillSearchTimer);
@@ -9519,12 +9880,6 @@ const App = {
 
         if (visibilityGroup) {
             visibilityGroup.hidden = !isSongpoolSong;
-        }
-
-        if (songKeyLabel) {
-            songKeyLabel.innerHTML = isSongpoolSong
-                ? 'Tonart <span class="required-indicator" title="Pflichtfeld">*</span>'
-                : 'Tonart';
         }
 
         if (songId) {
@@ -9575,6 +9930,16 @@ const App = {
                 } else {
                     currentPdfContainer.style.display = 'none';
                 }
+
+                if (isSongpoolSong) {
+                    existingSongpoolPdfUrl = song.pdf_url || null;
+                    existingSongpoolChordPro = Storage.getSongChordPro(song) || '';
+                    this.updateSongpoolKeyFieldRequirement({
+                        sourceType: song.pdf_url ? 'pdf' : (Storage.getSongChordPro(song) ? 'chordpro' : ''),
+                        pdf_url: song.pdf_url || null,
+                        info: song.info || null
+                    });
+                }
             }
         } else {
             // New song
@@ -9603,10 +9968,29 @@ const App = {
             const visDefaultRadio = document.querySelector(`input[name="songVisibility"][value="${defaultVis}"]`);
             if (visDefaultRadio) visDefaultRadio.checked = true;
             currentPdfContainer.style.display = 'none';
+
+            if (isSongpoolSong) {
+                this.updateSongpoolKeyFieldRequirement(null);
+            }
         }
 
         UI.openModal('songModal');
         this.syncInferredSongLanguage();
+
+        if (isSongpoolSong && pdfInput) {
+            pdfInput.onchange = () => {
+                const nextFile = pdfInput.files && pdfInput.files[0] ? pdfInput.files[0] : null;
+                this.updateSongpoolKeyFieldRequirement({
+                    file: nextFile,
+                    pdf_url: nextFile
+                        ? (this.isChordProLikeFileName(nextFile.name || '') ? existingSongpoolPdfUrl : null)
+                        : existingSongpoolPdfUrl,
+                    info: nextFile
+                        ? (this.isChordProLikeFileName(nextFile.name || '') ? document.getElementById('songInfo')?.value || existingSongpoolChordPro : '')
+                        : existingSongpoolChordPro
+                });
+            };
+        }
 
         // Wire up PDF delete button (ensure it's only added once or remove old listener)
         const deletePdfBtn = document.getElementById('deleteSongPdfBtn');
@@ -9940,7 +10324,14 @@ const App = {
             }
 
             if (isSongpoolSong && !songId) {
-                if (!String(key || '').trim()) {
+                const manualEntryRequiresKey = this.songpoolEntryRequiresKey({
+                    sourceType: isChordProUpload ? 'chordpro' : (isPdfUpload ? 'pdf' : ''),
+                    file: selectedSongFile,
+                    pdf_url: pdfUrl,
+                    info: existingChordPro
+                });
+
+                if (manualEntryRequiresKey && !String(key || '').trim()) {
                     UI.showToast('Bitte wähle für den Songpool eine Tonart aus.', 'warning');
                     document.getElementById('songKey')?.focus();
                     return;
@@ -10028,7 +10419,12 @@ const App = {
                 }
             }
 
-            if (isSongpoolSong && songId && !String(key || '').trim()) {
+            if (isSongpoolSong && songId && this.songpoolEntryRequiresKey({
+                sourceType: isChordProUpload ? 'chordpro' : (isPdfUpload ? 'pdf' : ''),
+                file: selectedSongFile,
+                pdf_url: pdfUrl,
+                info: existingChordPro
+            }) && !String(key || '').trim()) {
                 UI.showToast('Bitte wähle für den Songpool eine Tonart aus.', 'warning');
                 document.getElementById('songKey')?.focus();
                 return;
@@ -10990,11 +11386,7 @@ const App = {
             await this.openSongpoolBandImportModal();
         });
 
-        tempModal.addEventListener('click', (event) => {
-            if (event.target === tempModal) {
-                closeModal();
-            }
-        });
+        this.bindSongpoolTempModalBackdropClose(tempModal, closeModal);
     },
 
     async openSongpoolBandImportModal() {
@@ -11290,11 +11682,7 @@ const App = {
                 renderSongs();
             });
 
-            tempModal.addEventListener('click', (event) => {
-                if (event.target === tempModal) {
-                    closeModal();
-                }
-            });
+            this.bindSongpoolTempModalBackdropClose(tempModal, closeModal);
         } catch (error) {
             UI.hideLoading();
             console.error('[Songpool] Band import modal could not be opened:', error);
@@ -11956,6 +12344,24 @@ const App = {
             `;
         };
 
+        const getOwnershipBadge = (song) => {
+            const isOwner = Boolean(song.isOwner);
+            const label = isOwner ? 'Von dir' : 'Nicht von dir';
+            const tooltipText = isOwner
+                ? 'Diesen Song hast du selbst in deinen Songpool hochgeladen.'
+                : 'Dieser Song stammt nicht aus deinem eigenen Upload.';
+
+            return `
+                <span
+                    class="songpool-owner-badge ${isOwner ? 'is-owner' : 'is-shared'}"
+                    title="${this.escapeHtml(tooltipText)}"
+                    aria-label="${this.escapeHtml(tooltipText)}"
+                >
+                    ${this.escapeHtml(label)}
+                </span>
+            `;
+        };
+
         const tableRows = songs.length > 0
             ? songs.map((song) => `
                 <tr class="${song.isOwner ? '' : 'songpool-row-shared'}" style="border-bottom: 1px solid var(--color-border);">
@@ -11984,7 +12390,14 @@ const App = {
                     <td style="padding: var(--spacing-sm); text-align: center;" data-label="PDF">
                         ${this.renderSongDocumentPreviewButtons(song)}
                     </td>
-                    <td style="padding: var(--spacing-sm); white-space: nowrap;" data-label="Titel">${this.escapeHtml(song.title)}</td>
+                    <td style="padding: var(--spacing-sm);" data-label="Titel">
+                        <div class="songpool-title-cell">
+                            <div class="songpool-title-main">${this.escapeHtml(song.title)}</div>
+                            <div class="songpool-title-meta">
+                                ${getOwnershipBadge(song)}
+                            </div>
+                        </div>
+                    </td>
                     <td style="padding: var(--spacing-sm);" data-label="Interpret">${this.escapeHtml(song.artist || '-')}</td>
                     <td style="padding: var(--spacing-sm);" data-label="BPM">${song.bpm || '-'}</td>
                     <td style="padding: var(--spacing-sm);" data-label="Time">${song.timeSignature || '-'}</td>
@@ -12005,7 +12418,12 @@ const App = {
                 <div class="band-setlist-toolbar-top">
                     <div class="band-setlist-titleblock">
                         <span class="band-setlist-kicker">Studio</span>
-                        <h3>Songpool <span class="band-setlist-count">(${this.currentSongpoolSongs.length})</span></h3>
+                        <div class="songpool-heading-row">
+                            <h3>Songpool <span class="band-setlist-count">(${this.currentSongpoolSongs.length})</span></h3>
+                            <button type="button" class="btn btn-secondary btn-sm songpool-help-button" onclick="UI.openModal('songpoolHelpModal')">
+                                Was ist der Songpool?
+                            </button>
+                        </div>
                         <p class="band-setlist-description">${this.escapeHtml(description)}</p>
                     </div>
                     <div class="band-setlist-toolbar-actions">
@@ -12224,12 +12642,11 @@ const App = {
                 );
 
                 if (confirmed) {
-                    UI.showLoading(`${deletableSongs.length} Song${deletableSongs.length === 1 ? '' : 's'} werden gelöscht...`);
+                    if (bulkDeleteBtn.dataset.busy === 'true') return;
+                    bulkDeleteBtn.dataset.busy = 'true';
+                    bulkDeleteBtn.disabled = true;
                     try {
-                        for (const song of deletableSongs) {
-                            await Storage.deleteSongpoolSong(song.id);
-                        }
-                        UI.hideLoading();
+                        await this.deleteSongpoolSongsWithProgress(deletableSongs);
                         UI.showToast(
                             skippedCount > 0
                                 ? `${deletableSongs.length} Song${deletableSongs.length === 1 ? '' : 's'} gelöscht, ${skippedCount} öffentlicher Song${skippedCount === 1 ? '' : 's'} ${skippedCount === 1 ? 'wurde' : 'wurden'} übersprungen`
@@ -12238,9 +12655,11 @@ const App = {
                         );
                         await this.renderSongpoolView();
                     } catch (error) {
-                        UI.hideLoading();
                         console.error('[Songpool] Bulk delete failed:', error);
                         UI.showToast(error.message || 'Fehler beim Löschen im Songpool', 'error');
+                    } finally {
+                        delete bulkDeleteBtn.dataset.busy;
+                        updateBulkActions();
                     }
                 }
             });
@@ -12274,14 +12693,12 @@ const App = {
                 const confirmed = await UI.confirmDelete('Möchtest du diesen Song wirklich aus deinem Songpool löschen?');
                 if (!confirmed) return;
 
-                UI.showLoading('Song wird gelöscht...');
                 try {
-                    await Storage.deleteSongpoolSong(button.dataset.id);
-                    UI.hideLoading();
+                    const song = songLookup.get(String(button.dataset.id)) || { id: button.dataset.id };
+                    await this.deleteSongpoolSongsWithProgress([song]);
                     UI.showToast('Song aus dem Songpool gelöscht', 'success');
                     await this.renderSongpoolView();
                 } catch (error) {
-                    UI.hideLoading();
                     console.error('[Songpool] Delete failed:', error);
                     UI.showToast(error.message || 'Fehler beim Löschen des Songpool-Songs', 'error');
                 }
@@ -13624,6 +14041,15 @@ const App = {
         return `bis ${endTime} Uhr`;
     },
 
+    formatAbsenceClockRangeLabel(startTime = '', endTime = '') {
+        const normalizedStart = typeof startTime === 'string' ? startTime.trim() : '';
+        const normalizedEnd = typeof endTime === 'string' ? endTime.trim() : '';
+        if (!normalizedStart && !normalizedEnd) return '';
+        if (normalizedStart && normalizedEnd) return `${normalizedStart} - ${normalizedEnd} Uhr`;
+        if (normalizedStart) return `ab ${normalizedStart} Uhr`;
+        return `bis ${normalizedEnd} Uhr`;
+    },
+
     getAbsenceWeekdayLabel(weekdayValue) {
         const labels = {
             0: 'Sonntag',
@@ -13678,6 +14104,13 @@ const App = {
             const firstItem = items[0];
             const lastItem = items[items.length - 1];
             const latestStart = [...items].sort((left, right) => new Date(right.startDate) - new Date(left.startDate))[0];
+            const recurrenceMeta = group.meta || Storage.getAbsenceRecurrenceMeta(firstItem) || null;
+            const firstStartValue = firstItem.startDate || firstItem.start || '';
+            const lastEndValue = lastItem.endDate || lastItem.end || firstItem.endDate || firstStartValue;
+            const metaTimeLabel = this.formatAbsenceClockRangeLabel(recurrenceMeta?.startTime, recurrenceMeta?.endTime);
+            const itemTimeLabel = this.formatAbsenceTimeRangeLabel(firstStartValue, lastEndValue);
+            const firstDateLabel = UI.formatDateOnly(firstStartValue);
+            const lastDateLabel = UI.formatDateOnly(lastEndValue);
 
             return {
                 ...group,
@@ -13685,10 +14118,10 @@ const App = {
                 firstItem,
                 lastItem,
                 reason: Storage.getAbsenceDisplayReason(firstItem),
-                dateLabel: UI.formatDateOnly(firstItem.startDate) === UI.formatDateOnly(lastItem.endDate)
-                    ? UI.formatDateOnly(firstItem.startDate)
-                    : `${UI.formatDateOnly(firstItem.startDate)} - ${UI.formatDateOnly(lastItem.endDate)}`,
-                timeLabel: this.formatAbsenceTimeRangeLabel(firstItem.startDate, firstItem.endDate),
+                dateLabel: firstDateLabel === lastDateLabel
+                    ? firstDateLabel
+                    : `${firstDateLabel} - ${lastDateLabel}`,
+                timeLabel: metaTimeLabel || itemTimeLabel,
                 weekdayLabel: this.getAbsenceWeekdayLabel(group.meta?.weekday ?? new Date(firstItem.startDate).getDay()),
                 countLabel: items.length === 1 ? '1 Termin' : `${items.length} Termine`,
                 sortDate: latestStart?.startDate || firstItem.startDate
@@ -14105,10 +14538,12 @@ const App = {
         container.innerHTML = groups.map(group => `
             <div class="absence-item-card${group.kind === 'series' ? ' is-series' : ''}"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`}>
                 <div class="absence-info">
-                    <div class="absence-date-range">
-                        ${Bands.escapeHtml(group.dateLabel)}
+                    <div class="absence-date-row">
+                        <div class="absence-date-range">
+                            ${Bands.escapeHtml(group.dateLabel)}
+                        </div>
+                        ${group.timeLabel ? `<div class="absence-time-range">${Bands.escapeHtml(group.timeLabel)}</div>` : ''}
                     </div>
-                    ${group.timeLabel ? `<div class="absence-time-range">${Bands.escapeHtml(group.timeLabel)}</div>` : ''}
                     ${group.reason ? `<div class="absence-reason">${Bands.escapeHtml(group.reason)}</div>` : ''}
                     ${group.kind === 'series' ? `
                         <div class="absence-series-meta">
@@ -16186,24 +16621,7 @@ const App = {
     // Check members against cached absences
     checkMembersAvailabilityLocally(absences, startDateTime, endDateTime) {
         if (!absences || absences.length === 0) return [];
-        const rangeStart = new Date(startDateTime);
-        const rangeEnd = new Date(endDateTime);
-        
-        return absences.filter(a => {
-            const absStart = new Date(a.startDate);
-            const absEnd = new Date(a.endDate);
-
-            if (!(typeof a.startDate === 'string' && a.startDate.includes('T'))) {
-                absStart.setHours(0, 0, 0, 0);
-            }
-
-            const endIsMidnight = absEnd.getHours() === 0 && absEnd.getMinutes() === 0 && absEnd.getSeconds() === 0 && absEnd.getMilliseconds() === 0;
-            if (!(typeof a.endDate === 'string' && a.endDate.includes('T')) || endIsMidnight) {
-                absEnd.setHours(23, 59, 59, 999);
-            }
-
-            return (absStart <= rangeEnd && absEnd >= rangeStart);
-        });
+        return absences.filter(absence => Storage.absenceOverlapsRange(absence, startDateTime, endDateTime));
     },
 
     // Populate location select
@@ -16730,9 +17148,9 @@ const App = {
             const bandName = item.band ? item.band.name : 'Band';
             const typeLabel = item.type === 'event' ? 'Auftritt' : 'Probetermin';
 
-            let locationText = '-';
+            let locationText = '';
             if (item.type === 'event') {
-                locationText = item.location ? Bands.escapeHtml(item.location) : '-';
+                locationText = item.location ? Bands.escapeHtml(item.location) : '';
             } else if (item.type === 'rehearsal' && item.locationId) {
                 // Use client-side lookup from cached map
                 const loc = locationMap.get(item.locationId);
@@ -16743,16 +17161,16 @@ const App = {
             const bandColor = item.band ? (item.band.color || '#e11d48') : '#e11d48';
 
             return `
-                <div class="upcoming-card" onclick="App.navigateTo('${item.type === 'event' ? 'events' : 'rehearsals'}', 'dashboard-card-upcoming')" style="cursor: pointer; --upcoming-accent: ${bandColor}">
+                <div class="upcoming-card upcoming-card-dashboard" onclick="App.navigateTo('${item.type === 'event' ? 'events' : 'rehearsals'}', 'dashboard-card-upcoming')" style="cursor: pointer; --upcoming-accent: ${bandColor}">
                     <div class="upcoming-card-content">
-                        <div class="upcoming-card-topline">
+                        <div class="upcoming-card-title-row">
+                            <div class="upcoming-card-title">${Bands.escapeHtml(item.title)}</div>
                             <span class="upcoming-card-type">${typeLabel}</span>
-                            <span class="upcoming-card-band">${Bands.escapeHtml(bandName)}</span>
                         </div>
-                        <div class="upcoming-card-title">${Bands.escapeHtml(item.title)}</div>
                         <div class="upcoming-card-meta">
+                            <span class="upcoming-card-band">${Bands.escapeHtml(bandName)}</span>
                             <span class="upcoming-card-meta-primary">${UI.formatDate(item.date)}</span>
-                            <span class="upcoming-card-meta-secondary">${locationText}</span>
+                            ${locationText ? `<span class="upcoming-card-meta-secondary">${locationText}</span>` : ''}
                         </div>
                     </div>
                     <div class="upcoming-card-action" aria-hidden="true">Öffnen</div>

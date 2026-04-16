@@ -1214,8 +1214,7 @@
                                 <div class="dashboard-panel dashboard-section news-section" id="dashboardNewsSection">
                                 <div class="dashboard-section-header">
                                     <div>
-                                        <span class="dashboard-section-kicker">News</span>
-                                        <h3>Letzte Meldungen</h3>
+                                        <span class="dashboard-section-kicker">Letzte Meldungen</span>
                                     </div>
                                     <div class="section-header-actions">
                                         <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
@@ -1230,8 +1229,7 @@
                             <div class="dashboard-panel dashboard-section quick-access-section" id="dashboardQuickAccessSection">
                                 <div class="dashboard-section-header">
                                     <div>
-                                        <span class="dashboard-section-kicker">Aktionen</span>
-                                        <h3>Schnellzugriff</h3>
+                                        <span class="dashboard-section-kicker">Schnellzugriff</span>
                                     </div>
                                     <div class="section-header-actions">
                                         <button id="editQuickAccessBtn" class="btn btn-icon-sm quick-access-edit-btn"
@@ -1259,8 +1257,7 @@
                             <div class="dashboard-panel dashboard-section activity-section" id="dashboardActivitySection">
                                 <div class="dashboard-section-header">
                                     <div>
-                                        <span class="dashboard-section-kicker">Feed</span>
-                                        <h3>Aktivitäten</h3>
+                                        <span class="dashboard-section-kicker">Aktivitäten</span>
                                     </div>
                                     <div class="section-header-actions">
                                         <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
@@ -1275,8 +1272,7 @@
                             <div class="dashboard-panel dashboard-section upcoming-section" id="dashboardUpcomingSection">
                                 <div class="dashboard-section-header">
                                     <div>
-                                        <span class="dashboard-section-kicker">Agenda</span>
-                                        <h3>Nächste Termine</h3>
+                                        <span class="dashboard-section-kicker">Nächste Termine</span>
                                     </div>
                                     <div class="section-header-actions">
                                         <div class="dashboard-drag-indicator" title="Zum Verschieben ziehen" aria-hidden="true">
@@ -1535,7 +1531,7 @@
                                                         <div class="converter-card-title-row">
                                                             <h3 class="converter-card-title">PDF importieren</h3>
                                                             <button type="button" class="btn btn-secondary btn-sm converter-help-button" onclick="UI.openModal('chordproHelpModal')">
-                                                                ❔ Was ist ChordPro?
+                                                                Was ist ChordPro?
                                                             </button>
                                                         </div>
                                                         <p class="converter-card-subtitle">PDF wählen und direkt als ChordPro bearbeiten.</p>
@@ -1897,7 +1893,12 @@
             <div class="modal-content modal-large settings-modal-content">
                 <div class="modal-header settings-modal-header">
                     <div class="settings-modal-title-wrap">
-                        <span class="settings-modal-title-icon">⚙️</span>
+                        <span class="settings-modal-title-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="3.2"></circle>
+                                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+                            </svg>
+                        </span>
                         <div class="settings-modal-title-copy">
                             <span class="settings-modal-kicker">Konto &amp; Verwaltung</span>
                             <h2>Einstellungen</h2>
@@ -1910,7 +1911,12 @@
                     <div class="settings-tabs">
                         <button id="settingsTabProfile" class="settings-tab-btn active"
                             data-tab="profile">
-                            <span class="settings-tab-icon">👤</span>
+                            <span class="settings-tab-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 21a8 8 0 0 0-16 0"></path>
+                                    <circle cx="12" cy="8" r="4"></circle>
+                                </svg>
+                            </span>
                             <span class="settings-tab-label">
                                 <strong>Profil</strong>
                                 <small>Konto, Bild und Sicherheit</small>
@@ -1918,7 +1924,14 @@
                         </button>
                         <button id="settingsTabAbsences" class="settings-tab-btn"
                             data-tab="absences">
-                            <span class="settings-tab-icon">🗓️</span>
+                            <span class="settings-tab-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M8 2v4M16 2v4"></path>
+                                    <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                                    <path d="M3 10h18"></path>
+                                    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"></path>
+                                </svg>
+                            </span>
                             <span class="settings-tab-label">
                                 <strong>Abwesenheiten</strong>
                                 <small>Urlaub, Fehlzeiten und Planung</small>
@@ -1926,7 +1939,11 @@
                         </button>
                         <button id="settingsTabAdmin" class="settings-tab-btn" data-tab="admin"
                             style="display: none;">
-                            <span class="settings-tab-icon">🛠️</span>
+                            <span class="settings-tab-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.2 2.2-3.2-3.2 2.4-2Z"></path>
+                                </svg>
+                            </span>
                             <span class="settings-tab-label">
                                 <strong>Admin</strong>
                                 <small>Nutzer, Bands und Probeorte</small>
@@ -1979,7 +1996,12 @@
                                     <!-- Personal Info -->
                                     <div class="profile-section">
                                         <div class="profile-section-title">
-                                            <span>👤</span> Persönliche Daten
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M20 21a8 8 0 0 0-16 0"></path>
+                                                    <circle cx="12" cy="8" r="4"></circle>
+                                                </svg>
+                                            </span> Persönliche Daten
                                         </div>
                                         <div class="profile-form-grid">
                                             <!-- Personal Data Fields -->
@@ -2009,7 +2031,12 @@
                                     <!-- Security -->
                                     <div class="profile-section">
                                         <div class="profile-section-title">
-                                            <span>🔒</span> Sicherheit
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <rect x="4" y="11" width="16" height="10" rx="2"></rect>
+                                                    <path d="M8 11V8a4 4 0 1 1 8 0v3"></path>
+                                                </svg>
+                                            </span> Sicherheit
                                         </div>
                                         <div class="profile-form-grid">
                                             <div class="form-group">
@@ -2030,7 +2057,13 @@
                                     <!-- Artist Info -->
                                     <div class="profile-section">
                                         <div class="profile-section-title">
-                                            <span>🎸</span> Musiker Profil
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M9 18V5l12-2v13"></path>
+                                                    <circle cx="6" cy="18" r="3"></circle>
+                                                    <circle cx="18" cy="16" r="3"></circle>
+                                                </svg>
+                                            </span> Musiker Profil
                                         </div>
                                         <div class="form-group full-width">
                                             <label>Instrument</label>
@@ -2042,7 +2075,12 @@
 
                                     <div class="profile-section profile-theme-mobile-only">
                                         <div class="profile-section-title">
-                                            <span>🌙</span> Darstellung
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <circle cx="12" cy="12" r="3"></circle>
+                                                    <path d="M12 2v2.5M12 19.5V22M4.93 4.93l1.77 1.77M17.3 17.3l1.77 1.77M2 12h2.5M19.5 12H22M4.93 19.07l1.77-1.77M17.3 6.7l1.77-1.77"></path>
+                                                </svg>
+                                            </span> Darstellung
                                         </div>
                                         <div class="profile-theme-card">
                                             <div class="profile-theme-copy">
@@ -2059,7 +2097,13 @@
                                     <!-- Actions -->
                                     <div class="settings-form-actions">
                                         <button type="submit" class="btn btn-primary btn-save">
-                                            <span>💾</span> Änderungen speichern
+                                            <span class="settings-btn-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path>
+                                                    <path d="M17 21v-8H7v8"></path>
+                                                    <path d="M7 3v5h8"></path>
+                                                </svg>
+                                            </span> Änderungen speichern
                                         </button>
                                         <button id="deleteAccountBtn" type="button" class="btn btn-danger-soft">
                                             Account löschen
@@ -2211,7 +2255,13 @@
                             <button class="admin-accordion-header"
                                 onclick="UI.toggleAdminAccordion('adminSectionFeedback')">
                                 <div class="admin-accordion-heading">
-                                    <span class="admin-accordion-symbol">📢</span>
+                                    <span class="admin-accordion-symbol" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 11v2"></path>
+                                            <path d="M6 10v4"></path>
+                                            <path d="M11 6l8-3v18l-8-3H6a3 3 0 0 1-3-3v-2a3 3 0 0 1 3-3h5Z"></path>
+                                        </svg>
+                                    </span>
                                     <div class="admin-accordion-copy">
                                         <div class="admin-accordion-title-row">
                                             <h3>Feedback &amp; Meldungen</h3>
@@ -2226,8 +2276,17 @@
                                 <div class="admin-section-inner">
 
                                     <div class="admin-toolbar admin-toolbar-end">
-                                        <button id="refreshFeedbackBtn" class="btn btn-sm btn-secondary">🔄
-                                            Aktualisieren</button>
+                                        <button id="refreshFeedbackBtn" class="btn btn-sm btn-secondary">
+                                            <span class="settings-btn-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M23 4v6h-6"></path>
+                                                    <path d="M1 20v-6h6"></path>
+                                                    <path d="M3.5 9a9 9 0 0 1 14.13-3.36L23 10"></path>
+                                                    <path d="M20.5 15A9 9 0 0 1 6.37 18.36L1 14"></path>
+                                                </svg>
+                                            </span>
+                                            Aktualisieren
+                                        </button>
                                     </div>
                                     <div id="adminFeedbackList" class="admin-scroll-list">
                                         <div class="empty-state">Lade Daten...</div>
@@ -2241,7 +2300,13 @@
                             <button class="admin-accordion-header"
                                 onclick="UI.toggleAdminAccordion('adminSectionBands')">
                                 <div class="admin-accordion-heading">
-                                    <span class="admin-accordion-symbol">🎸</span>
+                                    <span class="admin-accordion-symbol" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M9 18V5l12-2v13"></path>
+                                            <circle cx="6" cy="18" r="3"></circle>
+                                            <circle cx="18" cy="16" r="3"></circle>
+                                        </svg>
+                                    </span>
                                     <div class="admin-accordion-copy">
                                         <div class="admin-accordion-title-row">
                                             <h3>Bandmanagement</h3>
@@ -2256,7 +2321,14 @@
                                 <div class="admin-section-inner">
                                     <div class="admin-toolbar">
                                         <p class="help-text">Erstelle neue Bands oder verwalte bestehende.</p>
-                                        <button id="createBandBtn" class="btn btn-primary btn-sm">+ Neu</button>
+                                        <button id="createBandBtn" class="btn btn-primary btn-sm">
+                                            <span class="settings-btn-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 5v14M5 12h14"></path>
+                                                </svg>
+                                            </span>
+                                            Neu
+                                        </button>
                                     </div>
                                     <div id="allBandsList" class="admin-scroll-list"></div>
                                 </div>
@@ -2268,7 +2340,14 @@
                             <button class="admin-accordion-header"
                                 onclick="UI.toggleAdminAccordion('adminSectionUsers')">
                                 <div class="admin-accordion-heading">
-                                    <span class="admin-accordion-symbol">👥</span>
+                                    <span class="admin-accordion-symbol" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path>
+                                            <circle cx="9" cy="7" r="4"></circle>
+                                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                        </svg>
+                                    </span>
                                     <div class="admin-accordion-copy">
                                         <div class="admin-accordion-title-row">
                                             <h3>Benutzerverwaltung</h3>
@@ -2283,7 +2362,14 @@
                                 <div class="admin-section-inner">
                                     <div class="admin-toolbar">
                                         <p class="help-text">Verwalte alle registrierten Benutzer</p>
-                                        <button id="addUserBtn" class="btn btn-primary btn-sm">➕ Neu</button>
+                                        <button id="addUserBtn" class="btn btn-primary btn-sm">
+                                            <span class="settings-btn-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 5v14M5 12h14"></path>
+                                                </svg>
+                                            </span>
+                                            Neu
+                                        </button>
                                     </div>
                                     <div id="usersList" class="admin-scroll-list"></div>
                                 </div>
@@ -2295,7 +2381,12 @@
                             <button class="admin-accordion-header"
                                 onclick="UI.toggleAdminAccordion('adminSectionLocations')">
                                 <div class="admin-accordion-heading">
-                                    <span class="admin-accordion-symbol">📍</span>
+                                    <span class="admin-accordion-symbol" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M12 22s7-4.35 7-11a7 7 0 1 0-14 0c0 6.65 7 11 7 11Z"></path>
+                                            <circle cx="12" cy="11" r="2.5"></circle>
+                                        </svg>
+                                    </span>
                                     <div class="admin-accordion-copy">
                                         <div class="admin-accordion-title-row">
                                             <h3>Probeorte &amp; Kalender</h3>
@@ -2311,7 +2402,14 @@
                                     <div class="admin-toolbar">
                                         <p class="help-text">Verwalte iCal-Kalender für die Verfügbarkeitsprüfung von
                                             Probeorten</p>
-                                        <button id="addCalendarBtn" class="btn btn-primary btn-sm">➕ Neu</button>
+                                        <button id="addCalendarBtn" class="btn btn-primary btn-sm">
+                                            <span class="settings-btn-icon" aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M12 5v14M5 12h14"></path>
+                                                </svg>
+                                            </span>
+                                            Neu
+                                        </button>
                                     </div>
                                     <div id="calendarsList" class="calendars-list"></div>
 
@@ -2361,7 +2459,11 @@
                             <button class="admin-accordion-header"
                                 onclick="UI.toggleAdminAccordion('adminSectionExtras')">
                                 <div class="admin-accordion-heading">
-                                    <span class="admin-accordion-symbol">💝</span>
+                                    <span class="admin-accordion-symbol" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="m12 21-1.45-1.32C5.4 15.36 2 12.28 2 8.5A4.5 4.5 0 0 1 6.5 4C8.24 4 9.91 4.81 11 6.09 12.09 4.81 13.76 4 15.5 4A4.5 4.5 0 0 1 20 8.5c0 3.78-3.4 6.86-8.55 11.18Z"></path>
+                                        </svg>
+                                    </span>
                                     <div class="admin-accordion-copy">
                                         <div class="admin-accordion-title-row">
                                             <h3>Spenden</h3>
@@ -2964,13 +3066,13 @@
     </div>
 
     <!-- Rehearsal Details Modal -->
-    <div id="rehearsalDetailsModal" class="modal">
-        <div class="modal-content modal-large">
-            <div class="modal-header">
+    <div id="rehearsalDetailsModal" class="modal proposal-overview-modal">
+        <div class="modal-content modal-large proposal-overview-modal-content">
+            <div class="modal-header proposal-overview-modal-header">
                 <h2 id="rehearsalDetailsTitle"></h2>
                 <button class="modal-close">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body proposal-overview-modal-body">
                 <div id="rehearsalDetailsContent"></div>
             </div>
         </div>
@@ -3257,19 +3359,17 @@
                                                 <div class="date-time-range">
                                                     <input type="date" class="event-date-input-date">
                                                     <input type="time" class="event-date-input-start">
+                                                    <button type="button" class="btn-icon remove-event-date" disabled aria-label="Terminvorschlag löschen" title="Terminvorschlag löschen">
+                                                        <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                                                            <path d="M4.75 6h10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                                            <path d="M7.25 6V4.75c0-.41.34-.75.75-.75h4c.41 0 .75.34.75.75V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                                            <path d="M6.25 6.75 6.9 14.7c.05.74.67 1.3 1.4 1.3h3.4c.73 0 1.35-.56 1.4-1.3l.65-7.95" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
+                                                            <path d="M8.35 9.15v4.2M11.65 9.15v4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                                 <div class="date-proposal-footer">
                                                     <span class="event-date-availability date-availability"></span>
-                                                    <div class="date-proposal-actions">
-                                                        <button type="button" class="btn-icon remove-event-date" disabled aria-label="Terminvorschlag löschen" title="Terminvorschlag löschen">
-                                                            <svg viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                                                                <path d="M4.75 6h10.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
-                                                                <path d="M7.25 6V4.75c0-.41.34-.75.75-.75h4c.41 0 .75.34.75.75V6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
-                                                                <path d="M6.25 6.75 6.9 14.7c.05.74.67 1.3 1.4 1.3h3.4c.73 0 1.35-.56 1.4-1.3l.65-7.95" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"></path>
-                                                                <path d="M8.35 9.15v4.2M11.65 9.15v4.2" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
-                                                            </svg>
-                                                        </button>
-                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -3671,13 +3771,13 @@
     </div>
 
     <!-- Event Details Modal -->
-    <div id="eventDetailsModal" class="modal">
-        <div class="modal-content modal-xl">
-            <div class="modal-header">
+    <div id="eventDetailsModal" class="modal proposal-overview-modal">
+        <div class="modal-content modal-xl proposal-overview-modal-content">
+            <div class="modal-header proposal-overview-modal-header">
                 <h2 id="eventDetailsTitle"></h2>
                 <button class="modal-close">&times;</button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body proposal-overview-modal-body">
                 <div id="eventDetailsContent"></div>
             </div>
         </div>
@@ -4236,6 +4336,58 @@
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-primary" onclick="UI.closeModal('chordproHelpModal')">Verstanden</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Songpool Help Modal -->
+    <div id="songpoolHelpModal" class="modal">
+        <div class="modal-content chordpro-help-modal-content">
+            <div class="modal-header">
+                <div class="chordpro-help-title-group">
+                    <span class="chordpro-help-kicker">Songpool Hilfe</span>
+                    <h2>Was ist der Songpool und wie funktioniert er?</h2>
+                </div>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body chordpro-help-body">
+                <div class="chordpro-help-intro">
+                    <p><strong>Der Songpool</strong> ist dein persönlicher Bereich für Songs mit <strong>PDF</strong> oder <strong>ChordPro</strong>. Hier sammelst du eigene Songs und kannst bei Bedarf zusätzlich öffentliche Songs anderer Nutzer einblenden.</p>
+                </div>
+
+                <div class="chordpro-help-grid">
+                    <section class="chordpro-help-card">
+                        <h3>Was bedeutet Öffentlich?</h3>
+                        <p><strong>Öffentliche Songs</strong> können von anderen Bandmate-Nutzern gesehen, geöffnet, heruntergeladen und in den eigenen Songpool übernommen werden.</p>
+                    </section>
+
+                    <section class="chordpro-help-card">
+                        <h3>Was bedeutet Privat?</h3>
+                        <p><strong>Private Songs</strong> sind nur in deinem eigenen Songpool sichtbar. Andere Nutzer sehen diese Songs nicht.</p>
+                    </section>
+
+                    <section class="chordpro-help-card">
+                        <h3>Was kann heruntergeladen werden?</h3>
+                        <p>Sobald ein Song sichtbar ist und eine <strong>PDF</strong> oder <strong>ChordPro-Datei</strong> hinterlegt hat, kann diese Datei geöffnet und heruntergeladen werden.</p>
+                    </section>
+
+                    <section class="chordpro-help-card">
+                        <h3>Wie fülle ich den Songpool?</h3>
+                        <ul class="chordpro-help-list">
+                            <li>Direkt per <strong>PDF / ChordPro import</strong>.</li>
+                            <li>Manuell über <strong>Song hinzufügen</strong>.</li>
+                            <li>Oder durch Übernahme von Songs aus deinem <strong>Bandpool</strong>.</li>
+                        </ul>
+                    </section>
+
+                    <section class="chordpro-help-card chordpro-help-card-wide">
+                        <h3>Warum ist das praktisch?</h3>
+                        <p>Der Songpool trennt deine persönliche Sammlung sauber von der Band-Setlist. Gleichzeitig kannst du öffentliche Songs anderer Nutzer schnell wiederverwenden, statt dieselben Dateien mehrfach neu hochzuladen.</p>
+                    </section>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="UI.closeModal('songpoolHelpModal')">Verstanden</button>
             </div>
         </div>
     </div>

@@ -111,6 +111,45 @@
                 } catch (error) { }
             };
 
+            const ensureUserProfileExists = async (sb, user) => {
+                if (!sb || !user?.id) return;
+
+                const { data: existingProfile, error: existingProfileError } = await sb
+                    .from('users')
+                    .select('id')
+                    .eq('id', user.id)
+                    .maybeSingle();
+
+                if (existingProfileError) {
+                    throw existingProfileError;
+                }
+
+                if (existingProfile?.id) {
+                    return;
+                }
+
+                const metadata = user.user_metadata || {};
+                const profilePayload = {
+                    id: user.id,
+                    email: user.email || '',
+                    username: metadata.username || (user.email ? user.email.split('@')[0] : `user-${user.id.slice(0, 8)}`),
+                    first_name: metadata.first_name || '',
+                    last_name: metadata.last_name || '',
+                    instrument: metadata.instrument || '',
+                    isAdmin: false,
+                    bandIds: [],
+                    createdAt: new Date().toISOString()
+                };
+
+                const { error: insertProfileError } = await sb
+                    .from('users')
+                    .insert(profilePayload);
+
+                if (insertProfileError) {
+                    throw insertProfileError;
+                }
+            };
+
             try {
                 SupabaseClient.init();
                 const sb = SupabaseClient.getClient();
@@ -187,6 +226,8 @@
                     }
                 });
                 if (metadataError) throw metadataError;
+
+                await ensureUserProfileExists(sb, user);
 
                 await sb.auth.signOut();
                 clearAuthUrl();

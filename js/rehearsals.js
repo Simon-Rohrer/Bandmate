@@ -1705,68 +1705,109 @@ const Rehearsals = {
 
         // Get members who haven't voted
         const votedUserIds = new Set(votes.map(v => String(v.userId)));
-        const notVoted = members.filter(m => !votedUserIds.has(String(m.userId)))
-            .map(m => Storage.getById('users', m.userId)?.name)
-            .filter(Boolean);
+        const notVoted = members.filter(m => !votedUserIds.has(String(m.userId)));
+        const notVotedNames = await Promise.all(notVoted.map(async member => {
+            const user = await Storage.getById('users', member.userId);
+            return Bands.escapeHtml(user ? UI.getUserDisplayName(user) : 'Unbekannt');
+        }));
         document.getElementById('rehearsalDetailsTitle').textContent = rehearsal.title;
 
         document.getElementById('rehearsalDetailsContent').innerHTML = `
-            <div class="rehearsal-details-view">
-                <div class="detail-section">
-                    <h3>📊 Abstimmungsübersicht</h3>
-                    <p><strong>Band:</strong> ${Bands.escapeHtml(band?.name || '')}</p>
-                    <p><strong>Abgestimmt:</strong> ${votedUserIds.size} von ${members.length} Mitgliedern</p>
-                    ${notVoted.length > 0 ? `
-                        <p><strong>Noch nicht abgestimmt:</strong> ${notVoted.map(n => Bands.escapeHtml(n)).join(', ')}</p>
-                    ` : ''}
-                </div>
+            <div class="proposal-overview-shell">
+                <section class="proposal-overview-panel proposal-overview-summary">
+                    <div class="proposal-overview-section-head">
+                        <span class="proposal-overview-section-icon" aria-hidden="true">${App.getRundownInlineIcon('stats')}</span>
+                        <div class="proposal-overview-section-copy">
+                            <h3>Abstimmungsübersicht</h3>
+                            <p>Hier siehst du die Rückmeldungen aller Beteiligten und kannst passende Termine direkt bestätigen.</p>
+                        </div>
+                    </div>
+                    <div class="proposal-overview-stats">
+                        <article class="proposal-overview-stat">
+                            <span class="proposal-overview-stat-label">Band</span>
+                            <strong class="proposal-overview-stat-value">${Bands.escapeHtml(band?.name || 'Nicht angegeben')}</strong>
+                        </article>
+                        <article class="proposal-overview-stat">
+                            <span class="proposal-overview-stat-label">Abgestimmt</span>
+                            <strong class="proposal-overview-stat-value">${votedUserIds.size} von ${members.length} Mitgliedern</strong>
+                        </article>
+                        <article class="proposal-overview-stat ${notVotedNames.length > 0 ? '' : 'is-muted'}">
+                            <span class="proposal-overview-stat-label">Noch offen</span>
+                            <strong class="proposal-overview-stat-value">${notVotedNames.length > 0 ? notVotedNames.join(', ') : 'Alle haben abgestimmt'}</strong>
+                        </article>
+                    </div>
+                </section>
 
-                <div class="detail-section">
-                    <h3>🏆 Beste Termine</h3>
+                <section class="proposal-overview-panel">
+                    <div class="proposal-overview-section-head">
+                        <span class="proposal-overview-section-icon" aria-hidden="true">${App.getRundownInlineIcon('trophy')}</span>
+                        <div class="proposal-overview-section-copy">
+                            <h3>Beste Termine</h3>
+                            <p>Wähle einzelne Termine direkt aus oder markiere Zusatztermine, um mehrere bestätigte Proben in einem Schritt anzulegen.</p>
+                        </div>
+                    </div>
                     <p class="rehearsal-bulk-create-note">
                         Setze Haken für Zusatztermine und nutze entweder einen einzelnen Termin-Button oder den Sammelbutton, um daraus bestätigte Proben anzulegen.
                     </p>
-                    ${dateStats.sort((a, b) => b.score - a.score).map((stat, idx) => `
-                        <div class="best-date-option ${idx === 0 ? 'is-best' : ''}">
-                            <div class="date-header">
-                                ${idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : '📅'} 
-                                ${this.formatProposalDateLabel(stat.date)}
-                            </div>
-                            <div class="vote-breakdown">
-                                ✅ ${stat.yesCount} können • 
-                                ❌ ${stat.noCount} können nicht
-                            </div>
-                            ${Object.keys(stat.timeSuggestions).length > 0 ? `
-                                <div class="time-suggestions-compact">
-                                    <strong>🕐 Zeitvorschläge:</strong>
-                                    ${Object.entries(stat.timeSuggestions).map(([time, users]) => `
-                                        <span class="time-suggestion-tag">${time} (${users.join(', ')})</span>
-                                    `).join('')}
+                    <div class="proposal-option-list">
+                        ${dateStats.sort((a, b) => b.score - a.score).map((stat, idx) => `
+                            <article class="best-date-option proposal-option-card ${idx === 0 ? 'is-best' : ''}">
+                                <div class="proposal-option-head">
+                                    <div class="proposal-option-date-block">
+                                        <span class="proposal-option-rank">${idx === 0 ? 'Beste Wahl' : `${idx + 1}. Vorschlag`}</span>
+                                        <h4 class="proposal-option-date">
+                                            <span class="proposal-option-date-icon" aria-hidden="true">${App.getRundownInlineIcon('calendar')}</span>
+                                            <span>${this.formatProposalDateLabel(stat.date)}</span>
+                                        </h4>
+                                    </div>
+                                    <div class="proposal-option-votes">
+                                        <span class="proposal-option-vote-chip is-yes">
+                                            <span class="proposal-option-vote-icon" aria-hidden="true">${App.getRundownInlineIcon('check')}</span>
+                                            <span>${stat.yesCount} können</span>
+                                        </span>
+                                        <span class="proposal-option-vote-chip is-no">
+                                            <span class="proposal-option-vote-icon" aria-hidden="true">${App.getRundownInlineIcon('close')}</span>
+                                            <span>${stat.noCount} können nicht</span>
+                                        </span>
+                                    </div>
                                 </div>
-                            ` : ''}
-                            <div class="best-date-actions">
-                                <label class="rehearsal-bulk-create-toggle">
-                                    <input type="checkbox" class="single-rehearsal-toggle" data-date-index="${stat.index}">
-                                    <span class="rehearsal-bulk-create-indicator" aria-hidden="true"></span>
-                                    <span class="rehearsal-bulk-create-copy">
-                                        <span class="rehearsal-bulk-create-title">Als Einzelprobe anlegen</span>
-                                        <span class="rehearsal-bulk-create-subtitle">Diesen Termin zusätzlich als eigene Probe erstellen</span>
-                                    </span>
-                                </label>
-                                <button class="btn btn-primary select-date-btn" 
-                                        data-date-index="${stat.index}"
-                                        data-date="${typeof stat.date === 'string' ? stat.date : stat.date.startTime}">
-                                    Diese Probe bestätigen
-                                </button>
-                            </div>
-                        </div>
-                    `).join('')}
+                                ${Object.keys(stat.timeSuggestions).length > 0 ? `
+                                    <div class="proposal-option-subsection">
+                                        <div class="proposal-option-subsection-label">
+                                            <span class="proposal-option-inline-icon" aria-hidden="true">${App.getRundownInlineIcon('clock')}</span>
+                                            <span>Zeitvorschläge</span>
+                                        </div>
+                                        <div class="proposal-time-suggestion-list">
+                                            ${Object.entries(stat.timeSuggestions).map(([time, users]) => `
+                                                <span class="proposal-time-suggestion-chip">${Bands.escapeHtml(time)} (${users.map(user => Bands.escapeHtml(user)).join(', ')})</span>
+                                            `).join('')}
+                                        </div>
+                                    </div>
+                                ` : ''}
+                                <div class="best-date-actions">
+                                    <label class="rehearsal-bulk-create-toggle">
+                                        <input type="checkbox" class="single-rehearsal-toggle" data-date-index="${stat.index}">
+                                        <span class="rehearsal-bulk-create-indicator" aria-hidden="true"></span>
+                                        <span class="rehearsal-bulk-create-copy">
+                                            <span class="rehearsal-bulk-create-title">Als Einzelprobe anlegen</span>
+                                            <span class="rehearsal-bulk-create-subtitle">Diesen Termin zusätzlich als eigene Probe erstellen</span>
+                                        </span>
+                                    </label>
+                                    <button class="btn btn-primary select-date-btn"
+                                            data-date-index="${stat.index}"
+                                            data-date="${typeof stat.date === 'string' ? stat.date : stat.date.startTime}">
+                                        Diese Probe bestätigen
+                                    </button>
+                                </div>
+                            </article>
+                        `).join('')}
+                    </div>
                     <div class="best-date-bulk-actions">
                         <button class="btn btn-secondary create-selected-rehearsals-btn">
                             Markierte Proben erstellen
                         </button>
                     </div>
-                </div>
+                </section>
             </div>
         `;
 
