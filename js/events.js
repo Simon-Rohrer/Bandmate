@@ -1649,9 +1649,13 @@ const Events = {
             }
         };
 
-        const datesToCheck = scheduleMode === 'fixed'
+        const datesToCheck = (scheduleMode === 'fixed'
             ? (fixedDate ? [fixedDate] : [])
-            : proposals.map(proposal => proposal.start);
+            : proposals.map(proposal => proposal.start)).map(dateStr => {
+                const start = new Date(dateStr);
+                const end = new Date(start.getTime() + 4 * 60 * 60 * 1000); // 4 hours duration for events
+                return { start: start.toISOString(), end: end.toISOString() };
+            });
         const absenceConflicts = await this.collectSelectedMemberAbsenceConflicts(datesToCheck);
 
         if (absenceConflicts.length > 0) {
@@ -1938,10 +1942,15 @@ const Events = {
             ]);
 
             const userConflicts = dateValues
-                .filter(dateToCheck => {
-                    return (absences || []).some(absence => Storage.absenceOverlapsRange(absence, dateToCheck, dateToCheck));
+                .filter(rangeToCheck => {
+                    const start = typeof rangeToCheck === 'object' && rangeToCheck.start ? rangeToCheck.start : rangeToCheck;
+                    const end = typeof rangeToCheck === 'object' && rangeToCheck.end ? rangeToCheck.end : (new Date(new Date(start).getTime() + 4 * 60 * 60 * 1000).toISOString());
+                    return (absences || []).some(absence => Storage.absenceOverlapsRange(absence, start, end));
                 })
-                .map(dateToCheck => UI.formatDateOnly(new Date(dateToCheck).toISOString()));
+                .map(rangeToCheck => {
+                    const date = typeof rangeToCheck === 'object' && rangeToCheck.start ? rangeToCheck.start : rangeToCheck;
+                    return UI.formatDateOnly(new Date(date).toISOString());
+                });
 
             if (userConflicts.length > 0) {
                 conflicts.push({
@@ -2058,7 +2067,8 @@ const Events = {
         if (fixedDateInput && fixedTimeInput && fixedDateIndicator) {
             if (scheduleMode === 'fixed' && fixedDateValue) {
                 const dateValue = new Date(fixedDateValue).toISOString();
-                const memberConflicts = this.collectMemberConflicts(dateValue, dateValue);
+                const endValue = new Date(new Date(dateValue).getTime() + 4 * 60 * 60 * 1000).toISOString();
+                const memberConflicts = this.collectMemberConflicts(dateValue, endValue);
 
                 fixedDateIndicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
                 fixedDateIndicator.className = `date-availability ${memberConflicts.length > 0 ? 'has-conflict' : 'is-available'}`;
@@ -2100,7 +2110,8 @@ const Events = {
             }
 
             const startDateTime = new Date(`${dateInput.value}T${startInput.value}`).toISOString();
-            const memberConflicts = this.collectMemberConflicts(startDateTime, startDateTime);
+            const endDateTime = new Date(new Date(startDateTime).getTime() + 4 * 60 * 60 * 1000).toISOString();
+            const memberConflicts = this.collectMemberConflicts(startDateTime, endDateTime);
 
             indicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
             indicator.className = `date-availability ${memberConflicts.length > 0 ? 'has-conflict' : 'is-available'}`;

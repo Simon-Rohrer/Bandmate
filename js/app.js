@@ -6541,9 +6541,12 @@ const App = {
             for (const d of dates) {
                 if (!d) continue;
                 try {
-                    if (await Storage.isUserAbsentOnDate(user.id, d)) {
+                    const rangeStart = typeof d === 'object' && d.start ? d.start : d;
+                    const rangeEnd = typeof d === 'object' && d.end ? d.end : rangeStart;
+                    
+                    if (await Storage.isUserAbsentInRange(user.id, rangeStart, rangeEnd)) {
                         // Format date nicely
-                        badDates.push(UI.formatDateOnly(new Date(d).toISOString()));
+                        badDates.push(UI.formatDateOnly(new Date(rangeStart).toISOString()));
                     }
                 } catch (e) {
                     // ignore parse errors
@@ -8893,7 +8896,7 @@ const App = {
                         <button type="button" class="modal-close song-pool-close" aria-label="Schließen">&times;</button>
                     </div>
                     <div class="song-pool-modal-body songpool-duplicate-review-body">
-                        <div class="songpool-band-import-toolbar songpool-duplicate-review-toolbar">
+                        <div class="songpool-band-import-toolbar songpool-duplicate-review-toolbar band-details-danger-note" style="margin-bottom: 1.2rem;">
                             <div class="songpool-band-import-status songpool-duplicate-review-status">
                                 <strong data-duplicate-review-count></strong>
                             </div>
@@ -13675,7 +13678,7 @@ const App = {
         this.renderProfileImageSettings(user);
 
         // Setup absences form in settings
-        const absenceFormSettings = document.getElementById('createAbsenceFormSettings');
+        const absenceFormSettings = effectiveRoot.querySelector('#createAbsenceFormSettings');
         if (absenceFormSettings && !absenceFormSettings._bound) {
             absenceFormSettings.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -13684,6 +13687,9 @@ const App = {
             absenceFormSettings._bound = true;
         }
         this.setupAbsenceSettingsControls();
+
+        // Always render absences list when settings open
+        this.renderAbsencesListSettings();
 
         // Create location form (scoped to settings view)
         const createLocationForm = effectiveRoot.querySelector('#createLocationForm');
@@ -14009,11 +14015,25 @@ const App = {
         return Number.isNaN(date.getTime()) ? '' : this.formatAbsenceDateInputValue(date);
     },
 
-    extractAbsenceTimeInputValue(value) {
-        if (typeof value !== 'string' || !value || !value.includes('T')) return '';
-        const date = new Date(value);
-        if (Number.isNaN(date.getTime())) return '';
-        return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    extractAbsenceTimeInputValue(value, absenceOrMeta = null, type = 'start') {
+        if (typeof value === 'string' && value.includes('T')) {
+            const date = new Date(value);
+            if (!Number.isNaN(date.getTime())) {
+                return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+            }
+        }
+
+        // Fallback to meta (Support both the raw meta and the absence object)
+        const meta = (absenceOrMeta && typeof absenceOrMeta === 'object')
+            ? (absenceOrMeta.recurrenceMeta || absenceOrMeta.meta || absenceOrMeta)
+            : null;
+
+        if (meta) {
+            if (type === 'start' && meta.startTime) return meta.startTime;
+            if (type === 'end' && meta.endTime) return meta.endTime;
+        }
+
+        return '';
     },
 
     buildAbsenceDateTimeValue(dateValue, timeValue = '') {
@@ -14032,9 +14052,9 @@ const App = {
         return date.toISOString();
     },
 
-    formatAbsenceTimeRangeLabel(startValue, endValue) {
-        const startTime = this.extractAbsenceTimeInputValue(startValue);
-        const endTime = this.extractAbsenceTimeInputValue(endValue);
+    formatAbsenceTimeRangeLabel(startValue, endValue, absenceOrMeta = null) {
+        const startTime = this.extractAbsenceTimeInputValue(startValue, absenceOrMeta, 'start');
+        const endTime = this.extractAbsenceTimeInputValue(endValue, absenceOrMeta, 'end');
         if (!startTime && !endTime) return '';
         if (startTime && endTime) return `${startTime} - ${endTime} Uhr`;
         if (startTime) return `ab ${startTime} Uhr`;
@@ -14108,7 +14128,7 @@ const App = {
             const firstStartValue = firstItem.startDate || firstItem.start || '';
             const lastEndValue = lastItem.endDate || lastItem.end || firstItem.endDate || firstStartValue;
             const metaTimeLabel = this.formatAbsenceClockRangeLabel(recurrenceMeta?.startTime, recurrenceMeta?.endTime);
-            const itemTimeLabel = this.formatAbsenceTimeRangeLabel(firstStartValue, lastEndValue);
+            const itemTimeLabel = this.formatAbsenceTimeRangeLabel(firstStartValue, lastEndValue, recurrenceMeta || firstItem);
             const firstDateLabel = UI.formatDateOnly(firstStartValue);
             const lastDateLabel = UI.formatDateOnly(lastEndValue);
 
@@ -14456,15 +14476,20 @@ const App = {
                 return;
             }
 
+            // Save single absence with time in meta for redundancy (DATE columns might truncate time)
+            const singleMeta = (startTime || endTime) ? { startTime, endTime } : null;
+
             if (editId) {
                 await Storage.update('absences', editId, {
                     startDate: startValue,
                     endDate: endValue,
-                    reason
+                    reason: Storage.buildAbsenceReasonPayload(reason, singleMeta)
                 });
                 UI.showToast('Abwesenheit aktualisiert', 'success');
             } else {
-                await Storage.createAbsence(user.id, startValue, endValue, reason);
+                await Storage.createAbsence(user.id, startValue, endValue, reason, {
+                    meta: singleMeta
+                });
                 UI.showToast('Abwesenheit eingetragen', 'success');
             }
         }
@@ -14599,8 +14624,8 @@ const App = {
         document.getElementById('absenceEndSettings').value = this.extractAbsenceDateInputValue(absence.endDate || absence.end || '');
         const startTimeInput = document.getElementById('absenceStartTimeSettings');
         const endTimeInput = document.getElementById('absenceEndTimeSettings');
-        if (startTimeInput) startTimeInput.value = this.extractAbsenceTimeInputValue(absence.startDate || '');
-        if (endTimeInput) endTimeInput.value = this.extractAbsenceTimeInputValue(absence.endDate || '');
+        if (startTimeInput) startTimeInput.value = this.extractAbsenceTimeInputValue(absence.startDate || '', absence, 'start');
+        if (endTimeInput) endTimeInput.value = this.extractAbsenceTimeInputValue(absence.endDate || '', absence, 'end');
         document.getElementById('absenceReasonSettings').value = Storage.getAbsenceDisplayReason(absence);
         document.getElementById('editAbsenceIdSettings').value = absenceId;
         const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
@@ -15014,11 +15039,7 @@ const App = {
         }
 
         const settingsRoot = document.querySelector('#settingsModal .modal-body') || document;
-        this.resetProfileImageDraftState({ resetInput: true, root: settingsRoot });
-        this.bindProfileImageDraftHandlers(settingsRoot, user);
-
-        // Render profile image for all users
-        this.renderProfileImageSettings(user);
+        await this.initializeSettingsViewListeners(isAdmin, settingsRoot);
     },
 
     revokeProfileImageDraftObjectUrl() {
@@ -15311,6 +15332,10 @@ const App = {
             const duration = ((performance.now() - startTime) / 1000).toFixed(2);
             Logger.info(`Locations/Calendars Data Fetched (${duration}s)`);
         }
+
+        // Update admin badge if present
+        const badge = document.getElementById('adminLocationCount');
+        if (badge) badge.textContent = locations ? locations.length : 0;
 
         // Create map of calendar names
         const calendarMap = {
@@ -16621,7 +16646,9 @@ const App = {
     // Check members against cached absences
     checkMembersAvailabilityLocally(absences, startDateTime, endDateTime) {
         if (!absences || absences.length === 0) return [];
-        return absences.filter(absence => Storage.absenceOverlapsRange(absence, startDateTime, endDateTime));
+        const start = new Date(startDateTime);
+        const end = new Date(endDateTime || startDateTime);
+        return absences.filter(absence => Storage.absenceOverlapsRange(absence, start, end));
     },
 
     // Populate location select
@@ -17592,8 +17619,13 @@ const App = {
             }
         }
 
-        // Check for absence conflicts
-        const datesToCheck = dates.map(date => date?.startTime).filter(Boolean);
+        // Check for absence conflicts with a default duration of 3 hours for rehearsals
+        const datesToCheck = dates.map(date => {
+            if (!date?.startTime) return null;
+            const start = new Date(date.startTime);
+            const end = new Date(start.getTime() + 3 * 60 * 60 * 1000); // 3 hours duration
+            return { start: start.toISOString(), end: end.toISOString() };
+        }).filter(Boolean);
         const selectedRehearsalMembers = (typeof Rehearsals !== 'undefined' && typeof Rehearsals.getSelectedMembers === 'function')
             ? Rehearsals.getSelectedMembers()
             : [];
@@ -17750,9 +17782,13 @@ const App = {
             }
         };
 
-        const datesToCheck = scheduleMode === 'fixed'
+        const datesToCheck = (scheduleMode === 'fixed'
             ? (date ? [date] : [])
-            : proposals.map(proposal => proposal.start);
+            : proposals.map(proposal => proposal.start)).map(dateStr => {
+                const start = new Date(dateStr);
+                const end = new Date(start.getTime() + 4 * 60 * 60 * 1000); // 4 hours for events
+                return { start: start.toISOString(), end: end.toISOString() };
+            });
 
         if (datesToCheck.length > 0 && members.length > 0) {
             const conflicts = (typeof Events !== 'undefined' && typeof Events.collectSelectedMemberAbsenceConflicts === 'function')
@@ -17827,9 +17863,17 @@ const App = {
         const startIso = startDate.toISOString();
         const endIso = endDate.toISOString();
 
+        // preserve time in meta (Dashboard has no time inputs, but if editing an existing time-enabled absence, we should preserve it)
+        const existingAbsence = editId ? await Storage.getAbsenceById(editId) : null;
+        const meta = existingAbsence ? (existingAbsence.recurrenceMeta || existingAbsence.meta) : null;
+
         if (editId && editId.trim() !== '') {
             // update existing absence
-            await Storage.update('absences', editId, { startDate: startIso, endDate: endIso, reason });
+            await Storage.update('absences', editId, { 
+                startDate: startIso, 
+                endDate: endIso, 
+                reason: Storage.buildAbsenceReasonPayload(reason, meta) 
+            });
             UI.showToast('Abwesenheit aktualisiert', 'success');
         } else {
             await Storage.createAbsence(user.id, startIso, endIso, reason);
@@ -17914,10 +17958,13 @@ const App = {
         // sort by start date desc
         absences.sort((a, b) => new Date(b.startDate) - new Date(a.startDate));
 
-        container.innerHTML = absences.map(a => `
+        container.innerHTML = absences.map(a => {
+            const timeLabel = this.formatAbsenceTimeRangeLabel(a.startDate, a.endDate, a);
+            return `
             <div class="absence-item" data-id="${a.id}" style="padding:8px; border-bottom:1px solid var(--color-border); display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
                 <div>
                     <div><strong>${UI.formatDateOnly(a.startDate)} — ${UI.formatDateOnly(a.endDate)}</strong></div>
+                    ${timeLabel ? `<div class="absence-time-range" style="font-size: 0.8em; color: var(--color-text-secondary);">${Bands.escapeHtml(timeLabel)}</div>` : ''}
                     ${Storage.getAbsenceDisplayReason(a) ? `<div class="help-text">${Bands.escapeHtml(Storage.getAbsenceDisplayReason(a))}</div>` : ''}
                 </div>
                 <div style="display:flex; gap:0.5rem;">
@@ -17925,7 +17972,8 @@ const App = {
                     <button class="btn btn-danger btn-sm delete-absence" data-id="${a.id}">🗑️ Löschen</button>
                 </div>
             </div>
-    `).join('');
+            `;
+        }).join('');
 
         // Wire up edit/delete handlers
         container.querySelectorAll('.edit-absence').forEach(btn => {

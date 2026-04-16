@@ -7254,6 +7254,7 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
     flex: 1;
     min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-gutter: stable;
@@ -12437,10 +12438,10 @@ html[data-theme="light"] .loader-overlay,
 
 .settings-tab-btn {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     align-items: center;
-    justify-content: center;
-    padding: var(--spacing-lg);
+    justify-content: flex-start;
+    padding: var(--spacing-md) var(--spacing-lg);
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
@@ -12448,9 +12449,9 @@ html[data-theme="light"] .loader-overlay,
     font-weight: var(--font-weight-medium);
     cursor: pointer;
     transition: all var(--transition-base);
-    text-align: center;
-    gap: var(--spacing-sm);
-    min-height: 100px;
+    text-align: left;
+    gap: var(--spacing-md);
+    min-height: auto;
 }
 
 .settings-tab-btn:hover {
@@ -26877,6 +26878,10 @@ html[data-theme="dark"] .schedule-card-user-state.is-confirmed,
     height: 10px;
 }
 
+#bandDetailsModal .band-setlist-table-wrap::-webkit-scrollbar:horizontal {
+    height: 0;
+}
+
 #bandDetailsModal .band-setlist-scrollbar-top::-webkit-scrollbar-track,
 #bandDetailsModal .band-setlist-table-wrap::-webkit-scrollbar-track {
     background: transparent;
@@ -29780,6 +29785,11 @@ body:not(.landing-active) #statisticsView.active {
     display: flex;
     flex-direction: column;
     gap: var(--statistics-gap);
+}
+
+body:not(.landing-active) #statisticsView .statistics-view-shell {
+    margin-left: auto !important;
+    margin-right: auto !important;
 }
 
 #statisticsView .statistics-top-shell,

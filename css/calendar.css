@@ -55,8 +55,16 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
+    gap: 1.5rem;
     flex-wrap: wrap;
+}
+
+.personal-calendar-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    flex-wrap: wrap;
+    margin-left: auto;
 }
 
 #kalenderView .personal-calendar-head-copy {
@@ -137,7 +145,7 @@
 #kalenderView .personal-calendar-toolbar-title h3 {
     margin: 0;
     color: var(--color-text);
-    font-size: 1.6rem;
+    font-size: 1.35rem; /* Slightly smaller for single line */
     line-height: 1;
     font-weight: 700;
     letter-spacing: -0.03em;
@@ -200,7 +208,8 @@
 }
 
 .calendar-week-row.has-absence-bars {
-    padding-top: calc((var(--absence-lanes, 0) * 22px) + 8px);
+    /* Padding moved to individual days to integrate absence bars into cells */
+    padding-top: 0;
 }
 
 .calendar-week-days {
@@ -212,7 +221,7 @@
 
 .calendar-week-absence-layer {
     position: absolute;
-    top: 6px;
+    top: 32px; /* Positioned below the day number (approx 24-28px) */
     left: 6px;
     right: 6px;
     display: grid;
@@ -278,12 +287,19 @@
 /* Calendar Day Cell */
 .calendar-day {
     background: var(--color-surface);
-    min-height: 74px;
-    padding: 4px;
+    height: 124px; /* Fixed height for consistent boxes */
+    min-height: 124px;
+    padding: 6px;
+    padding-top: 8px; /* Back to constant for top alignment */
     display: flex;
     flex-direction: column;
     position: relative;
     transition: all var(--transition-fast);
+}
+
+.has-absence-bars .calendar-day {
+    /* No padding-top here; we use margin on events instead */
+    padding-top: 8px;
 }
 
 .calendar-day.empty {
@@ -332,7 +348,17 @@
     flex-direction: column;
     gap: 2px;
     margin-top: 4px;
-    overflow-y: visible;
+    overflow-y: auto; /* Scroll events if they exceed fixed box height */
+    scrollbar-width: none; /* Hide scrollbar for cleaner look */
+}
+
+.has-absence-bars .calendar-day-events {
+    /* Space reserved for absence bars: (lanes * 18px) + gap */
+    margin-top: calc((var(--absence-lanes, 0) * 22px) + 4px);
+}
+
+.calendar-day-events::-webkit-scrollbar {
+    display: none;
 }
 
 .calendar-day.can-create {
@@ -470,28 +496,13 @@
         padding: 0.9rem 0.95rem;
     }
 
-    #kalenderView .personal-calendar-toolbar {
-        align-items: flex-start;
-    }
-
-    #kalenderView .personal-calendar-toolbar-title h3 {
-        font-size: 1.4rem;
+    .personal-calendar-header-actions {
+        gap: 0.8rem;
     }
 
     .calendar-day {
-        min-height: 68px;
-    }
-
-    #kalenderView .calendar-day {
-        min-height: 82px;
-    }
-
-    .calendar-day-quick-create-menu {
-        grid-template-columns: 1fr;
-    }
-
-    .calendar-week-row.has-absence-bars {
-        padding-top: calc((var(--absence-lanes, 0) * 21px) + 8px);
+        height: 110px;
+        min-height: 110px;
     }
 
     .calendar-event {
@@ -500,12 +511,16 @@
 }
 
 @media (max-width: 768px) {
-    #kalenderView .personal-calendar-head-top,
-    #kalenderView .personal-calendar-toolbar,
-    #kalenderView .personal-calendar-toolbar-actions,
-    #kalenderView .personal-calendar-toolbar-title {
+    #kalenderView .personal-calendar-head-top {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    .personal-calendar-header-actions {
+        flex-direction: column;
+        align-items: stretch;
+        width: 100%;
+        margin-left: 0;
     }
 
     #kalenderView .personal-calendar-toolbar-nav {
@@ -513,42 +528,20 @@
         justify-content: space-between;
     }
 
-    #kalenderView .personal-calendar-toolbar-title {
-        flex: 1;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-    }
-
     #kalenderView .personal-calendar-subscribe-btn,
-    #kalenderView .personal-calendar-action-btn,
     #kalenderView .personal-calendar-today-btn {
         width: 100%;
         justify-content: center;
     }
 
-    #kalenderView .personal-calendar-head-copy p {
-        font-size: 0.86rem;
-    }
-
-    #kalenderView .personal-calendar-grid {
-        margin-top: 0.25rem;
-    }
-
-    #kalenderView .calendar-day {
-        min-height: 76px;
-    }
-
-    #kalenderView .calendar-day-quick-create-menu {
-        margin-top: 8px;
-    }
-
-    .calendar-week-row.has-absence-bars {
-        padding-top: calc((var(--absence-lanes, 0) * 18px) + 6px);
+    .calendar-day {
+        height: 94px;
+        min-height: 94px;
+        padding: 3px;
     }
 
     .calendar-week-absence-layer {
-        top: 4px;
+        top: 32px;
         left: 4px;
         right: 4px;
         grid-auto-rows: 15px;
@@ -564,20 +557,19 @@
         font-size: 0.58rem;
     }
 
-    .calendar-day {
-        min-height: 58px;
-        padding: 3px;
-    }
-
     .calendar-day-number {
         font-size: 0.65rem;
+    }
+
+    .has-absence-bars .calendar-day-events {
+        margin-top: calc((var(--absence-lanes, 0) * 18px) + 2px);
     }
 
     .calendar-event {
         font-size: 0.55rem;
         padding: 1px 3px;
     }
-
+}
     .event-time {
         display: none;
     }
@@ -585,11 +577,7 @@
 
 @media (max-width: 480px) {
     .calendar-grid {
-        grid-template-columns: repeat(7, minmax(40px, 1fr));
-    }
-
-    .calendar-grid.personal-calendar-grid {
-        display: flex;
+        grid-template-columns: repeat(7, minmax(36px, 1fr));
     }
 
     #kalenderView .personal-calendar-head {
@@ -598,17 +586,9 @@
         border-radius: 18px;
     }
 
-    #kalenderView .personal-calendar-head-kicker {
-        font-size: 0.66rem;
-        letter-spacing: 0.12em;
-    }
-
-    #kalenderView .personal-calendar-toolbar-title h3 {
-        font-size: 1.15rem;
-    }
-
     .calendar-day {
-        min-height: 52px;
+        height: 82px;
+        min-height: 82px;
         padding: 2px;
     }
 
@@ -616,21 +596,17 @@
         font-size: 0.6rem;
     }
 
-    .calendar-event {
-        font-size: 0.5rem;
-    }
-
-    .calendar-week-row.has-absence-bars {
-        padding-top: calc((var(--absence-lanes, 0) * 17px) + 6px);
-    }
-
-    .calendar-absence-bar {
-        height: 14px;
-        padding: 0 5px;
+    .calendar-week-absence-layer {
+        top: 28px;
+        grid-auto-rows: 14px;
     }
 
     .calendar-absence-bar-label {
-        font-size: 0.54rem;
+        font-size: 0.52rem;
+    }
+
+    .has-absence-bars .calendar-day-events {
+        margin-top: calc((var(--absence-lanes, 0) * 16px) + 2px);
     }
 }
 

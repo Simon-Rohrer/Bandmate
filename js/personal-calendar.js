@@ -195,7 +195,7 @@ const PersonalCalendar = {
         });
 
         const timeLabel = typeof App !== 'undefined' && typeof App.formatAbsenceTimeRangeLabel === 'function'
-            ? App.formatAbsenceTimeRangeLabel(absence.startDate, absence.endDate)
+            ? App.formatAbsenceTimeRangeLabel(absence.startDate, absence.endDate, absence)
             : '';
 
         if (startLabel === endLabel) {
@@ -377,7 +377,7 @@ const PersonalCalendar = {
         const startLabel = startDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
         const endLabel = endDate.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
         const timeLabel = typeof App !== 'undefined' && typeof App.formatAbsenceTimeRangeLabel === 'function'
-            ? App.formatAbsenceTimeRangeLabel(absence.startDate, absence.endDate)
+            ? App.formatAbsenceTimeRangeLabel(absence.startDate, absence.endDate, absence)
             : '';
         const dateLabel = startLabel === endLabel ? startLabel : `${startLabel} – ${endLabel}`;
         const title = this.getAbsenceTitle(absence);
@@ -418,37 +418,21 @@ const PersonalCalendar = {
                 <div class="personal-calendar-head-top">
                     <div class="personal-calendar-head-copy">
                         <span class="personal-calendar-head-kicker">Persönliche Termine und Synchronisation</span>
-                        <p>Alle persönlichen Termine, schnelle Aktionen und dein Kalender-Abo in einem kompakten Bereich.</p>
+                        <p>Alle Termine und dein Kalender-Abo in einem Bereich.</p>
                     </div>
-                    <button class="btn btn-secondary personal-calendar-subscribe-btn" onclick="PersonalCalendar.exportICS()">
-                        <span aria-hidden="true">🔗</span>
-                        <span>Kalender abonnieren</span>
-                    </button>
-                </div>
-                <div class="personal-calendar-toolbar">
-                    ${canCreate ? `
-                        <div class="personal-calendar-toolbar-actions">
-                            <button class="btn btn-primary personal-calendar-action-btn" onclick="App.openCreateRehearsalModal()">
-                                <span aria-hidden="true">➕</span>
-                                <span>Probe anlegen</span>
-                            </button>
-                            <button class="btn btn-secondary personal-calendar-action-btn" onclick="App.openCreateEventModal()">
-                                <span aria-hidden="true">🎤</span>
-                                <span>Auftritt anlegen</span>
-                            </button>
-                            <button class="btn btn-ghost personal-calendar-action-btn" onclick="App.openAbsencesSettings()">
-                                <span aria-hidden="true">🗓️</span>
-                                <span>Abwesenheit eintragen</span>
-                            </button>
+                    <div class="personal-calendar-header-actions">
+                        <div class="personal-calendar-toolbar-nav">
+                            <button onclick="PersonalCalendar.previousMonth()" class="btn btn-icon personal-calendar-nav-btn" type="button" aria-label="Vorheriger Monat">‹</button>
+                            <div class="personal-calendar-toolbar-title">
+                                <h3>${monthName}</h3>
+                                <button onclick="PersonalCalendar.goToToday()" class="btn btn-secondary personal-calendar-today-btn" type="button">Heute</button>
+                            </div>
+                            <button onclick="PersonalCalendar.nextMonth()" class="btn btn-icon personal-calendar-nav-btn" type="button" aria-label="Nächster Monat">›</button>
                         </div>
-                    ` : ''}
-                    <div class="personal-calendar-toolbar-nav">
-                        <button onclick="PersonalCalendar.previousMonth()" class="btn btn-icon personal-calendar-nav-btn" type="button" aria-label="Vorheriger Monat">‹</button>
-                        <div class="personal-calendar-toolbar-title">
-                            <h3>${monthName}</h3>
-                            <button onclick="PersonalCalendar.goToToday()" class="btn btn-secondary personal-calendar-today-btn" type="button">Heute</button>
-                        </div>
-                        <button onclick="PersonalCalendar.nextMonth()" class="btn btn-icon personal-calendar-nav-btn" type="button" aria-label="Nächster Monat">›</button>
+                        <button class="btn btn-secondary personal-calendar-subscribe-btn" onclick="PersonalCalendar.exportICS()">
+                            <span aria-hidden="true">🔗</span>
+                            <span>Kalender abonnieren</span>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -1120,7 +1104,7 @@ const PersonalCalendar = {
             });
             const durationLabel = startLabel === endLabel ? startLabel : `${startLabel} bis ${endLabel}`;
             const timeLabel = typeof App !== 'undefined' && typeof App.formatAbsenceTimeRangeLabel === 'function'
-                ? App.formatAbsenceTimeRangeLabel(item.startDate, item.endDate)
+                ? App.formatAbsenceTimeRangeLabel(item.startDate, item.endDate, item)
                 : '';
             const absenceReason = Storage.getAbsenceDisplayReason(item);
             const detailTitle = absenceReason || durationLabel;

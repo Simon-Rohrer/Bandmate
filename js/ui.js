@@ -33,6 +33,14 @@ const UI = {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add('active');
+            
+            // Reset scroll position to top
+            modal.scrollTop = 0;
+            const scrollableBody = modal.querySelector('.modal-body') || modal.querySelector('.modal-content');
+            if (scrollableBody) {
+                scrollableBody.scrollTop = 0;
+            }
+
             document.body.classList.add('modal-open');
             document.documentElement.classList.add('modal-open'); // Robust lock
             if (typeof App !== 'undefined' && typeof App.handleModalOpened === 'function') {

@@ -180,14 +180,42 @@ const Storage = {
     getAbsenceRange(absence) {
         if (!absence || !absence.startDate) return null;
 
+        let startTime = '';
+        let endTime = '';
+
+        // Try to recover times from meta-data if missing in the date fields
+        const parsed = this.parseAbsenceReasonPayload(absence.reason || '');
+        if (parsed.meta) {
+            startTime = parsed.meta.startTime || '';
+            endTime = parsed.meta.endTime || '';
+        }
+
         const start = new Date(absence.startDate);
         const end = new Date(absence.endDate || absence.startDate);
+
         if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
             return null;
         }
 
-        const startHasExplicitTime = typeof absence.startDate === 'string' && absence.startDate.includes('T');
-        const endHasExplicitTime = typeof absence.endDate === 'string' && absence.endDate.includes('T');
+        let startHasExplicitTime = typeof absence.startDate === 'string' && absence.startDate.includes('T');
+        let endHasExplicitTime = typeof absence.endDate === 'string' && absence.endDate.includes('T');
+
+        // Apply meta-data fallback if columns don't have time
+        if (!startHasExplicitTime && startTime) {
+            const [h, m] = startTime.split(':').map(Number);
+            if (!isNaN(h)) {
+                start.setHours(h, m || 0, 0, 0);
+                startHasExplicitTime = true;
+            }
+        }
+
+        if (!endHasExplicitTime && endTime) {
+            const [h, m] = endTime.split(':').map(Number);
+            if (!isNaN(h)) {
+                end.setHours(h, m || 0, 0, 0);
+                endHasExplicitTime = true;
+            }
+        }
 
         if (!startHasExplicitTime) {
             start.setHours(0, 0, 0, 0);
@@ -199,7 +227,10 @@ const Storage = {
             && end.getMilliseconds() === 0;
 
         if (!endHasExplicitTime || endIsMidnight) {
-            end.setHours(23, 59, 59, 999);
+            // Only set to end of day if we TRULY don't have a time from meta or DB
+            if (!endTime) {
+                end.setHours(23, 59, 59, 999);
+            }
         }
 
         return {
@@ -1335,9 +1366,13 @@ const Storage = {
         return await this.delete('absences', absenceId);
     },
 
-    async isUserAbsentOnDate(userId, date) {
+    async isUserAbsentInRange(userId, startDate, endDate = null) {
         const absences = await this.getUserAbsences(userId);
-        return absences.some(absence => this.absenceOverlapsRange(absence, date, date));
+        return absences.some(absence => this.absenceOverlapsRange(absence, startDate, endDate || startDate));
+    },
+
+    async isUserAbsentOnDate(userId, date) {
+        return this.isUserAbsentInRange(userId, date, date);
     },
 
     async getAbsentUsersDuringRange(userIds, startDate, endDate) {
