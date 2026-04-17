@@ -2348,6 +2348,7 @@ const Storage = {
             let deletedEventsCount = 0;
             let trimmedArchivedEventsCount = 0;
             const archivedConfirmedEvents = [];
+            const eventsToDelete = [];
 
             for (const event of allEvents) {
                 if (!event?.date || !this.isPastCalendarDay(event.date, today)) {
@@ -2359,8 +2360,7 @@ const Storage = {
                     continue;
                 }
 
-                await this.deleteEvent(event.id);
-                deletedEventsCount++;
+                eventsToDelete.push(event.id);
             }
 
             const staleArchivedEvents = archivedConfirmedEvents
@@ -2368,8 +2368,15 @@ const Storage = {
                 .slice(20);
 
             for (const event of staleArchivedEvents) {
-                await this.deleteEvent(event.id);
-                trimmedArchivedEventsCount++;
+                eventsToDelete.push(event.id);
+            }
+
+            // Perform deletions in parallel
+            if (eventsToDelete.length > 0) {
+                console.log(`[Storage] Clean up: Deleting ${eventsToDelete.length} past events in parallel...`);
+                await Promise.all(eventsToDelete.map(id => this.deleteEvent(id)));
+                deletedEventsCount = eventsToDelete.length - staleArchivedEvents.length;
+                trimmedArchivedEventsCount = staleArchivedEvents.length;
             }
 
             // Clean up past rehearsals
@@ -2377,6 +2384,7 @@ const Storage = {
             let deletedRehearsalsCount = 0;
             let trimmedArchivedRehearsalsCount = 0;
             const archivedConfirmedRehearsals = [];
+            const rehearsalsToDelete = [];
 
             for (const rehearsal of allRehearsals) {
                 let shouldDelete = false;

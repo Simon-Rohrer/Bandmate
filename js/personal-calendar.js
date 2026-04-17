@@ -96,11 +96,15 @@ const PersonalCalendar = {
                 return;
             }
 
-            this.renderCalendar();
-
-            const duration = ((performance.now() - startTime) / 1000).toFixed(2);
-            Logger.info(`Personal Calendar Loaded – (${allEvents.length} events, ${allRehearsals.length} rehearsals, ${allAbsences.length} absences, ${duration}s)`);
-            delete Logger.timers['Personal Calendar Load']; // handled manually
+            // Yield to browser before final render to keep UI responsive
+            this.prepareDateItemCache();
+            requestAnimationFrame(() => {
+                this.renderCalendar();
+                const duration = ((performance.now() - startTime) / 1000).toFixed(2);
+                Logger.info(`Personal Calendar Loaded – (${allEvents.length} events, ${allRehearsals.length} rehearsals, ${allAbsences.length} absences, ${duration}s)`);
+            });
+            
+            delete Logger.timers['Personal Calendar Load']; 
         } catch (error) {
             console.error('[PersonalCalendar] Error loading personal calendar:', error);
             this.hasLoaded = false;
@@ -312,34 +316,46 @@ const PersonalCalendar = {
                     <div class="calendar-week-days">
             `;
 
-            weekDates.forEach(currentDate => {
+            weekDates.forEach((currentDate, dayIndex) => {
                 if (!currentDate) {
                     html += '<div class="calendar-day empty"></div>';
                     return;
                 }
 
+                // Calculate local absence lanes for this specific day to avoid pushing events down on empty days
+                let maxDayLane = 0;
+                if (hasAbsenceBars) {
+                    const activeSegments = absenceLayout.segments.filter(s => 
+                        dayIndex + 1 >= s.startCol && dayIndex + 1 <= s.endCol
+                    );
+                    if (activeSegments.length > 0) {
+                        maxDayLane = Math.max(...activeSegments.map(s => s.lane));
+                    }
+                }
+
                 const isToday = currentDate.getTime() === today.getTime();
                 const dayItems = this.getItemsForDate(currentDate);
-                const canQuickCreate = canCreate && dayItems.length === 0;
                 const dateValue = this.formatDateForInput(currentDate);
 
                 let dayClass = 'calendar-day';
                 if (isToday) dayClass += ' today';
                 if (dayItems.length > 0) dayClass += ' has-events';
-                if (canQuickCreate) dayClass += ' can-create';
+                if (canCreate) dayClass += ' can-create';
+                if (maxDayLane > 0) dayClass += ' day-has-absence';
 
                 html += `
-                    <div class="${dayClass}"${canQuickCreate ? ` data-date="${dateValue}" onclick="PersonalCalendar.toggleDayCreateMenu(event, '${dateValue}')"` : ''}>
+                    <div class="${dayClass}"${canCreate ? ` data-date="${dateValue}" onclick="PersonalCalendar.toggleDayCreateMenu(event, '${dateValue}')"` : ''} 
+                        style="--day-absence-lanes: ${maxDayLane};">
                         <div class="calendar-day-top">
                             <div class="calendar-day-number">${currentDate.getDate()}</div>
                         </div>
-                        ${canQuickCreate ? `
+                        ${canCreate ? `
                             <div class="calendar-day-quick-create-menu" data-date="${dateValue}" hidden onclick="event.stopPropagation()">
                                 <button type="button" class="calendar-day-quick-create-option" onclick="PersonalCalendar.createItemForDate(event, 'rehearsal', '${dateValue}')">Probe anlegen</button>
                                 <button type="button" class="calendar-day-quick-create-option" onclick="PersonalCalendar.createItemForDate(event, 'event', '${dateValue}')">Auftritt anlegen</button>
                             </div>
                         ` : ''}
-                        <div class="calendar-day-events">
+                        <div class="calendar-day-events${dayItems.length > 1 ? ' has-multiple-events' : ''}">
                             ${dayItems.map(item => this.renderCalendarItem(item)).join('')}
                         </div>
                     </div>
@@ -452,39 +468,123 @@ const PersonalCalendar = {
             return;
         }
 
-        App.openCreateEventModal({ date: dateValue, time: '19:00' });
+    App.openCreateEventModal({ date: dateValue, time: '19:00' });
+    },
+
+    /**
+     * Checks if a given time range conflicts with any personal commitments
+     * (external events, absences, personal events, or rehearsals)
+     * @param {string|Date} start Start timestamp
+     * @param {string|Date} end End timestamp
+     * @returns {Array} List of conflict objects
+     */
+    getPersonalConflicts(start, end) {
+        if (!start || !end) return [];
+        
+        const startTime = new Date(start).getTime();
+        const endTime = new Date(end).getTime();
+        const conflicts = [];
+
+        // 1. Check external events
+        this.externalEvents.forEach(ext => {
+            const extStart = new Date(ext.date).getTime();
+            const extEnd = new Date(ext.endDate || ext.date).getTime();
+            if (Math.max(startTime, extStart) < Math.min(endTime, extEnd)) {
+                conflicts.push({
+                    type: 'external',
+                    title: ext.title || 'Externer Termin',
+                    source: ext.sourceName || 'Kalender-Abo',
+                    start: ext.date,
+                    end: ext.endDate
+                });
+            }
+        });
+
+        // 2. Check absences
+        this.absences.forEach(abs => {
+            const absStart = new Date(abs.startDate).getTime();
+            const absEnd = new Date(abs.endDate || abs.startDate).getTime();
+            if (Math.max(startTime, absStart) < Math.min(endTime, absEnd)) {
+                conflicts.push({
+                    type: 'absence',
+                    title: this.getAbsenceTitle(abs),
+                    source: 'Meine Abwesenheit',
+                    start: abs.startDate,
+                    end: abs.endDate
+                });
+            }
+        });
+
+        // 3. Check internal events (confirmed only)
+        this.events.forEach(evt => {
+            if (evt.status !== 'confirmed' && evt.status !== undefined) return;
+            const evtStart = new Date(evt.date).getTime();
+            // Default 4 hour duration if not specified
+            const evtEnd = evt.endTime ? new Date(evt.endTime).getTime() : evtStart + (4 * 60 * 60 * 1000);
+            if (Math.max(startTime, evtStart) < Math.min(endTime, evtEnd)) {
+                conflicts.push({
+                    type: 'event',
+                    title: evt.title || 'Auftritt',
+                    source: 'Persönlicher Auftritt',
+                    start: evt.date,
+                    end: evt.endTime || new Date(evtStart + (4 * 60 * 60 * 1000)).toISOString()
+                });
+            }
+        });
+
+        // 4. Check confirmed rehearsals
+        this.rehearsals.forEach(reh => {
+            const rehStart = new Date(reh.confirmedDate).getTime();
+            const rehEnd = reh.endTime ? new Date(reh.endTime).getTime() : rehStart + (2.5 * 60 * 60 * 1000);
+            if (Math.max(startTime, rehStart) < Math.min(endTime, rehEnd)) {
+                conflicts.push({
+                    type: 'rehearsal',
+                    title: reh.title || 'Probe',
+                    source: 'Persönliche Probe',
+                    start: reh.confirmedDate,
+                    end: reh.endTime || new Date(rehStart + (2.5 * 60 * 60 * 1000)).toISOString()
+                });
+            }
+        });
+
+        return conflicts;
+    },
+
+    /**
+     * Optimized lookup for calendar items by date using a cached Map
+     */
+    prepareDateItemCache() {
+        this.dateItemCache = new Map();
+        
+        const addToCache = (dateStr, item) => {
+            if (!this.dateItemCache.has(dateStr)) {
+                this.dateItemCache.set(dateStr, []);
+            }
+            this.dateItemCache.get(dateStr).push(item);
+        };
+
+        this.events.forEach(event => {
+            const d = this.formatDateForInput(event.date);
+            if (d) addToCache(d, { ...event, type: 'event' });
+        });
+
+        this.rehearsals.forEach(reh => {
+            const d = this.formatDateForInput(reh.confirmedDate);
+            if (d) addToCache(d, { ...reh, type: 'rehearsal' });
+        });
+
+        this.externalEvents.forEach(ext => {
+            const d = this.formatDateForInput(ext.date);
+            if (d) addToCache(d, { ...ext, type: 'external' });
+        });
     },
 
     getItemsForDate(date) {
-        const items = [];
-
-        // Add events for this date
-        this.events.forEach(event => {
-            const eventDate = new Date(event.date);
-            eventDate.setHours(0, 0, 0, 0);
-            if (eventDate.getTime() === date.getTime()) {
-                items.push({ ...event, type: 'event' });
-            }
-        });
-
-        // Add rehearsals for this date
-        this.rehearsals.forEach(rehearsal => {
-            const rehearsalDate = this.normalizeDate(rehearsal.confirmedDate);
-            if (rehearsalDate.getTime() === date.getTime()) {
-                items.push({ ...rehearsal, type: 'rehearsal' });
-            }
-        });
-
-        // Add external events for this date
-        this.externalEvents.forEach(extEvent => {
-            const extDate = new Date(extEvent.date);
-            extDate.setHours(0, 0, 0, 0);
-            if (extDate.getTime() === date.getTime()) {
-                items.push({ ...extEvent, type: 'external' });
-            }
-        });
-
-        return items;
+        if (!this.dateItemCache) {
+            this.prepareDateItemCache();
+        }
+        const dateKey = this.formatDateForInput(date);
+        return this.dateItemCache.get(dateKey) || [];
     },
 
     buildCalendarWeeks(year, month) {
@@ -585,16 +685,31 @@ const PersonalCalendar = {
         if (segment.continuesFromPrev) classes.push('is-continued-start');
         if (segment.continuesToNext) classes.push('is-continued-end');
 
+        // Calculate contrast color for text
+        const textColor = this.isLightColor(absenceColor) ? '#1e293b' : '#ffffff';
+
         return `
             <button
                 type="button"
                 class="${classes.join(' ')}"
-                style="grid-column: ${segment.startCol} / ${segment.endCol + 1}; grid-row: ${segment.lane}; background: ${absenceColor} !important; border-color: ${this.getAlphaColor(absenceColor, 0.2)} !important; color: white !important;"
+                style="grid-column: ${segment.startCol} / ${segment.endCol + 1}; grid-row: ${segment.lane}; background: ${absenceColor} !important; border-color: ${this.getAlphaColor(absenceColor, 0.2)} !important; color: ${textColor} !important;"
                 onclick="PersonalCalendar.showItemDetails('${segment.id}', 'absence')"
             >
                 <span class="calendar-absence-bar-label">${this.escapeHtml(segment.title)}</span>
             </button>
         `;
+    },
+
+    isLightColor(color) {
+        if (!color) return false;
+        let hex = color.replace('#', '');
+        if (hex.length === 3) hex = hex.split('').map(s => s + s).join('');
+        const r = parseInt(hex.substring(0, 2), 16);
+        const g = parseInt(hex.substring(2, 4), 16);
+        const b = parseInt(hex.substring(4, 6), 16);
+        // HSP Color Model formula for perceived brightness
+        const hsp = Math.sqrt(0.299 * (r * r) + 0.587 * (g * g) + 0.114 * (b * b));
+        return hsp > 170; // Threshold for "light"
     },
 
     renderCalendarItem(item) {
@@ -608,11 +723,14 @@ const PersonalCalendar = {
             const customColor = user?.color_event || '#8b5cf6';
             const bgColor = this.getAlphaColor(customColor, 0.15);
 
+            const typeLabelColor = this.isLightColor(customColor) ? 'rgba(0,0,0,0.7)' : customColor;
+            const timeColor = this.isLightColor(customColor) ? 'rgba(0,0,0,0.6)' : 'var(--color-text-secondary)';
+
             return `
-                <div class="calendar-event event-type" onclick="PersonalCalendar.showItemDetails('${item.id}', 'event')" 
+                <div class="calendar-event event-type" onclick="event.stopPropagation(); PersonalCalendar.showItemDetails('${item.id}', 'event')" 
                     style="cursor: pointer; border-left: 2px solid ${customColor} !important; background: ${bgColor} !important; background-image: none !important;">
-                    <div class="calendar-event-type" style="color: ${customColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">🎤 Auftritt</div>
-                    ${item.time ? `<div class="event-time" style="font-weight: 700; font-size: 0.55rem; color: var(--color-text-secondary); opacity: 0.8;">${item.time}</div>` : ''}
+                    <div class="calendar-event-type" style="color: ${typeLabelColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">🎤 Auftritt</div>
+                    ${item.time ? `<div class="event-time" style="font-weight: 700; font-size: 0.55rem; color: ${timeColor}; opacity: 0.8;">${item.time}</div>` : ''}
                     <div class="calendar-event-title" style="color: var(--color-text); font-weight: 600;">${this.escapeHtml(eventName)}</div>
                     ${band ? `<div class="calendar-event-band" style="color: var(--color-text-secondary); opacity: 0.7; font-size: 0.55rem;">${this.escapeHtml(bandName)}</div>` : ''}
                 </div>
@@ -630,11 +748,14 @@ const PersonalCalendar = {
                 ? `${item.startTime} - ${item.endTime}` 
                 : (item.startTime || item.time || '');
 
+            const typeLabelColor = this.isLightColor(customColor) ? 'rgba(0,0,0,0.7)' : customColor;
+            const timeColor = this.isLightColor(customColor) ? 'rgba(0,0,0,0.6)' : 'var(--color-text-secondary)';
+
             return `
-                <div class="calendar-event rehearsal-type" onclick="PersonalCalendar.showItemDetails('${item.id}', 'rehearsal')" 
+                <div class="calendar-event rehearsal-type" onclick="event.stopPropagation(); PersonalCalendar.showItemDetails('${item.id}', 'rehearsal')" 
                     style="cursor: pointer; border-left: 2px solid ${customColor} !important; background: ${bgColor} !important; background-image: none !important;">
-                    <div class="calendar-event-type" style="color: ${customColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">📅 Probe</div>
-                    ${timeRange ? `<div class="event-time" style="font-weight: 700; font-size: 0.55rem; color: var(--color-text-secondary); opacity: 0.8;">${timeRange}</div>` : ''}
+                    <div class="calendar-event-type" style="color: ${typeLabelColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">📅 Probe</div>
+                    ${timeRange ? `<div class="event-time" style="font-weight: 700; font-size: 0.55rem; color: ${timeColor}; opacity: 0.8;">${timeRange}</div>` : ''}
                     <div class="calendar-event-title" style="color: var(--color-text); font-weight: 600;">${this.escapeHtml(title)}</div>
                     ${band ? `<div class="calendar-event-band" style="color: var(--color-text-secondary); opacity: 0.7; font-size: 0.55rem;">${this.escapeHtml(bandName)}</div>` : ''}
                 </div>
@@ -644,11 +765,14 @@ const PersonalCalendar = {
         if (item.type === 'external') {
             const customColor = user?.color_external_event || '#64748b';
             const bgColor = this.getAlphaColor(customColor, 0.15);
+            const typeLabelColor = this.isLightColor(customColor) ? 'rgba(0,0,0,0.7)' : customColor;
+            const timeColor = this.isLightColor(customColor) ? 'rgba(0,0,0,0.6)' : 'var(--color-text-secondary)';
+
             return `
-                <div class="calendar-event external-type" onclick="PersonalCalendar.showItemDetails('${item.id}', 'external')" 
+                <div class="calendar-event external-type" onclick="event.stopPropagation(); PersonalCalendar.showItemDetails('${item.id}', 'external')" 
                     style="cursor: pointer; border-left: 2px solid ${customColor} !important; background: ${bgColor} !important; background-image: none !important;">
-                    <div class="calendar-event-type" style="color: ${customColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">🌐 Extern</div>
-                    ${item.time ? `<div class="event-time" style="font-weight: 700; font-size: 0.55rem; color: var(--color-text-secondary); opacity: 0.8;">${item.time}</div>` : ''}
+                    <div class="calendar-event-type" style="color: ${typeLabelColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">🌐 Extern</div>
+                    ${item.time ? `<div class="event-time" style="font-weight: 700; font-size: 0.55rem; color: ${timeColor}; opacity: 0.8;">${item.time}</div>` : ''}
                     <div class="calendar-event-title" style="color: var(--color-text); font-weight: 600;">${this.escapeHtml(item.title || 'Externer Termin')}</div>
                     <div class="calendar-event-band" style="color: var(--color-text-secondary); opacity: 0.7; font-size: 0.55rem;">${this.escapeHtml(item.sourceName || 'Synchronisiert')}</div>
                 </div>
@@ -657,11 +781,12 @@ const PersonalCalendar = {
 
         const absenceColor = user?.color_absence || '#f59e0b';
         const absenceBg = this.getAlphaColor(absenceColor, 0.15);
+        const typeLabelColor = this.isLightColor(absenceColor) ? 'rgba(0,0,0,0.7)' : absenceColor;
 
         return `
-            <div class="calendar-event absence-type" onclick="PersonalCalendar.showItemDetails('${item.id}', 'absence')" 
+            <div class="calendar-event absence-type" onclick="event.stopPropagation(); PersonalCalendar.showItemDetails('${item.id}', 'absence')" 
                 style="cursor: pointer; border-left: 2px solid ${absenceColor} !important; background: ${absenceBg} !important; background-image: none !important;">
-                <div class="calendar-event-type" style="color: ${absenceColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">⚠️ Abwesenheit</div>
+                <div class="calendar-event-type" style="color: ${typeLabelColor}; opacity: 0.9; font-weight: 800; font-size: 0.55rem;">⚠️ Abwesenheit</div>
                 <div class="calendar-event-title" style="color: var(--color-text);">${this.escapeHtml(this.getAbsenceTitle(item))}</div>
             </div>
         `;
@@ -677,31 +802,38 @@ const PersonalCalendar = {
                 return [];
             }
 
+            // Yield to main thread before heavy parsing
+            await new Promise(resolve => setTimeout(resolve, 0));
+
             const jcalData = ICAL.parse(icalData);
             const vcalendar = new ICAL.Component(jcalData);
             const vevents = vcalendar.getAllSubcomponents('vevent');
 
             return vevents.map(vevent => {
-                const event = new ICAL.Event(vevent);
-                const dtStart = event.startDate.toJSDate();
-                const dtEnd = event.endDate.toJSDate();
-                
-                // Check if it's an all-day event
-                const isAllDay = event.startDate.isDate;
+                try {
+                    const event = new ICAL.Event(vevent);
+                    const dtStart = event.startDate.toJSDate();
+                    const dtEnd = event.endDate.toJSDate();
+                    
+                    // Check if it's an all-day event
+                    const isAllDay = event.startDate.isDate;
 
-                return {
-                    id: 'ext_' + Math.random().toString(36).substr(2, 9),
-                    title: event.summary,
-                    location: event.location,
-                    description: event.description,
-                    date: dtStart.toISOString(),
-                    endDate: dtEnd.toISOString(),
-                    isAllDay: isAllDay,
-                    time: isAllDay ? null : `${dtStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} - ${dtEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
-                    type: 'external',
-                    sourceName: sourceName
-                };
-            }).filter(e => {
+                    return {
+                        id: 'ext_' + Math.random().toString(36).substr(2, 9),
+                        title: event.summary,
+                        location: event.location,
+                        description: event.description,
+                        date: dtStart.toISOString(),
+                        endDate: dtEnd.toISOString(),
+                        isAllDay: isAllDay,
+                        time: isAllDay ? null : `${dtStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} - ${dtEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
+                        type: 'external',
+                        sourceName: sourceName
+                    };
+                } catch (e) {
+                    return null;
+                }
+            }).filter(Boolean).filter(e => {
                 // Filter events to a reasonable range (e.g., last 6 months to next 18 months)
                 const eventDate = new Date(e.date);
                 const now = new Date();

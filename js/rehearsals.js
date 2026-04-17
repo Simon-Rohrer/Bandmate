@@ -403,6 +403,18 @@ const Rehearsals = {
         `;
     },
 
+    buildPersonalConflictDetailsSection(conflicts = []) {
+        if (!Array.isArray(conflicts) || conflicts.length === 0) return '';
+        return `
+            <div class="conflict-details-header">Du hast in diesem Zeitraum bereits einen persönlichen Termin:</div>
+            ${conflicts.map(c => {
+                const start = new Date(c.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const end = new Date(c.end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                return `<div class="conflict-item" style="color: var(--color-warning);">• ${Bands.escapeHtml(c.title)} (${start} - ${end})</div>`;
+            }).join('')}
+        `;
+    },
+
     buildAvailabilityDetailsHtml({ locationConflicts = [], memberConflicts = [] } = {}) {
         const sections = [];
 
@@ -414,9 +426,175 @@ const Rehearsals = {
             sections.push(`<div class="member-details-box">${this.buildMemberConflictDetailsSection(memberConflicts)}</div>`);
         }
 
+        if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+            const startStr = arguments[0].startDateTime;
+            const endStr = arguments[0].endDateTime;
+            if (startStr && endStr) {
+                const pConflicts = PersonalCalendar.getPersonalConflicts(startStr, endStr);
+                if (pConflicts.length > 0) {
+                    sections.push(`<div class="conflict-details-box">${this.buildPersonalConflictDetailsSection(pConflicts)}</div>`);
+                }
+            }
+        }
+
         if (sections.length === 0) return '';
 
         return sections.join('');
+    },
+
+    buildPersonalConflictDetailsHtml(conflicts = [], dateLabel = '') {
+        if (!conflicts || conflicts.length === 0) return '';
+        const conflictCount = conflicts.length;
+
+        return `
+            <div class="conflict-container">
+                <div class="conflict-header">
+                    <div class="conflict-header-title-row">
+                        <span class="conflict-header-kicker" style="background: rgba(245, 158, 11, 0.1); color: #f59e0b; border-color: rgba(245, 158, 11, 0.2);">Persönlich</span>
+                        <span class="conflict-header-badge">${this.formatCountLabel(conflictCount, 'Überschneidung', 'Überschneidungen')}</span>
+                    </div>
+                    <div class="conflict-header-title">Eigene Termine</div>
+                    <div class="conflict-header-info">
+                        <span class="conflict-header-info-label">Dein Zeitraum</span>
+                        <strong>${dateLabel}</strong>
+                    </div>
+                    <p class="conflict-header-text">Du hast im gewählten Zeitraum bereits die folgenden Termine oder Abwesenheiten in deinem Kalender stehen.</p>
+                </div>
+                <div class="conflict-card">
+                    <div class="conflict-card-header">
+                        <div class="date-badge">Termine in deinem Kalender</div>
+                        <span class="conflict-count">${this.formatCountLabel(conflictCount, 'Eintrag', 'Einträge')}</span>
+                    </div>
+                    <div class="conflict-card-body">
+                        <div class="conflict-event-list">
+                            ${conflicts.map(conflict => {
+            const start = new Date(conflict.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const end = new Date(conflict.end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const day = new Date(conflict.start).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+            return `
+                                    <div class="conflict-event-item">
+                                        <span class="conflict-event-bullet" style="background: #f59e0b;" aria-hidden="true"></span>
+                                        <div class="conflict-event-info">
+                                            <div class="conflict-event-title">${Bands.escapeHtml(conflict.title || 'Termin')}</div>
+                                            <div class="conflict-event-time">${day} · ${start} - ${end} Uhr</div>
+                                        </div>
+                                    </div>`;
+        }).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    async showPersonalConflictModal(conflicts, dateLabel, returnModalId) {
+        return new Promise((resolve) => {
+            const detailsContainer = document.getElementById('personalConflictDetails');
+            if (detailsContainer) {
+                detailsContainer.innerHTML = this.buildPersonalConflictDetailsHtml(conflicts, dateLabel);
+            }
+
+            const proceedBtn = document.getElementById('proceedPersonalAnywayBtn');
+            const abortBtn = document.getElementById('abortPersonalConflictBtn');
+
+            // Cleanup old listeners
+            const newProceedBtn = proceedBtn.cloneNode(true);
+            proceedBtn.parentNode.replaceChild(newProceedBtn, proceedBtn);
+            const newAbortBtn = abortBtn.cloneNode(true);
+            abortBtn.parentNode.replaceChild(newAbortBtn, abortBtn);
+
+            newProceedBtn.addEventListener('click', () => {
+                UI.closeModal('personalConflictModal');
+                resolve(true); // Proceed
+            });
+
+            newAbortBtn.addEventListener('click', () => {
+                UI.closeModal('personalConflictModal');
+                if (returnModalId) UI.openModal(returnModalId);
+                resolve(false); // Abort
+            });
+
+            UI.closeModal(returnModalId);
+            UI.openModal('personalConflictModal');
+        });
+    },
+
+    async showLocationConflictModal(locationId, startTime, endTime, conflicts, returnModalId, onConfirm) {
+        const location = await Storage.getLocation(locationId);
+        let dateLabel = '';
+        const conflictCount = conflicts.length;
+        if (startTime) {
+            dateLabel = UI.formatDate(startTime);
+            if (endTime) {
+                const start = new Date(startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const end = new Date(endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                dateLabel += ` (${start} - ${end})`;
+            }
+        }
+
+        const conflictDetailsHtml = `
+            <div class="conflict-container">
+                <div class="conflict-header">
+                    <div class="conflict-header-title-row">
+                        <span class="conflict-header-kicker">Ort</span>
+                        <span class="conflict-header-badge">${this.formatCountLabel(conflictCount, 'Überschneidung', 'Überschneidungen')}</span>
+                    </div>
+                    <div class="conflict-header-title">${Bands.escapeHtml(location?.name || 'Unbekannt')}</div>
+                    <div class="conflict-header-info">
+                        <span class="conflict-header-info-label">Gewählter Zeitraum</span>
+                        <strong>${dateLabel}</strong>
+                    </div>
+                    <p class="conflict-header-text">Der ausgewählte Probeort ist in diesem Zeitraum bereits belegt. Unten siehst du, welche Buchungen sich mit deiner Probe überschneiden.</p>
+                </div>
+                <div class="conflict-card">
+                    <div class="conflict-card-header">
+                        <div class="date-badge">Diese Belegungen überschneiden sich</div>
+                        <span class="conflict-count">${this.formatCountLabel(conflictCount, 'Eintrag', 'Einträge')}</span>
+                    </div>
+                    <div class="conflict-card-body">
+                        <div class="conflict-event-list">
+                            ${conflicts.map(conflict => {
+            const start = new Date(conflict.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const end = new Date(conflict.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+            const day = new Date(conflict.startDate).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
+            return `
+                                    <div class="conflict-event-item">
+                                        <span class="conflict-event-bullet" aria-hidden="true"></span>
+                                        <div class="conflict-event-info">
+                                            <div class="conflict-event-title">${Bands.escapeHtml(conflict.summary)}</div>
+                                            <div class="conflict-event-time">${day} · ${start} - ${end} Uhr</div>
+                                        </div>
+                                    </div>`;
+        }).join('')}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('conflictDetails').innerHTML = conflictDetailsHtml;
+
+        const proceedBtn = document.getElementById('proceedAnywayBtn');
+        const abortBtn = document.getElementById('abortConfirmationBtn');
+
+        // Cleanup old listeners
+        const newProceedBtn = proceedBtn.cloneNode(true);
+        proceedBtn.parentNode.replaceChild(newProceedBtn, proceedBtn);
+        const newAbortBtn = abortBtn.cloneNode(true);
+        abortBtn.parentNode.replaceChild(newAbortBtn, abortBtn);
+
+        newProceedBtn.addEventListener('click', () => {
+            UI.closeModal('locationConflictModal');
+            onConfirm();
+        });
+
+        newAbortBtn.addEventListener('click', () => {
+            UI.closeModal('locationConflictModal');
+            if (returnModalId) UI.openModal(returnModalId);
+        });
+
+        UI.closeModal(returnModalId);
+        UI.openModal('locationConflictModal');
     },
 
     setupStatusSwitcher() {
@@ -1337,7 +1515,12 @@ const Rehearsals = {
                 }
 
                 const memberConflicts = this.collectMemberConflicts(startDateTime, endDateTime);
-                const hasConflict = locationConflicts.length > 0 || memberConflicts.length > 0;
+                let personalConflicts = [];
+                if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+                    personalConflicts = PersonalCalendar.getPersonalConflicts(startDateTime, endDateTime);
+                }
+
+                const hasConflict = locationConflicts.length > 0 || memberConflicts.length > 0 || personalConflicts.length > 0;
 
                 // Mark as confirmed
                 item.dataset.confirmed = 'true';
@@ -1381,7 +1564,7 @@ const Rehearsals = {
                 if (hasConflict) {
                     const detailsBox = document.createElement('div');
                     detailsBox.className = 'availability-details-stack';
-                    detailsBox.innerHTML = this.buildAvailabilityDetailsHtml({ locationConflicts, memberConflicts });
+                    detailsBox.innerHTML = this.buildAvailabilityDetailsHtml({ locationConflicts, memberConflicts, startDateTime, endDateTime });
                     item.appendChild(detailsBox);
                 }
 
@@ -2091,68 +2274,36 @@ const Rehearsals = {
                 const availability = await App.checkLocationAvailability(locationId, startDate, endDate);
 
                 if (!availability.available && availability.conflicts && availability.conflicts.length > 0) {
-                    // Show conflict warning modal
-                    const location = await Storage.getLocation(locationId);
-                    let dateLabel = '';
-                    const conflictCount = availability.conflicts.length;
-                    if (editedStartTime) {
-                        dateLabel = UI.formatDate(editedStartTime);
-                        if (editedEndTime) {
-                            const start = new Date(editedStartTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                            const end = new Date(editedEndTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                            dateLabel += ` (${start} - ${end})`;
-                        }
-                    }
-                    const conflictDetailsHtml = `
-                        <div class="conflict-container">
-                            <div class="conflict-header">
-                                <div class="conflict-header-title-row">
-                                    <span class="conflict-header-kicker">Ort</span>
-                                    <span class="conflict-header-badge">${this.formatCountLabel(conflictCount, 'Überschneidung', 'Überschneidungen')}</span>
-                                </div>
-                                <div class="conflict-header-title">${Bands.escapeHtml(location?.name || 'Unbekannt')}</div>
-                                <div class="conflict-header-info">
-                                    <span class="conflict-header-info-label">Gewählter Zeitraum</span>
-                                    <strong>${dateLabel}</strong>
-                                </div>
-                                <p class="conflict-header-text">Der ausgewählte Probeort ist in diesem Zeitraum bereits belegt. Unten siehst du, welche Buchungen sich mit deiner Probe überschneiden.</p>
-                            </div>
-                            <div class="conflict-card">
-                                <div class="conflict-card-header">
-                                    <div class="date-badge">Diese Belegungen überschneiden sich</div>
-                                    <span class="conflict-count">${this.formatCountLabel(conflictCount, 'Eintrag', 'Einträge')}</span>
-                                </div>
-                                <div class="conflict-card-body">
-                                    <div class="conflict-event-list">
-                                        ${availability.conflicts.map(conflict => {
-                                            const start = new Date(conflict.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                                            const end = new Date(conflict.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                                            const day = new Date(conflict.startDate).toLocaleDateString('de-DE', { weekday: 'long', day: '2-digit', month: '2-digit' });
-                                            return `
-                                                <div class="conflict-event-item">
-                                                    <span class="conflict-event-bullet" aria-hidden="true"></span>
-                                                    <div class="conflict-event-info">
-                                                        <div class="conflict-event-title">${Bands.escapeHtml(conflict.summary)}</div>
-                                                        <div class="conflict-event-time">${day} · ${start} - ${end} Uhr</div>
-                                                    </div>
-                                                </div>`;
-                                        }).join('')}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-
-                    document.getElementById('conflictDetails').innerHTML = conflictDetailsHtml;
-
-                    window._pendingRehearsalCreation = null;
-                    window._locationConflictReturnModalId = 'confirmRehearsalModal';
-
-                    // Close confirmation modal and open conflict modal
-                    UI.closeModal('confirmRehearsalModal');
-                    UI.openModal('locationConflictModal');
-
+                    await this.showLocationConflictModal(
+                        locationId,
+                        editedStartTime,
+                        editedEndTime,
+                        availability.conflicts,
+                        'confirmRehearsalModal',
+                        () => this.confirmRehearsal(true)
+                    );
                     return; // Stop here, wait for user decision
+                }
+            }
+
+            // Check personal conflicts if not forcing confirmation
+            if (!forceConfirm && typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+                const personalConflicts = PersonalCalendar.getPersonalConflicts(editedStartTime, editedEndTime);
+                if (personalConflicts.length > 0) {
+                    let dateLabel = UI.formatDate(editedStartTime);
+                    const start = new Date(editedStartTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const end = new Date(editedEndTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    dateLabel += ` (${start} - ${end})`;
+
+                    const proceed = await this.showPersonalConflictModal(
+                        personalConflicts,
+                        dateLabel,
+                        'confirmRehearsalModal'
+                    );
+                    if (proceed) {
+                        await this.confirmRehearsal(true);
+                    }
+                    return;
                 }
             }
 
@@ -2541,29 +2692,44 @@ const Rehearsals = {
         }
 
         // Check location availability if location is calendar-linked
-        if (locationId && typeof App !== 'undefined' && App.checkLocationAvailability) {
+        if (locationId && !options.forceConfirm && typeof App !== 'undefined' && App.checkLocationAvailability) {
             for (const date of normalizedDates) {
                 const startDate = new Date(date.startTime);
                 const endDate = new Date(date.endTime);
 
                 const availability = await App.checkLocationAvailability(locationId, startDate, endDate);
 
-                if (!availability.available) {
-                    const location = await Storage.getLocation(locationId);
-                    const conflictList = availability.conflicts.map(c => {
-                        const start = new Date(c.startDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        const end = new Date(c.endDate).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                        return `• ${c.summary} (${start} - ${end})`;
-                    }).join('\n');
-
-                    const proceed = confirm(
-                        `⚠️ Achtung: ${location.name} ist am ${date.date} in diesem Zeitraum bereits belegt.\n\n` +
-                        `Diese bestehenden Buchungen überschneiden sich mit deiner Probe:\n${conflictList}\n\n` +
-                        `Wenn du fortfährst, wird die Probe trotzdem mit diesem Ort gespeichert. Möchtest du das wirklich?`
+                if (!availability.available && availability.conflicts && availability.conflicts.length > 0) {
+                    await this.showLocationConflictModal(
+                        locationId,
+                        date.startTime,
+                        date.endTime,
+                        availability.conflicts,
+                        'createRehearsalModal',
+                        () => this.createRehearsal(bandId, title, description, dates, locationId, eventId, { ...options, forceConfirm: true })
                     );
+                    return; // Stop here, wait for user decision
+                }
 
-                    if (!proceed) {
-                        return;
+                // Check personal conflicts
+                if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+                    const personalConflicts = PersonalCalendar.getPersonalConflicts(date.startTime, date.endTime);
+                    if (personalConflicts.length > 0) {
+                        let dateLabel = UI.formatDate(date.startTime);
+                        const start = new Date(date.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        const end = new Date(date.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        dateLabel += ` (${start} - ${end})`;
+
+                        const proceed = await this.showPersonalConflictModal(
+                            personalConflicts,
+                            dateLabel,
+                            'createRehearsalModal'
+                        );
+                        if (proceed) {
+                            return await this.createRehearsal(bandId, title, description, dates, locationId, eventId, { ...options, forceConfirm: true });
+                        } else {
+                            return;
+                        }
                     }
                 }
             }
@@ -2701,8 +2867,57 @@ const Rehearsals = {
 
     // Update rehearsal
     async updateRehearsal(rehearsalId, bandId, title, description, dates, locationId, eventId, notifyMembers = false, options = {}) {
+        // Check for location and personal conflicts if not forcing update
+        if (!options.forceConfirm) {
+            const normalizedDates = Array.isArray(dates)
+                ? dates.filter(date => date && date.startTime && date.endTime)
+                : [];
+
+            for (const date of normalizedDates) {
+                // Location conflicts
+                if (locationId && typeof App !== 'undefined' && App.checkLocationAvailability) {
+                    const startDate = new Date(date.startTime);
+                    const endDate = new Date(date.endTime);
+                    const availability = await App.checkLocationAvailability(locationId, startDate, endDate);
+
+                    if (!availability.available && availability.conflicts && availability.conflicts.length > 0) {
+                        await this.showLocationConflictModal(
+                            locationId,
+                            date.startTime,
+                            date.endTime,
+                            availability.conflicts,
+                            'createRehearsalModal',
+                            () => this.updateRehearsal(rehearsalId, bandId, title, description, dates, locationId, eventId, notifyMembers, { ...options, forceConfirm: true })
+                        );
+                        return;
+                    }
+                }
+
+                // Personal conflicts (for the current user)
+                if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+                    const personalConflicts = PersonalCalendar.getPersonalConflicts(date.startTime, date.endTime);
+                    if (personalConflicts.length > 0) {
+                        let dateLabel = UI.formatDate(date.startTime);
+                        const start = new Date(date.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        const end = new Date(date.endTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                        dateLabel += ` (${start} - ${end})`;
+
+                        const proceed = await this.showPersonalConflictModal(
+                            personalConflicts,
+                            dateLabel,
+                            'createRehearsalModal'
+                        );
+                        if (proceed) {
+                            return await this.updateRehearsal(rehearsalId, bandId, title, description, dates, locationId, eventId, notifyMembers, { ...options, forceConfirm: true });
+                        } else {
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         // Get old rehearsal data before updating
-        const oldRehearsal = await Storage.getRehearsal(rehearsalId);
         const payload = this.buildRehearsalPayload({
             bandId,
             title,

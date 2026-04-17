@@ -3483,6 +3483,15 @@ const App = {
     },
 
     async init() {
+        if (this.isInitializing) {
+            console.log('[App.init] Initialization already in progress, skipping duplicate.');
+            return;
+        }
+
+        const startTime = performance.now();
+        this.isInitializing = true;
+        console.log('[App.init] Boot sequence started...');
+
         // Implement unsaved changes check
         window.isProfileDirty = false;
         if (typeof UI !== 'undefined' && !UI._originalCloseModal) {
@@ -3541,10 +3550,8 @@ const App = {
         this.initializeThemeSystem();
         this.setupStatePersistence();
 
-        // Initialisierung
+        // UI Prep
         this.setupDashboardFeatures();
-
-        // Initialize Supabase Auth first
         this.setupMobileSubmenuToggle();
         this.setupSidebarToggle();
         this.setupSidebarNav();
@@ -3554,61 +3561,66 @@ const App = {
             ChordProConverter.init();
         }
 
+        // Sequential initialization with progress logging
+        try {
+            console.log('[App.init] Step 1: Recovering session...');
+            await Auth.init();
 
-        // Start Auth initialization in background (non-blocking)
+            // Give the browser a chance to respond to loader/events
+            await new Promise(resolve => setTimeout(resolve, 0));
 
-        Auth.init().then(async () => {
-            // After auth is ready, check if authenticated and show appropriate view
+            const authCheckTime = ((performance.now() - startTime) / 1000).toFixed(2);
+            console.log(`[App.init] Auth state determined at ${authCheckTime}s. Authenticated: ${Auth.isAuthenticated()}`);
+
             if (Auth.isAuthenticated()) {
+                console.log('[App.init] Step 2: Displaying main application...');
                 await this.showApp();
-                // Pre-load standard calendars after login (delayed to not block UI)
+                
+                const appShowTime = ((performance.now() - startTime) / 1000).toFixed(2);
+                console.log(`[App.init] Application rendered at ${appShowTime}s.`);
+
+                // Background tasks (non-blocking)
                 setTimeout(async () => {
-                    await this.preloadStandardCalendars();
-                    // Log total app load time
-                    if (window.APP_START_TIME) {
-                        const loadTime = ((performance.now() - window.APP_START_TIME) / 1000).toFixed(3);
-                        Logger.info(`🚀 Application fully loaded in ${loadTime}s`);
+                    console.log('[App.init] Background: Starting maintenance tasks...');
+                    try {
+                        // Initialize header submenu for default view on mobile only
+                        if (window.innerWidth <= 768) {
+                            this.updateHeaderSubmenu('dashboard');
+                        }
+                        
+                        await this.updateAbsenceIndicator();
+                        await this.preloadStandardCalendars();
+                        Storage.cleanupPastItems(); // already parallelized internally now
+                        
+                        const totalLoadTime = ((performance.now() - startTime) / 1000).toFixed(2);
+                        console.log(`[App.init] All background tasks initiated. Total lifecycle: ${totalLoadTime}s.`);
+                    } catch (bgErr) {
+                        console.warn('[App.init] Background task encountered an issue:', bgErr);
                     }
-                }, 2000);
-                // Clean up past items
-                Storage.cleanupPastItems();
+                }, 1000);
+
             } else {
+                console.log('[App.init] Not authenticated. Showing auth/landing UI.');
                 this.showAuth();
-                if (window.APP_START_TIME) {
-                    const loadTime = ((performance.now() - window.APP_START_TIME) / 1000).toFixed(3);
-                    Logger.info(`🚀 Application fully loaded in ${loadTime}s`);
-                }
             }
-        }).catch(authErr => {
-            console.error('[App.init] Auth initialization failed:', authErr);
-            // Show auth page on error
-            this.showAuth();
-        });
 
-        // Setup event listeners
-        this.setupEventListeners();
-        // Initialize header submenu for default view on mobile only
-        if (window.innerWidth <= 768) {
-            this.updateHeaderSubmenu('dashboard');
+            // Setup listeners only once
+            this.setupEventListeners();
+
+        } catch (error) {
+            console.error('[App.init] CRITICAL: Device boot sequence failed:', error);
+            if (Auth.isAuthenticated()) {
+                UI.showToast('Fehler beim Initialisieren der App.', 'error');
+            }
+        } finally {
+            this.isInitializing = false;
+            // init draft song list for new events
+            this.draftEventSongIds = [];
+            this.draftEventSongOverrides = {};
+            this.draftEventRundown = this.normalizeEventRundownData();
+            this.draftEventSongBlockTargetId = null;
+            this.lastSongModalContext = null;
         }
-        // init draft song list for new events
-        this.draftEventSongIds = [];
-        this.draftEventSongOverrides = {};
-        this.draftEventRundown = this.normalizeEventRundownData();
-        this.draftEventSongBlockTargetId = null;
-        this.lastSongModalContext = null; // { eventId, bandId, origin }
-
-        // Update absence indicator
-        await this.updateAbsenceIndicator();
-
-        // Load calendar immediately if Tonstudio view is present
-        document.addEventListener('DOMContentLoaded', () => {
-            if (document.getElementById('tonstudioView')) {
-                if (typeof Calendar !== 'undefined' && Calendar.loadCalendar) {
-                    Calendar.loadCalendar();
-                }
-            }
-        });
     },
 
     async preloadStandardCalendars() {
@@ -15400,7 +15412,6 @@ const App = {
             container.style.backgroundColor = '#e5e7eb'; // Default light
             container.style.color = '#444';
             container.textContent = initials;
-
             // Adjust styles for text
             container.style.lineHeight = '36px';
             container.style.fontSize = '1.1em';
@@ -15408,6 +15419,7 @@ const App = {
             container.style.textAlign = 'center';
         }
     },
+
 
     // Render locations list
     async renderLocationsList() {

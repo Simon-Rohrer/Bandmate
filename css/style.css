@@ -15336,6 +15336,11 @@ html[data-theme="light"] .modal-import-songs .modal-content.import-songs-modal,
         linear-gradient(180deg, color-mix(in srgb, var(--color-danger) 4%, transparent), transparent 100%);
 }
 
+.personal-conflict-header {
+    background:
+        linear-gradient(180deg, rgba(245, 158, 11, 0.08), transparent 100%);
+}
+
 .conflict-modal-copy {
     display: flex;
     flex-direction: column;
@@ -15393,6 +15398,14 @@ html[data-theme="light"] .modal-import-songs .modal-content.import-songs-modal,
     border: 1px solid color-mix(in srgb, var(--color-danger) 28%, var(--color-border));
     background:
         linear-gradient(180deg, color-mix(in srgb, var(--color-danger) 10%, transparent), transparent 95%),
+        var(--color-bg-secondary);
+}
+
+.conflict-container:has(.personal-conflict-header) .conflict-header,
+.personal-conflict-container .conflict-header {
+    border-color: rgba(245, 158, 11, 0.4);
+    background:
+        linear-gradient(180deg, rgba(245, 158, 11, 0.12), transparent 95%),
         var(--color-bg-secondary);
 }
 

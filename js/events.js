@@ -1672,6 +1672,40 @@ const Events = {
             return;
         }
 
+        // Check personal conflicts
+        if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+            let allPersonalConflicts = [];
+            for (const date of datesToCheck) {
+                allPersonalConflicts.push(...PersonalCalendar.getPersonalConflicts(date.start, date.end));
+            }
+
+            if (allPersonalConflicts.length > 0) {
+                const uniqueConflicts = Array.from(new Set(allPersonalConflicts.map(c => `${c.title}|${c.start}|${c.end}`)))
+                    .map(key => {
+                        const [title, start, end] = key.split('|');
+                        return { title, start, end };
+                    });
+
+                const lines = uniqueConflicts.map(c => {
+                    const d = new Date(c.start).toLocaleDateString('de-DE');
+                    const s = new Date(c.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    const e = new Date(c.end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                    return `• ${c.title} (${d}, ${s} - ${e})`;
+                });
+
+                const msg = `Du hast für diesen Auftrittszeitraum bereits eigene Termine:\n\n${lines.join('\n')}\n\nMöchtest du den Auftritt trotzdem speichern?`;
+                UI.showConfirm(msg, async () => {
+                    await persistEvent();
+                }, null, {
+                    kicker: 'Persönlicher Konflikt',
+                    title: 'Terminkonflikt festgestellt',
+                    confirmText: 'Trotzdem speichern',
+                    confirmClass: 'btn-warning'
+                });
+                return;
+            }
+        }
+
         await persistEvent();
     },
 
@@ -1922,9 +1956,34 @@ const Events = {
         `;
     },
 
-    buildAvailabilityDetailsHtml(memberConflicts = []) {
-        if (!Array.isArray(memberConflicts) || memberConflicts.length === 0) return '';
-        return `<div class="member-details-box">${this.buildMemberConflictDetailsSection(memberConflicts)}</div>`;
+    buildAvailabilityDetailsHtml(memberConflicts = [], startDateTime = null, endDateTime = null) {
+        const sections = [];
+        
+        if (Array.isArray(memberConflicts) && memberConflicts.length > 0) {
+            sections.push(`<div class="member-details-box">${this.buildMemberConflictDetailsSection(memberConflicts)}</div>`);
+        }
+
+        if (startDateTime && endDateTime && typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+            const pConflicts = PersonalCalendar.getPersonalConflicts(startDateTime, endDateTime);
+            if (pConflicts.length > 0) {
+                sections.push(`<div class="conflict-details-box">${this.buildPersonalConflictDetailsSection(pConflicts)}</div>`);
+            }
+        }
+
+        if (sections.length === 0) return '';
+        return sections.join('');
+    },
+
+    buildPersonalConflictDetailsSection(conflicts = []) {
+        if (!Array.isArray(conflicts) || conflicts.length === 0) return '';
+        return `
+            <div class="conflict-details-header">Du hast in diesem Zeitraum bereits einen persönlichen Termin:</div>
+            ${conflicts.map(c => {
+                const start = new Date(c.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                const end = new Date(c.end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+                return `<div class="conflict-item" style="color: var(--color-warning);">• ${Bands.escapeHtml(c.title)} (${start} - ${end})</div>`;
+            }).join('')}
+        `;
     },
 
     async collectSelectedMemberAbsenceConflicts(dateValues = []) {
@@ -2055,6 +2114,9 @@ const Events = {
         if (fixedDateIndicator && (scheduleMode !== 'fixed' || !fixedDateValue)) {
             fixedDateIndicator.textContent = '';
             fixedDateIndicator.className = 'date-availability';
+            if (fixedDateSection) {
+                fixedDateSection.querySelectorAll('.availability-details-stack').forEach(details => details.remove());
+            }
         }
 
         if (fixedDateSection) {
@@ -2069,11 +2131,16 @@ const Events = {
                 const dateValue = new Date(fixedDateValue).toISOString();
                 const endValue = new Date(new Date(dateValue).getTime() + 4 * 60 * 60 * 1000).toISOString();
                 const memberConflicts = this.collectMemberConflicts(dateValue, endValue);
+                
+                let hasPersonalConflict = false;
+                if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+                    hasPersonalConflict = PersonalCalendar.getPersonalConflicts(dateValue, endValue).length > 0;
+                }
 
                 fixedDateIndicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
-                fixedDateIndicator.className = `date-availability ${memberConflicts.length > 0 ? 'has-conflict' : 'is-available'}`;
+                fixedDateIndicator.className = `date-availability ${ (memberConflicts.length > 0 || hasPersonalConflict) ? 'has-conflict' : 'is-available'}`;
 
-                const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts);
+                const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts, dateValue, endValue);
                 if (detailsHtml) {
                     fixedDateIndicator.insertAdjacentHTML('afterend', `<div class="availability-details-stack">${detailsHtml}</div>`);
                 }
@@ -2113,10 +2180,15 @@ const Events = {
             const endDateTime = new Date(new Date(startDateTime).getTime() + 4 * 60 * 60 * 1000).toISOString();
             const memberConflicts = this.collectMemberConflicts(startDateTime, endDateTime);
 
-            indicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
-            indicator.className = `date-availability ${memberConflicts.length > 0 ? 'has-conflict' : 'is-available'}`;
+            let hasPersonalConflict = false;
+            if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+                hasPersonalConflict = PersonalCalendar.getPersonalConflicts(startDateTime, endDateTime).length > 0;
+            }
 
-            const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts);
+            indicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
+            indicator.className = `date-availability ${(memberConflicts.length > 0 || hasPersonalConflict) ? 'has-conflict' : 'is-available'}`;
+
+            const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts, startDateTime, endDateTime);
             if (detailsHtml) {
                 item.insertAdjacentHTML('beforeend', `<div class="availability-details-stack">${detailsHtml}</div>`);
             }

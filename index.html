@@ -165,15 +165,26 @@
             function syncLandingStateClass() {
                 const landing = document.getElementById('landingPage');
                 const isLandingActive = Boolean(landing && landing.classList.contains('active'));
-                document.body.classList.toggle('landing-active', isLandingActive);
-                document.documentElement.classList.toggle('landing-active-root', isLandingActive);
+                
+                // Only toggle if the state has actually changed to prevent unecessary mutations
+                if (document.body.classList.contains('landing-active') !== isLandingActive) {
+                    document.body.classList.toggle('landing-active', isLandingActive);
+                    document.documentElement.classList.toggle('landing-active-root', isLandingActive);
+                }
             }
 
             function hideOverlay() {
                 if (overlay) {
                     clearOverlayTimeout();
                     overlay.style.opacity = '0';
-                    setTimeout(() => overlay.style.display = 'none', 400);
+                    setTimeout(() => {
+                        overlay.style.display = 'none';
+                        // Disconnect observer once we are hidden to save resources
+                        if (window.__loaderObserver) {
+                            window.__loaderObserver.disconnect();
+                            window.__loaderObserver = null;
+                        }
+                    }, 400);
                 }
             }
             // Hide overlay as soon as main app or landing page is visible
@@ -190,10 +201,14 @@
 
             syncLandingStateClass();
             // Observe DOM changes to detect when app is shown
-            const observer = new MutationObserver(() => {
-                if (checkAppReady()) observer.disconnect();
+            // Use a specific attribute filter to avoid firing on every single property change
+            let observer = new MutationObserver(() => {
+                if (checkAppReady()) {
+                    if (observer) observer.disconnect();
+                }
             });
-            observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['style', 'class'] });
+            window.__loaderObserver = observer;
+            observer.observe(document.body, { attributes: true, attributeFilter: ['style', 'class'] });
 
             if (overlay) {
                 const computedInitial = window.getComputedStyle(overlay);
@@ -202,6 +217,7 @@
                     scheduleOverlayTimeout();
                 }
 
+                // Internal observer just for the overlay itself (very lightweight)
                 const overlayObserver = new MutationObserver(() => {
                     const computed = window.getComputedStyle(overlay);
                     const isVisible = computed.display !== 'none' && computed.opacity !== '0';
@@ -3253,6 +3269,32 @@
                     <button type="button" class="btn cancel" id="abortConfirmationBtn">Abbrechen</button>
                     <button type="button" class="btn btn-primary" id="proceedAnywayBtn">Trotzdem
                         fortfahren</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Personal Conflict Warning Modal (Private Appointments/Absences) -->
+    <div id="personalConflictModal" class="modal">
+        <div class="modal-content conflict-modal-content">
+            <div class="modal-header conflict-modal-header personal-conflict-header">
+                <div class="conflict-modal-copy">
+                    <span class="conflict-modal-kicker">Persönlicher Konflikt</span>
+                    <h2>Du hast bereits einen Termin</h2>
+                    <p>Du hast im gewählten Zeitraum bereits eigene Termine oder Abwesenheiten eingetragen. Prüfe die Überschneidungen unten.</p>
+                </div>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body conflict-modal-body">
+                <div id="personalConflictDetails" class="conflict-details"></div>
+
+                <p class="conflict-modal-question">
+                    Möchtest du die Probe trotzdem mit diesem Termin bestätigen?
+                </p>
+
+                <div class="modal-actions conflict-modal-actions">
+                    <button type="button" class="btn cancel" id="abortPersonalConflictBtn">Abbrechen</button>
+                    <button type="button" class="btn btn-primary" id="proceedPersonalAnywayBtn">Trotzdem speichern</button>
                 </div>
             </div>
         </div>
