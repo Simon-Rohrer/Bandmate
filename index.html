@@ -4497,6 +4497,37 @@
     </div>
     </div>
 
+    <!-- Calendar Setup Help Modal -->
+    <div id="calendarSetupHelpModal" class="modal">
+        <div class="modal-content chordpro-help-modal-content">
+            <div class="modal-header">
+                <div class="chordpro-help-title-group">
+                    <span class="chordpro-help-kicker">Kalender Hilfe</span>
+                    <h2>Kalender einrichten und synchronisieren</h2>
+                </div>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body modal-scroll">
+                <div class="chordpro-help-layout">
+                    <section class="chordpro-help-section">
+                        <div class="chordpro-help-icon">🔗</div>
+                        <h3>Warum den Kalender einrichten?</h3>
+                        <p>Du kannst private Kalender aus Apple Kalender, Google Calendar etc. einbinden, damit Bandkollegen bei Abstimmungen direkt sehen, falls du schon verplant bist.</p>
+                    </section>
+                    
+                    <section class="chordpro-help-section">
+                        <div class="chordpro-help-icon">⚙️</div>
+                        <h3>So richtest du ihn ein</h3>
+                        <p>Gehe zu <strong>Einstellungen → Profil → Externe Kalender</strong> und kopiere dort die iCAL-URL deines Google oder Apple Kalenders hinein.</p>
+                    </section>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-primary" onclick="UI.closeModal('calendarSetupHelpModal')">Verstanden</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Feedback Modal -->
     <div id="feedbackModal" class="modal">
         <div class="modal-content feedback-modal-shell">

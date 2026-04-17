@@ -301,7 +301,12 @@ const PersonalCalendar = {
                 <div class="personal-calendar-head-top">
                     <div class="personal-calendar-head-copy">
                         <span class="personal-calendar-head-kicker">Persönliche Termine und Synchronisation</span>
-                        <p>Alle Termine und dein Kalender-Abo in einem Bereich.</p>
+                        <div style="display: flex; align-items: center; gap: 1rem; margin-top: 0.25rem; margin-bottom: 0.25rem;">
+                            <h2 style="margin: 0;">Meine Termine</h2>
+                            <button type="button" class="btn btn-secondary btn-sm songpool-help-button" onclick="UI.openModal('calendarSetupHelpModal')">
+                                Jetzt Kalender einrichten
+                            </button>
+                        </div>
                     </div>
                     <div class="personal-calendar-header-actions">
                         <div class="personal-calendar-toolbar-nav">
@@ -413,8 +418,9 @@ const PersonalCalendar = {
     formatDateForInput(value) {
         if (!value) return '';
 
-        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}/.test(value)) {
-            return value.slice(0, 10);
+        // If strictly a date (no time component), return directly to avoid timezone shift on parsing
+        if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+            return value;
         }
 
         const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
@@ -852,13 +858,22 @@ const PersonalCalendar = {
                     // Check if it's an all-day event
                     const isAllDay = event.startDate.isDate;
 
+                    let dateStr = dtStart.toISOString();
+                    let endDateStr = dtEnd.toISOString();
+
+                    if (isAllDay) {
+                        // Retain exact date without TZ-offset shifts for all-day events
+                        dateStr = `${event.startDate.year}-${String(event.startDate.month).padStart(2, '0')}-${String(event.startDate.day).padStart(2, '0')}`;
+                        endDateStr = `${event.endDate.year}-${String(event.endDate.month).padStart(2, '0')}-${String(event.endDate.day).padStart(2, '0')}`;
+                    }
+
                     return {
                         id: 'ext_' + Math.random().toString(36).substr(2, 9),
                         title: event.summary,
                         location: event.location,
                         description: event.description,
-                        date: dtStart.toISOString(),
-                        endDate: dtEnd.toISOString(),
+                        date: dateStr,
+                        endDate: endDateStr,
                         isAllDay: isAllDay,
                         time: isAllDay ? null : `${dtStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} - ${dtEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
                         type: 'external',

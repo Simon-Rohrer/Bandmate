@@ -572,16 +572,18 @@ const Calendar = {
         const eventId = `event_${event.uid}_${event.startDate.getTime()}`;
 
         return `
-            <div class="calendar-event" 
+            <div class="calendar-event location-type"
                  id="${eventId}"
                  data-event-summary="${this.escapeHtml(event.summary)}"
                  data-event-date="${this.escapeHtml(dateDisplay)}"
                  data-event-time="${timeDisplay}"
                  data-event-location="${this.escapeHtml(event.location || '')}"
                  data-event-description="${this.escapeHtml(event.description || '')}"
-                 title="Klicken für Details">
-                <span class="event-time">${timeDisplay}</span>
-                <span class="event-title">${truncateTitle(event.summary)}</span>
+                 title="Klicken für Details"
+                 style="background: #334155; border-color: rgba(148,163,184,0.18);">
+                <div class="calendar-event-type" style="color: rgba(186,212,255,0.8); font-weight: 800; font-size: 0.55rem;">📅 Kalender</div>
+                <div class="calendar-event-title" style="color: var(--color-text); font-weight: 600;">${truncateTitle(event.summary)}</div>
+                <div class="calendar-event-band" style="color: var(--color-text-secondary); opacity: 0.7; font-size: 0.55rem;">${timeDisplay}</div>
             </div>
         `;
     },

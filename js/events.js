@@ -1950,7 +1950,10 @@ const Events = {
 
     getMemberStatusMeta(memberConflicts = []) {
         if (memberConflicts.length > 0) {
-            return null;
+            return {
+                tone: 'conflict',
+                text: this.getMemberConflictSummaryLabel(memberConflicts)
+            };
         }
 
         return {
@@ -1960,21 +1963,23 @@ const Events = {
     },
 
     buildMemberStatusMarkup(memberConflicts = [], hasPersonalConflict = false) {
-        let statusHtml = '';
-        
-        // Text removed per user request - only visual highlight via class remains
-        
+        const lines = [];
+
+        if (hasPersonalConflict) {
+            lines.push(`<span class="proposal-status-line is-warning" style="color: var(--color-warning);">⚠️ Du hast in diesem Zeitraum bereits einen persönlichen Termin</span>`);
+        }
+
         const memberStatus = this.getMemberStatusMeta(memberConflicts);
         if (memberStatus) {
             const icon = memberStatus.tone === 'conflict' ? '⚠️' : '✓';
-            statusHtml += `<span class="proposal-status-line is-${memberStatus.tone}">${icon} ${memberStatus.text}</span>`;
+            lines.push(`<span class="proposal-status-line is-${memberStatus.tone}">${icon} ${memberStatus.text}</span>`);
         }
 
-        if (!statusHtml) return '';
+        if (lines.length === 0) return '';
 
         return `
             <div class="proposal-status-stack">
-                ${statusHtml}
+                ${lines.join('')}
             </div>
         `;
     },
@@ -2281,7 +2286,12 @@ const Events = {
 
             const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts, startDateTime, endDateTime);
             if (detailsHtml) {
-                item.insertAdjacentHTML('beforeend', `<div class="availability-details-stack">${detailsHtml}</div>`);
+                const footer = item.querySelector('.date-proposal-footer');
+                if (footer) {
+                    footer.insertAdjacentHTML('afterend', `<div class="availability-details-stack">${detailsHtml}</div>`);
+                } else {
+                    item.insertAdjacentHTML('beforeend', `<div class="availability-details-stack">${detailsHtml}</div>`);
+                }
             }
         }
     },

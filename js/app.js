@@ -4342,6 +4342,16 @@ const App = {
                     Rehearsals.originalRehearsal = null;
                 }
 
+                // Warn on unsaved changes
+                window._rehearsalFormDirty = false;
+                UI.guardModalClose('createRehearsalModal', '_rehearsalFormDirty');
+                const rehearsalForm = document.getElementById('createRehearsalForm');
+                if (rehearsalForm && !rehearsalForm.dataset.dirtyTracking) {
+                    rehearsalForm.dataset.dirtyTracking = 'true';
+                    rehearsalForm.addEventListener('input', () => { window._rehearsalFormDirty = true; });
+                    rehearsalForm.addEventListener('change', () => { window._rehearsalFormDirty = true; });
+                }
+
                 // Hide delete button for new rehearsal
                 const deleteBtn = document.getElementById('deleteRehearsalBtn');
                 if (deleteBtn) {
@@ -4358,9 +4368,16 @@ const App = {
                 await Bands.populateBandSelects();
                 await this.populateLocationSelect();
 
-                if (typeof Rehearsals !== 'undefined' && Rehearsals.loadBandMembers) {
+                if (typeof Rehearsals !== 'undefined') {
                     const currentBandId = document.getElementById('rehearsalBand')?.value || '';
-                    if (!currentBandId) {
+                    if (currentBandId) {
+                        if (typeof Rehearsals.fetchBandMemberAbsences === 'function') {
+                            await Rehearsals.fetchBandMemberAbsences(currentBandId);
+                        }
+                        if (typeof Rehearsals.loadBandMembers === 'function') {
+                            await Rehearsals.loadBandMembers(currentBandId, []);
+                        }
+                    } else if (typeof Rehearsals.loadBandMembers === 'function') {
                         await Rehearsals.loadBandMembers('', []);
                     }
                 }
@@ -4503,6 +4520,9 @@ const App = {
                 eventTimeInput.value = '19:00';
             }
 
+            // Populate returns immediately, if single band it triggers change listener which loads members + absences
+            await Events.populateBandSelect();
+
             // Reset Date Proposals
             if (typeof Events !== 'undefined' && Events.resetDateProposalRows) {
                 Events.resetDateProposalRows();
@@ -4516,7 +4536,6 @@ const App = {
                 Events.setScheduleMode('fixed', { lockMode: false, refreshAvailability: true });
             }
 
-            await Events.populateBandSelect();
             // Clear draft song selection and deleted songs for new event
             this.resetDraftEventState();
             await this.renderDraftEventSongs();
@@ -4562,13 +4581,15 @@ const App = {
         eventFixedInputs.forEach((eventDateInput) => {
             if (eventDateInput.dataset.rundownBound === 'true') return;
             eventDateInput.dataset.rundownBound = 'true';
-            eventDateInput.addEventListener('change', () => {
+            const handler = () => {
                 if (typeof Events !== 'undefined' && typeof Events.updateAvailabilityIndicators === 'function') {
                     Events.updateAvailabilityIndicators();
                 }
                 this.syncDraftEventRundownStartFromEventDate(true);
                 this.renderEventRundownEditor();
-            });
+            };
+            eventDateInput.addEventListener('change', handler);
+            eventDateInput.addEventListener('input', handler);
         });
 
         const eventRundownPdfBtn = document.getElementById('eventRundownPdfBtn');
