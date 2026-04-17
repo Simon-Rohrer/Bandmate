@@ -23,16 +23,50 @@ const PersonalCalendar = {
         this.hasLoaded = false;
     },
 
-    async loadPersonalCalendar() {
-        Logger.time('Personal Calendar Load');
-        if (this.hasLoaded) {
+    // Silent background data loader for use by other modules (e.g., Events modal).
+    // Loads data without touching the DOM/UI.
+    async ensureDataLoaded() {
+        if (this.hasLoaded || this.isLoading) return;
+        this.isLoading = true;
+        try {
+            const user = Auth.getCurrentUser();
+            if (!user) return;
+            const userBands = await Storage.getUserBands(user.id);
+            this.userBands = Array.isArray(userBands) ? userBands : [];
+            const bandIds = this.userBands.map(b => b.id || b.band_id || b.bandId).filter(Boolean);
+            const [allEvents, allRehearsals, allAbsences, userCalendars] = await Promise.all([
+                bandIds.length > 0 ? this.loadUserEvents(bandIds) : Promise.resolve([]),
+                bandIds.length > 0 ? this.loadUserRehearsals(bandIds) : Promise.resolve([]),
+                this.loadUserAbsences(user.id),
+                Storage.get('external_calendars', { user_id: user.id })
+            ]);
+            let allExternal = [];
+            if (userCalendars && userCalendars.length > 0) {
+                const feeds = await Promise.all(userCalendars.map(c => this.loadExternalCalendar(c.url, c.name)));
+                allExternal = feeds.flat();
+            } else if (user.personal_ical_url) {
+                allExternal = await this.loadExternalCalendar(user.personal_ical_url, 'Hauptkalender');
+            }
+            this.events = allEvents || [];
+            this.rehearsals = allRehearsals || [];
+            this.absences = allAbsences || [];
+            this.externalEvents = allExternal || [];
+            this.hasLoaded = true;
+        } catch (e) {
+            console.warn('[PersonalCalendar] Silent data load failed:', e);
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    async loadPersonalCalendar(forceReload = false) {
+        if (!forceReload && this.hasLoaded) {
             this.renderCalendar();
-            Logger.timeEnd('Personal Calendar Load');
             return;
         }
-
         if (this.isLoading) return;
         this.isLoading = true;
+        Logger.time('Personal Calendar Load');
 
         const startTime = performance.now();
         const container = document.getElementById('personalCalendarContainer');

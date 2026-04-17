@@ -1142,7 +1142,7 @@ const Rehearsals = {
                                 </button>
                             ` : ''}
                             ${canManage ? `
-                                <button class="btn btn-secondary edit-rehearsal" data-rehearsal-id="${rehearsal.id}">
+                                <button class="btn btn-secondary edit-rehearsal" data-rehearsal-id="${rehearsal.id}" style="margin-left: auto;">
                                     Bearbeiten
                                 </button>
                                 <button class="btn btn-danger delete-rehearsal" data-rehearsal-id="${rehearsal.id}">
@@ -2755,6 +2755,7 @@ const Rehearsals = {
         // Votes will be created when they interact with the buttons
 
         UI.showToast(scheduleMode === 'fixed' ? 'Probetermin erstellt' : 'Probetermin vorgeschlagen', 'success');
+        window._rehearsalFormDirty = false;
         UI.closeModal('createRehearsalModal');
 
         // Force a true refresh from DB to get all context (votes, creators etc)
@@ -2863,6 +2864,20 @@ const Rehearsals = {
         }
 
         UI.openModal('createRehearsalModal');
+
+        // Reset dirty flag when modal opens
+        window._rehearsalFormDirty = false;
+
+        // Register close guard once (idempotent via hasCloseGuard flag)
+        UI.guardModalClose('createRehearsalModal', '_rehearsalFormDirty');
+
+        // Track form changes after modal is open
+        const rehearsalForm = document.getElementById('createRehearsalForm');
+        if (rehearsalForm && !rehearsalForm.dataset.dirtyTracking) {
+            rehearsalForm.dataset.dirtyTracking = 'true';
+            rehearsalForm.addEventListener('input', () => { window._rehearsalFormDirty = true; });
+            rehearsalForm.addEventListener('change', () => { window._rehearsalFormDirty = true; });
+        }
     },
 
     // Update rehearsal
@@ -2947,6 +2962,7 @@ const Rehearsals = {
             UI.showToast('Probetermin aktualisiert', 'success');
         }
 
+        window._rehearsalFormDirty = false;
         UI.closeModal('createRehearsalModal');
         this.invalidateCache();
         await this.renderRehearsals(this.currentFilter);

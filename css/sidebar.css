@@ -73,8 +73,9 @@ html.theme-dark {
 }
 
 .sidebar-logo-container img {
-    height: 32px;
+    height: 44px; /* Vergrößert für bessere Präsenz (vorher 32px) */
     width: auto;
+    transition: height 0.3s ease;
 }
 
 .logo-collapsed {
@@ -124,6 +125,10 @@ html.theme-dark {
     display: block;
 }
 
+.app-sidebar.collapsed .sidebar-logo-container img {
+    height: 32px; /* Kleinere Größe im kollabierten Zustand beibehalten */
+}
+
 .app-sidebar.collapsed .sidebar-brand {
     padding: 20px 0;
     flex-direction: column;
@@ -139,6 +144,13 @@ html.theme-dark {
 
 .app-sidebar.collapsed .sidebar-toggle-btn svg {
     transform: rotate(180deg);
+}
+
+/* Spezielle Stellung für Hover-Aufklapp-Modus */
+.app-sidebar.hover-expanded .sidebar-toggle-btn svg {
+    transform: rotate(-90deg); /* Zeigt nach oben als "Warte-Zustand" */
+    color: var(--color-primary); /* Dezenter Farbakzent im Hover-Modus */
+    opacity: 0.8;
 }
 
 .app-sidebar.collapsed .sidebar-label,

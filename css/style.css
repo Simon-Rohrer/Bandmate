@@ -11722,8 +11722,9 @@ html[data-theme="light"] .loader-overlay,
 .rehearsal-action-buttons {
     display: flex;
     gap: var(--spacing-md);
-    padding-top: var(--spacing-md);
+    padding-top: var(--spacing-lg);
     border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-lg);
 }
 
 /* ===== Event Accordion Specific ===== */
@@ -11797,8 +11798,9 @@ html[data-theme="light"] .loader-overlay,
 .event-action-buttons {
     display: flex;
     gap: var(--spacing-md);
-    padding-top: var(--spacing-md);
+    padding-top: var(--spacing-lg);
     border-top: 1px solid var(--color-border);
+    margin-top: var(--spacing-lg);
 }
 
 .edit-event-icon {

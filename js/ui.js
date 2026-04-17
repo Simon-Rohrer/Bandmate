@@ -34,12 +34,11 @@ const UI = {
         if (modal) {
             modal.classList.add('active');
             
-            // Reset scroll position to top
+            // Reset scroll position to top – all scrollable containers
             modal.scrollTop = 0;
-            const scrollableBody = modal.querySelector('.modal-body') || modal.querySelector('.modal-content');
-            if (scrollableBody) {
-                scrollableBody.scrollTop = 0;
-            }
+            modal.querySelectorAll('.modal-body, .modal-content, .modal-scroll, .scheduler-form-scroll').forEach(el => {
+                el.scrollTop = 0;
+            });
 
             document.body.classList.add('modal-open');
             document.documentElement.classList.add('modal-open'); // Robust lock
@@ -72,6 +71,60 @@ const UI = {
                 modal.dataset.hasEscListener = 'true';
             }
         }
+    },
+
+    /**
+     * Attaches unsaved-changes guards to a modal's close triggers (X-button, backdrop, ESC).
+     * When the modal has a truthy window[dirtyFlagKey], the user is asked to confirm before closing.
+     * Call this once after the modal HTML is rendered.
+     *
+     * @param {string} modalId        - The modal element ID
+     * @param {string} dirtyFlagKey   - A key on `window` that is truthy when there are unsaved changes
+     */
+    guardModalClose(modalId, dirtyFlagKey) {
+        const modal = document.getElementById(modalId);
+        if (!modal || modal.dataset.hasCloseGuard === 'true') return;
+        modal.dataset.hasCloseGuard = 'true';
+
+        const tryClose = async () => {
+            if (window[dirtyFlagKey]) {
+                const confirmed = await this.confirmAction(
+                    'Deine Eingaben werden nicht gespeichert. Möchtest du trotzdem schließen?',
+                    'Ungespeicherte Änderungen',
+                    'Trotzdem schließen',
+                    'btn-danger',
+                    { cancelText: 'Weiter bearbeiten' }
+                );
+                if (!confirmed) return;
+            }
+            window[dirtyFlagKey] = false;
+            this.closeModal(modalId);
+        };
+
+        // Guard the X / close button
+        modal.querySelectorAll('.modal-close, .modal-cancel, [data-modal-close]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopImmediatePropagation();
+                tryClose();
+            }, { capture: true });
+        });
+
+        // Guard backdrop click
+        modal.addEventListener('mousedown', (e) => {
+            if (e.target === modal) {
+                e.stopImmediatePropagation();
+                tryClose();
+            }
+        }, { capture: true });
+
+        // Guard ESC key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && modal.classList.contains('active')) {
+                e.stopImmediatePropagation();
+                tryClose();
+            }
+        }, { capture: true });
     },
 
     // Toggle central auth overlay for landing page

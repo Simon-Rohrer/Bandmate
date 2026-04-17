@@ -480,7 +480,7 @@ const Events = {
             </div>
             ${canManage ? `
                 <div class="event-action-buttons">
-                    <button class="btn btn-secondary edit-event" data-event-id="${event.id}">Bearbeiten</button>
+                    <button class="btn btn-secondary edit-event" data-event-id="${event.id}" style="margin-left: auto;">Bearbeiten</button>
                     <button class="btn btn-danger delete-event" data-event-id="${event.id}">Löschen</button>
                 </div>
             ` : ''}
@@ -503,7 +503,7 @@ const Events = {
                         <button class="btn btn-primary open-event-btn" data-event-id="${event.id}">
                             Termin bestätigen
                         </button>
-                        <button class="btn btn-secondary edit-event" data-event-id="${event.id}">Bearbeiten</button>
+                        <button class="btn btn-secondary edit-event" data-event-id="${event.id}" style="margin-left: auto;">Bearbeiten</button>
                         <button class="btn btn-danger delete-event" data-event-id="${event.id}">Löschen</button>
                     ` : ''}
                 </div>
@@ -1037,12 +1037,20 @@ const Events = {
                 e.preventDefault();
                 await this.handleSaveEvent();
             };
+            // Track any form changes for unsaved-changes guard
+            createForm.addEventListener('input', () => { window._eventFormDirty = true; });
+            createForm.addEventListener('change', () => { window._eventFormDirty = true; });
+            // Register close guard once (X-button, backdrop, ESC)
+            UI.guardModalClose('createEventModal', '_eventFormDirty');
         }
 
         const addDateBtn = document.getElementById('addEventDateBtn');
         if (addDateBtn && !addDateBtn.dataset.initialized) {
             addDateBtn.dataset.initialized = 'true';
-            addDateBtn.onclick = () => this.addDateProposalRow();
+            addDateBtn.onclick = () => {
+                window._eventFormDirty = true;
+                this.addDateProposalRow();
+            };
         }
 
         document.querySelectorAll('input[name="eventScheduleMode"]').forEach(input => {
@@ -1052,6 +1060,20 @@ const Events = {
                 this.setScheduleMode(input.value);
             });
         });
+
+        // Add band change listener for conflict checking
+        const bandSelect = document.getElementById('eventBand');
+        if (bandSelect && !bandSelect.dataset.initialized) {
+            bandSelect.dataset.initialized = 'true';
+            bandSelect.addEventListener('change', async () => {
+                window._eventFormDirty = true;
+                const bandId = bandSelect.value;
+                if (bandId) {
+                    await this.fetchBandMemberAbsences(bandId);
+                    this.updateAvailabilityIndicators();
+                }
+            });
+        }
 
     },
 
@@ -1346,7 +1368,7 @@ const Events = {
         UI.openModal('confirmEventModal');
     },
 
-    addDateProposalRow() {
+    async addDateProposalRow() {
         const container = document.getElementById('eventDateProposals');
         const row = document.createElement('div');
         row.className = 'date-proposal-item';
@@ -1364,12 +1386,22 @@ const Events = {
         `;
         container.appendChild(row);
 
+        // Fetch absences for initial band correctly (async)
+        const bandSelect = document.getElementById('eventBand');
+        const initialBandId = bandSelect ? bandSelect.value : null;
+        if (initialBandId) {
+            await this.fetchBandMemberAbsences(initialBandId);
+            this.updateAvailabilityIndicators();
+        }
+
         row.querySelector('.remove-event-date').onclick = () => {
              row.remove();
              this.updateAvailabilityIndicators();
         };
 
         row.querySelectorAll('input').forEach(input => {
+             // Use input for live validation, same as fixed date fields
+             input.addEventListener('input', () => this.updateAvailabilityIndicators());
              input.addEventListener('change', () => this.updateAvailabilityIndicators());
         });
     },
@@ -1641,6 +1673,7 @@ const Events = {
                     }
                 }
 
+                window._eventFormDirty = false;
                 UI.closeModal('createEventModal');
                 await this.renderEvents(this.currentFilter, true);
             } catch (error) {
@@ -1755,7 +1788,14 @@ const Events = {
         document.getElementById('eventModalTitle').textContent = confirmDate ? 'Auftritt bestätigen' : 'Auftritt bearbeiten';
 
         await this.populateBandSelect();
-        document.getElementById('eventBand').value = event.bandId;
+        const bandSelect = document.getElementById('eventBand');
+        bandSelect.value = event.bandId;
+        
+        // Initial data fetch for the selected band to enable real-time conflict checking
+        if (event.bandId) {
+            await this.fetchBandMemberAbsences(event.bandId);
+        }
+        
         document.getElementById('eventTitle').value = event.title;
 
         // If confirming, use the passed date. Otherwise, use existing date if confirmed.
@@ -1834,6 +1874,7 @@ const Events = {
                         this.updateAvailabilityIndicators();
                     };
                     row.querySelectorAll('input').forEach(input => {
+                        input.addEventListener('input', () => this.updateAvailabilityIndicators());
                         input.addEventListener('change', () => this.updateAvailabilityIndicators());
                     });
                 });
@@ -1842,13 +1883,23 @@ const Events = {
             }
 
             this.setScheduleMode(scheduleMode, { lockMode: false, refreshAvailability: false });
+            // Trigger availability check immediately after proposals rows are built
+            setTimeout(() => this.updateAvailabilityIndicators(), 0);
         }
 
         const songPoolBtn = document.getElementById('copyBandSongsBtn');
         if (songPoolBtn) songPoolBtn.style.display = 'block';
 
         UI.openModal('createEventModal');
-        this.updateAvailabilityIndicators();
+        
+        // Reset dirty flag when modal opens
+        window._eventFormDirty = false;
+
+        // Immediate update for data already in memory
+        setTimeout(() => this.updateAvailabilityIndicators(), 50);
+        // Delayed update to catch data arriving from background fetches (cold start)
+        setTimeout(() => this.updateAvailabilityIndicators(), 1500);
+
     },
 
     getSelectedMembers() {
@@ -1908,24 +1959,33 @@ const Events = {
         };
     },
 
-    buildMemberStatusMarkup(memberConflicts = []) {
+    buildMemberStatusMarkup(memberConflicts = [], hasPersonalConflict = false) {
+        let statusHtml = '';
+        
+        // Text removed per user request - only visual highlight via class remains
+        
         const memberStatus = this.getMemberStatusMeta(memberConflicts);
-        if (!memberStatus) return '';
+        if (memberStatus) {
+            const icon = memberStatus.tone === 'conflict' ? '⚠️' : '✓';
+            statusHtml += `<span class="proposal-status-line is-${memberStatus.tone}">${icon} ${memberStatus.text}</span>`;
+        }
+
+        if (!statusHtml) return '';
 
         return `
             <div class="proposal-status-stack">
-                <span class="proposal-status-line is-${memberStatus.tone}">✓ ${memberStatus.text}</span>
+                ${statusHtml}
             </div>
         `;
     },
 
     collectMemberConflicts(startDateTime, endDateTime) {
-        if (typeof App === 'undefined' || !App.checkMembersAvailabilityLocally || !Array.isArray(this.currentBandMemerAbsences)) {
+        if (typeof App === 'undefined' || !App.checkMembersAvailabilityLocally || !Array.isArray(this.currentBandMemberAbsences)) {
             return [];
         }
 
         const selectedMembers = typeof this.getSelectedMembers === 'function' ? this.getSelectedMembers() : [];
-        const relevantAbsences = this.currentBandMemerAbsences.filter(absence => selectedMembers.includes(String(absence.userId)));
+        const relevantAbsences = this.currentBandMemberAbsences.filter(absence => selectedMembers.includes(String(absence.userId)));
 
         return App.checkMembersAvailabilityLocally(relevantAbsences, startDateTime, endDateTime).map(conflict => {
             const card = document.querySelector(`.member-select-card[data-user-id="${conflict.userId}"]`);
@@ -2088,7 +2148,7 @@ const Events = {
         }).join('');
 
         const userIds = users.filter(Boolean).map(u => u.id);
-        this.currentBandMemerAbsences = await Storage.getAbsencesForUsers(userIds);
+        await this.fetchBandMemberAbsences(null, userIds);
 
         container.querySelectorAll('.member-select-checkbox').forEach(checkbox => {
             checkbox.addEventListener('change', () => {
@@ -2103,6 +2163,33 @@ const Events = {
         this.updateAvailabilityIndicators();
     },
 
+    async fetchBandMemberAbsences(bandId, userIds = null) {
+        try {
+            // Parallel: ensure personal calendar data is loaded (fixes cold-start)
+            if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.ensureDataLoaded === 'function') {
+                PersonalCalendar.ensureDataLoaded().then(() => {
+                    // Re-run indicators after personal data is available
+                    this.updateAvailabilityIndicators();
+                });
+            }
+
+            let targetUserIds = userIds;
+            if (!targetUserIds && bandId) {
+                const members = await Storage.getBandMembers(bandId);
+                targetUserIds = members.map(m => m.userId);
+            }
+            
+            if (targetUserIds && targetUserIds.length > 0) {
+                this.currentBandMemberAbsences = await Storage.getAbsencesForUsers(targetUserIds);
+            } else {
+                this.currentBandMemberAbsences = [];
+            }
+        } catch (error) {
+            console.error('Error fetching band member absences:', error);
+            this.currentBandMemberAbsences = [];
+        }
+    },
+
     async updateAvailabilityIndicators() {
         const scheduleMode = this.getScheduleMode();
         const fixedDateInput = document.getElementById('eventFixedDate');
@@ -2110,6 +2197,12 @@ const Events = {
         const fixedDateIndicator = document.getElementById('eventFixedDateAvailability');
         const fixedDateSection = document.getElementById('eventFixedDateSection');
         const fixedDateValue = this.getFixedDateTimeValue();
+
+        // Ensure personal calendar data is available (silent, no-op if already loaded)
+        if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.ensureDataLoaded === 'function'
+            && !PersonalCalendar.hasLoaded && !PersonalCalendar.isLoading) {
+            PersonalCalendar.ensureDataLoaded().then(() => this.updateAvailabilityIndicators());
+        }
 
         if (fixedDateIndicator && (scheduleMode !== 'fixed' || !fixedDateValue)) {
             fixedDateIndicator.textContent = '';
@@ -2123,22 +2216,25 @@ const Events = {
             fixedDateSection.querySelectorAll('.availability-details-stack').forEach(details => details.remove());
         }
 
-        if (typeof App === 'undefined' || !App.checkMembersAvailabilityLocally || !this.currentBandMemerAbsences) return;
+        // Helper: get personal conflicts (returns [] if not available)
+        const getPersonalConflicts = (start, end) => {
+            if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+                return PersonalCalendar.getPersonalConflicts(start, end);
+            }
+            return [];
+        };
 
-        // 1. Fixed Date
+        // 1. Fixed Date — runs regardless of band selection
         if (fixedDateInput && fixedTimeInput && fixedDateIndicator) {
             if (scheduleMode === 'fixed' && fixedDateValue) {
                 const dateValue = new Date(fixedDateValue).toISOString();
                 const endValue = new Date(new Date(dateValue).getTime() + 4 * 60 * 60 * 1000).toISOString();
-                const memberConflicts = this.collectMemberConflicts(dateValue, endValue);
-                
-                let hasPersonalConflict = false;
-                if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
-                    hasPersonalConflict = PersonalCalendar.getPersonalConflicts(dateValue, endValue).length > 0;
-                }
+                // Band member conflicts only if absences are loaded
+                const memberConflicts = this.currentBandMemberAbsences ? this.collectMemberConflicts(dateValue, endValue) : [];
+                const hasPersonalConflict = getPersonalConflicts(dateValue, endValue).length > 0;
 
-                fixedDateIndicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
-                fixedDateIndicator.className = `date-availability ${ (memberConflicts.length > 0 || hasPersonalConflict) ? 'has-conflict' : 'is-available'}`;
+                fixedDateIndicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts, hasPersonalConflict);
+                fixedDateIndicator.className = `date-availability ${(memberConflicts.length > 0 || hasPersonalConflict) ? 'has-conflict' : 'is-available'}`;
 
                 const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts, dateValue, endValue);
                 if (detailsHtml) {
@@ -2150,7 +2246,7 @@ const Events = {
             }
         }
 
-        // 2. Proposed Dates
+        // 2. Proposed Dates — runs regardless of band selection
         const items = document.querySelectorAll('#eventDateProposals .date-proposal-item');
         for (const item of items) {
             const dateInput = item.querySelector('.event-date-input-date');
@@ -2160,9 +2256,7 @@ const Events = {
             if (!indicator) continue;
 
             const existingDetails = item.querySelector('.availability-details-stack, .member-details-box');
-            if (existingDetails) {
-                existingDetails.remove();
-            }
+            if (existingDetails) existingDetails.remove();
 
             if (scheduleMode !== 'proposals') {
                 indicator.textContent = '';
@@ -2178,14 +2272,11 @@ const Events = {
 
             const startDateTime = new Date(`${dateInput.value}T${startInput.value}`).toISOString();
             const endDateTime = new Date(new Date(startDateTime).getTime() + 4 * 60 * 60 * 1000).toISOString();
-            const memberConflicts = this.collectMemberConflicts(startDateTime, endDateTime);
+            // Band member conflicts only if absences are loaded
+            const memberConflicts = this.currentBandMemberAbsences ? this.collectMemberConflicts(startDateTime, endDateTime) : [];
+            const hasPersonalConflict = getPersonalConflicts(startDateTime, endDateTime).length > 0;
 
-            let hasPersonalConflict = false;
-            if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
-                hasPersonalConflict = PersonalCalendar.getPersonalConflicts(startDateTime, endDateTime).length > 0;
-            }
-
-            indicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts);
+            indicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts, hasPersonalConflict);
             indicator.className = `date-availability ${(memberConflicts.length > 0 || hasPersonalConflict) ? 'has-conflict' : 'is-available'}`;
 
             const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts, startDateTime, endDateTime);
