@@ -16,6 +16,8 @@ const Storage = {
     SONG_CHORDPRO_FIELD_STORAGE_KEY: 'bandplanning.songChordProSaveField',
     ABSENCE_META_PREFIX: '[[ABSENCE_META]]',
     ABSENCE_META_SUFFIX: '[[/ABSENCE_META]]',
+    EXTERNAL_CALENDAR_PAST_MONTHS: 6,
+    EXTERNAL_CALENDAR_FUTURE_MONTHS: 18,
 
     // Löscht einen User aus der eigenen Datenbank
     async deleteUser(userId) {
@@ -296,11 +298,11 @@ const Storage = {
     async get(key, filters = {}) {
         const sb = SupabaseClient.getClient();
         let query = sb.from(key).select('*');
-        
+
         for (const [col, val] of Object.entries(filters)) {
             query = query.eq(col, val);
         }
-        
+
         const { data, error } = await query;
         if (error) {
             console.error(`Supabase get error in ${key} with filters`, filters, error);
@@ -420,6 +422,29 @@ const Storage = {
         }
         if (this._isNetworkError(error)) {
             return 'Netzwerkproblem beim Laden des Songpools.';
+        }
+        return error?.message || fallback;
+    },
+
+    _isMissingExternalCalendarSharingSetupError(error) {
+        if (!error) return false;
+        const message = String(error.message || error).toLowerCase();
+        const code = String(error.code || '').toLowerCase();
+
+        return (
+            code === '42p01' ||
+            code === '42703' ||
+            message.includes('external_calendar_busy_slots') ||
+            message.includes('share_for_band_planning')
+        );
+    },
+
+    _getExternalCalendarSharingErrorMessage(error, fallback = 'Kalenderfreigabe konnte nicht gespeichert werden.') {
+        if (this._isMissingExternalCalendarSharingSetupError(error)) {
+            return 'Die Freigabe externer Kalender ist noch nicht in Supabase eingerichtet. Bitte zuerst das SQL aus "supabase_external_calendar_visibility.sql" ausführen.';
+        }
+        if (this._isNetworkError(error)) {
+            return 'Netzwerkproblem beim Aktualisieren der externen Kalender.';
         }
         return error?.message || fallback;
     },
@@ -1383,9 +1408,288 @@ const Storage = {
         return await this.delete('absences', absenceId);
     },
 
+    normalizeExternalCalendarUrl(url = '') {
+        return String(url || '').trim().replace(/^webcal(s)?:\/\//i, 'https://');
+    },
+
+    isExternalCalendarEntryWithinSyncRange(dateLike) {
+        const eventDate = new Date(dateLike);
+        if (Number.isNaN(eventDate.getTime())) return false;
+
+        const now = new Date();
+        const pastLimit = new Date();
+        pastLimit.setMonth(now.getMonth() - this.EXTERNAL_CALENDAR_PAST_MONTHS);
+        const futureLimit = new Date();
+        futureLimit.setMonth(now.getMonth() + this.EXTERNAL_CALENDAR_FUTURE_MONTHS);
+
+        return eventDate >= pastLimit && eventDate <= futureLimit;
+    },
+
+    parseExternalCalendarEntries(icalData, sourceName = 'Externer Kalender', options = {}) {
+        if (!icalData || typeof icalData !== 'string' || !icalData.includes('BEGIN:VCALENDAR')) {
+            return [];
+        }
+
+        const sourceCalendarId = options?.sourceCalendarId ? String(options.sourceCalendarId) : null;
+        const jcalData = ICAL.parse(icalData);
+        const vcalendar = new ICAL.Component(jcalData);
+        const vevents = vcalendar.getAllSubcomponents('vevent');
+
+        return vevents.map((vevent) => {
+            try {
+                const event = new ICAL.Event(vevent);
+                const dtStart = event.startDate.toJSDate();
+                const dtEnd = event.endDate.toJSDate();
+                const isAllDay = Boolean(event.startDate.isDate);
+
+                let dateStr = dtStart.toISOString();
+                let endDateStr = dtEnd.toISOString();
+
+                if (isAllDay) {
+                    dateStr = `${event.startDate.year}-${String(event.startDate.month).padStart(2, '0')}-${String(event.startDate.day).padStart(2, '0')}`;
+                    endDateStr = `${event.endDate.year}-${String(event.endDate.month).padStart(2, '0')}-${String(event.endDate.day).padStart(2, '0')}`;
+                }
+
+                return {
+                    id: `ext_${Math.random().toString(36).slice(2, 11)}`,
+                    title: event.summary || '',
+                    location: event.location || '',
+                    description: event.description || '',
+                    date: dateStr,
+                    endDate: endDateStr,
+                    isAllDay,
+                    time: isAllDay
+                        ? null
+                        : `${dtStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} - ${dtEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
+                    type: 'external',
+                    sourceName,
+                    sourceCalendarId
+                };
+            } catch (error) {
+                console.warn('[Storage] Ungültiger externer Kalender-Eintrag wurde übersprungen:', error);
+                return null;
+            }
+        }).filter(Boolean).filter(entry => this.isExternalCalendarEntryWithinSyncRange(entry.date));
+    },
+
+    async fetchExternalCalendarEntries(url, sourceName = 'Externer Kalender', options = {}) {
+        try {
+            const normalizedUrl = this.normalizeExternalCalendarUrl(url);
+            if (!normalizedUrl) return [];
+
+            const icalData = await ProxyService.fetch(normalizedUrl);
+            if (!icalData || typeof icalData !== 'string' || !icalData.includes('BEGIN:VCALENDAR')) {
+                console.warn('[Storage] Ungültige iCal-Daten für externen Kalender:', normalizedUrl);
+                return [];
+            }
+
+            await new Promise(resolve => setTimeout(resolve, 0));
+            return this.parseExternalCalendarEntries(icalData, sourceName, options);
+        } catch (error) {
+            console.error('[Storage] Error loading external calendar feed:', error);
+            return [];
+        }
+    },
+
+    buildSharedExternalCalendarBusyLabel(startDateValue, endDateValue, isAllDay = false) {
+        if (isAllDay) {
+            return 'Externer Kalender · ganztägig';
+        }
+
+        const start = new Date(startDateValue);
+        const end = new Date(endDateValue);
+        if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+            return 'Externer Kalender';
+        }
+
+        const startLabel = start.toLocaleTimeString('de-DE', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        const endLabel = end.toLocaleTimeString('de-DE', {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+
+        return `Externer Kalender · ${startLabel} - ${endLabel} Uhr`;
+    },
+
+    createSharedExternalBusySlot(calendar, entry) {
+        if (!calendar?.id || !calendar?.user_id || !entry?.date) {
+            return null;
+        }
+
+        return {
+            id: this.generateId(),
+            calendar_id: String(calendar.id),
+            user_id: String(calendar.user_id),
+            start_date: entry.date,
+            end_date: entry.endDate || entry.date,
+            is_all_day: Boolean(entry.isAllDay),
+            source_name: calendar.name || entry.sourceName || 'Externer Kalender',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+    },
+
+    decorateSharedExternalBusySlot(slot) {
+        if (!slot) return null;
+
+        const startDate = slot.start_date || slot.startDate;
+        const endDate = slot.end_date || slot.endDate || startDate;
+        const isAllDay = Boolean(slot.is_all_day ?? slot.isAllDay);
+        const displayReason = this.buildSharedExternalCalendarBusyLabel(startDate, endDate, isAllDay);
+
+        return {
+            id: `external-busy-${slot.id}`,
+            userId: String(slot.user_id || slot.userId || ''),
+            startDate,
+            endDate,
+            reason: this.buildAbsenceReasonPayload(displayReason, {
+                sourceType: 'sharedExternalCalendar',
+                sourceName: slot.source_name || slot.sourceName || 'Externer Kalender',
+                isAllDay
+            }),
+            createdAt: slot.updated_at || slot.updatedAt || slot.created_at || slot.createdAt || new Date().toISOString(),
+            displayReason,
+            recurrenceMeta: null
+        };
+    },
+
+    async syncSharedExternalCalendarBusySlots(userId, calendars = [], preloadedEntries = []) {
+        if (!userId) return [];
+
+        const sb = SupabaseClient.getClient();
+        const normalizedCalendars = Array.isArray(calendars)
+            ? calendars
+                .filter(Boolean)
+                .map(calendar => ({
+                    ...calendar,
+                    id: calendar.id != null ? String(calendar.id) : null,
+                    user_id: String(calendar.user_id || calendar.userId || userId),
+                    share_for_band_planning: Boolean(calendar.share_for_band_planning ?? calendar.shareForBandPlanning)
+                }))
+                .filter(calendar => calendar.user_id === String(userId))
+            : [];
+
+        const sharedCalendars = normalizedCalendars.filter(calendar => calendar.share_for_band_planning && calendar.url);
+
+        const { error: deleteError } = await sb
+            .from('external_calendar_busy_slots')
+            .delete()
+            .eq('user_id', userId);
+
+        if (deleteError) {
+            if (sharedCalendars.length > 0) {
+                throw deleteError;
+            }
+            console.warn('[Storage] Alte Busy-Slots konnten nicht entfernt werden:', deleteError);
+            return [];
+        }
+
+        if (sharedCalendars.length === 0) {
+            return [];
+        }
+
+        const entriesByCalendarId = new Map();
+        if (Array.isArray(preloadedEntries) && preloadedEntries.length > 0) {
+            preloadedEntries.forEach((entry) => {
+                const key = entry?.sourceCalendarId != null ? String(entry.sourceCalendarId) : null;
+                if (!key) return;
+                if (!entriesByCalendarId.has(key)) entriesByCalendarId.set(key, []);
+                entriesByCalendarId.get(key).push(entry);
+            });
+        }
+
+        if (entriesByCalendarId.size === 0) {
+            const feeds = await Promise.all(sharedCalendars.map(async (calendar) => ({
+                calendarId: calendar.id,
+                entries: await this.fetchExternalCalendarEntries(calendar.url, calendar.name || 'Externer Kalender', {
+                    sourceCalendarId: calendar.id
+                })
+            })));
+
+            feeds.forEach(({ calendarId, entries }) => {
+                entriesByCalendarId.set(String(calendarId), entries || []);
+            });
+        }
+
+        const busySlots = sharedCalendars.flatMap((calendar) => {
+            const entries = entriesByCalendarId.get(String(calendar.id)) || [];
+            return entries
+                .map(entry => this.createSharedExternalBusySlot(calendar, entry))
+                .filter(Boolean);
+        });
+
+        if (busySlots.length === 0) {
+            return [];
+        }
+
+        const { data, error } = await sb
+            .from('external_calendar_busy_slots')
+            .insert(busySlots)
+            .select('*');
+
+        if (error) {
+            throw error;
+        }
+
+        return (data || []).map(slot => this.decorateSharedExternalBusySlot(slot)).filter(Boolean);
+    },
+
+    async getSharedExternalCalendarBusySlotsForUsers(userIds) {
+        const cleanedUserIds = Array.isArray(userIds)
+            ? [...new Set(userIds.filter(Boolean).map(value => String(value)))]
+            : [];
+
+        if (cleanedUserIds.length === 0) return [];
+
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('external_calendar_busy_slots')
+            .select('*')
+            .in('user_id', cleanedUserIds);
+
+        if (error) {
+            if (this._isMissingExternalCalendarSharingSetupError(error)) {
+                console.warn('[Storage] Shared external calendar slots are not configured yet.');
+                return [];
+            }
+            console.error('Supabase getSharedExternalCalendarBusySlotsForUsers error', error);
+            return [];
+        }
+
+        return (data || []).map(slot => this.decorateSharedExternalBusySlot(slot)).filter(Boolean);
+    },
+
+    async getAvailabilityBlocksForUsers(userIds) {
+        const cleanedUserIds = Array.isArray(userIds)
+            ? [...new Set(userIds.filter(Boolean).map(value => String(value)))]
+            : [];
+
+        if (cleanedUserIds.length === 0) return [];
+
+        const [absences, externalBusySlots] = await Promise.all([
+            this.getAbsencesForUsers(cleanedUserIds),
+            this.getSharedExternalCalendarBusySlotsForUsers(cleanedUserIds)
+        ]);
+
+        return [...(absences || []), ...(externalBusySlots || [])];
+    },
+
+    async getUserAvailabilityBlocks(userId) {
+        if (!userId) return [];
+        return this.getAvailabilityBlocksForUsers([userId]);
+    },
+
     async isUserAbsentInRange(userId, startDate, endDate = null) {
         const absences = await this.getUserAbsences(userId);
         return absences.some(absence => this.absenceOverlapsRange(absence, startDate, endDate || startDate));
+    },
+
+    async isUserUnavailableInRange(userId, startDate, endDate = null) {
+        const blocks = await this.getUserAvailabilityBlocks(userId);
+        return blocks.some(block => this.absenceOverlapsRange(block, startDate, endDate || startDate));
     },
 
     async isUserAbsentOnDate(userId, date) {
@@ -2453,6 +2757,88 @@ const Storage = {
         })();
 
         return this.pastItemsCleanupPromise;
+    },
+
+    // Bandrider operations
+    async getBandRider(bandId) {
+        if (!bandId) return null;
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('bandRiders')
+            .select('*')
+            .eq('bandId', bandId)
+            .order('createdAt', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Supabase getBandRider error', error);
+            return null;
+        }
+
+        return data || null;
+    },
+
+    async createOrUpdateBandRider(bandId, riderData) {
+        if (!bandId) throw new Error('bandId erforderlich');
+
+        const sb = SupabaseClient.getClient();
+
+        // Prüfe ob bereits ein Rider existiert
+        const existing = await this.getBandRider(bandId);
+
+        const riderPayload = {
+            bandId,
+            members: riderData.members || {},
+            updatedAt: new Date().toISOString()
+        };
+
+        if (existing) {
+            // Update existing rider
+            const { data, error } = await sb
+                .from('bandRiders')
+                .update(riderPayload)
+                .eq('id', existing.id)
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Supabase createOrUpdateBandRider update error', error);
+                throw error;
+            }
+            return data;
+        } else {
+            // Create new rider
+            riderPayload.id = this.generateId();
+            riderPayload.createdAt = new Date().toISOString();
+
+            const { data, error } = await sb
+                .from('bandRiders')
+                .insert([riderPayload])
+                .select()
+                .single();
+
+            if (error) {
+                console.error('Supabase createOrUpdateBandRider insert error', error);
+                throw error;
+            }
+            return data;
+        }
+    },
+
+    async deleteBandRider(bandId) {
+        if (!bandId) return false;
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb
+            .from('bandRiders')
+            .delete()
+            .eq('bandId', bandId);
+
+        if (error) {
+            console.error('Supabase deleteBandRider error', error);
+            return false;
+        }
+        return true;
     },
 
     // Calendar operations

@@ -330,20 +330,10 @@ const Rehearsals = {
 
     buildProposalStatusMarkup({ locationId = '', locationConflicts = [], memberConflicts = [], personalConflicts = [] } = {}) {
         const lines = [];
-
-        if (personalConflicts && personalConflicts.length > 0) {
-            lines.push(`<span class="proposal-status-line is-warning" style="color: var(--color-warning);">⚠️ Du hast in diesem Zeitraum bereits einen persönlichen Termin</span>`);
-        }
-
-        const locationStatus = this.getLocationStatusMeta({ locationId, locationConflicts });
         const memberStatus = this.getMemberStatusMeta(memberConflicts);
 
-        if (locationStatus) {
-            lines.push(`<span class="proposal-status-line is-${locationStatus.tone}">${locationStatus.tone === 'conflict' ? '⚠️' : '✓'} ${locationStatus.text}</span>`);
-        }
-
         if (memberStatus) {
-            lines.push(`<span class="proposal-status-line is-${memberStatus.tone}">${memberStatus.tone === 'warning' || memberStatus.tone === 'conflict' ? '⚠️' : '✓'} ${memberStatus.text}</span>`);
+            lines.push(`<span class="proposal-status-line is-${memberStatus.tone}">${memberStatus.text}</span>`);
         }
 
         return `<div class="proposal-status-stack">${lines.join('')}</div>`;
@@ -421,19 +411,7 @@ const Rehearsals = {
             ${conflicts.map(c => {
                 const start = new Date(c.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
                 const end = new Date(c.end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                return `<div class="conflict-item" style="color: var(--color-warning);">• ${Bands.escapeHtml(c.title)} (${start} - ${end})</div>`;
-            }).join('')}
-        `;
-    },
-
-    buildPersonalConflictDetailsSection(conflicts = []) {
-        if (!Array.isArray(conflicts) || conflicts.length === 0) return '';
-        return `
-            <div class="conflict-details-header">Du hast in diesem Zeitraum bereits einen persönlichen Termin:</div>
-            ${conflicts.map(c => {
-                const start = new Date(c.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                const end = new Date(c.end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                return `<div class="conflict-item" style="color: var(--color-warning);">• ${Bands.escapeHtml(c.title)} (${start} - ${end})</div>`;
+                return `<div class="conflict-item">• ${Bands.escapeHtml(c.title)} (${start} - ${end} Uhr)</div>`;
             }).join('')}
         `;
     },
@@ -2618,7 +2596,7 @@ const Rehearsals = {
         });
 
         const userIds = validUsers.map(u => u.id);
-        this.currentBandMemerAbsences = await Storage.getAbsencesForUsers(userIds);
+        this.currentBandMemerAbsences = await Storage.getAvailabilityBlocksForUsers(userIds);
 
         container.innerHTML = validUsers.map(user => {
             const member = members.find(m => m.userId === user.id);
@@ -3104,8 +3082,12 @@ const Rehearsals = {
 
         // Ensure personal calendar data is available (silent, no-op if already loaded)
         if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.ensureDataLoaded === 'function'
-            && !PersonalCalendar.hasLoaded && !PersonalCalendar.isLoading) {
-            PersonalCalendar.ensureDataLoaded().then(() => this.updateAvailabilityIndicators());
+            && !PersonalCalendar.hasLoaded) {
+            PersonalCalendar.ensureDataLoaded().then(() => {
+                if (PersonalCalendar.hasLoaded) {
+                    this.updateAvailabilityIndicators();
+                }
+            });
         }
 
         if (scheduleMode === 'fixed' && fixedDateInput && fixedStartInput && fixedEndInput && fixedIndicator) {
@@ -3194,10 +3176,7 @@ const Rehearsals = {
             const personalConflicts = getPersonalConflicts(startDateIso, endDateIso);
 
             // Remove any existing conflict details box
-            const existingDetails = item.querySelector('.availability-details-stack, .conflict-details-box, .member-details-box');
-            if (existingDetails) {
-                existingDetails.remove();
-            }
+            item.querySelectorAll('.availability-details-stack, .conflict-details-box, .member-details-box').forEach(details => details.remove());
 
             const hasConflicts = locationConflicts.length > 0 || memberConflicts.length > 0 || personalConflicts.length > 0;
             indicator.innerHTML = this.buildProposalStatusMarkup({

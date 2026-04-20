@@ -5,6 +5,59 @@ const Auth = {
 
     currentUser: null,
     supabaseUser: null, // Supabase auth.users record
+    USER_CACHE_KEY: 'auth.cachedCurrentUser',
+
+    getCachedCurrentUser() {
+        if (SupabaseClient.isStoredSessionExpired()) {
+            return null;
+        }
+
+        const storages = [window.sessionStorage, window.localStorage];
+        for (const storage of storages) {
+            try {
+                const raw = storage.getItem(this.USER_CACHE_KEY);
+                if (!raw) continue;
+                const parsed = JSON.parse(raw);
+                if (parsed && parsed.id) {
+                    return parsed;
+                }
+            } catch (error) {
+                console.warn('[Auth] Could not read cached user profile:', error);
+            }
+        }
+
+        return null;
+    },
+
+    cacheCurrentUser(profile) {
+        if (!profile || !profile.id) return;
+
+        try {
+            const serialized = JSON.stringify(profile);
+            window.sessionStorage.setItem(this.USER_CACHE_KEY, serialized);
+            if (SupabaseClient.getRememberPreference()) {
+                window.localStorage.setItem(this.USER_CACHE_KEY, serialized);
+            } else {
+                window.localStorage.removeItem(this.USER_CACHE_KEY);
+            }
+        } catch (error) {
+            console.warn('[Auth] Could not cache current user profile:', error);
+        }
+    },
+
+    clearCachedCurrentUser() {
+        window.sessionStorage.removeItem(this.USER_CACHE_KEY);
+        window.localStorage.removeItem(this.USER_CACHE_KEY);
+    },
+
+    withTimeout(promise, timeoutMs, timeoutLabel = 'Zeitüberschreitung') {
+        return Promise.race([
+            promise,
+            new Promise((_, reject) => {
+                setTimeout(() => reject(new Error(timeoutLabel)), timeoutMs);
+            })
+        ]);
+    },
 
     async deleteAuthUserById(userId = null) {
         const sb = SupabaseClient.getClient();
@@ -65,14 +118,24 @@ const Auth = {
         localStorage.setItem('registrationCodes', JSON.stringify([validCode]));
         this.validRegistrationCodes = [validCode];
 
+        const cachedUser = this.getCachedCurrentUser();
+        if (cachedUser) {
+            this.currentUser = cachedUser;
+        }
+
         // Check for existing Supabase session
         const sb = SupabaseClient.getClient();
         if (sb) {
             if (SupabaseClient.isStoredSessionExpired()) {
                 SupabaseClient.clearStoredAuthSession();
+                this.clearCachedCurrentUser();
             }
             try {
-                const { data, error } = await sb.auth.getSession();
+                const { data, error } = await this.withTimeout(
+                    sb.auth.getSession(),
+                    2500,
+                    'Supabase Session-Check Zeitüberschreitung'
+                );
                 if (error) {
                     console.warn('[Auth.init] Supabase session check error:', error);
                 } else if (data && data.session) {
@@ -80,7 +143,10 @@ const Auth = {
                 }
             } catch (err) {
                 console.error('[Auth.init] Failed to get Supabase session (likely AbortError or network issue):', err);
-                // Proceed as logged out, do not crash
+                if (!this.currentUser) {
+                    this.currentUser = null;
+                    this.supabaseUser = null;
+                }
             }
         }
 
@@ -121,13 +187,31 @@ const Auth = {
 
     async setCurrentUser(supabaseAuthUser) {
         this.supabaseUser = supabaseAuthUser;
+        const cachedProfile = this.getCachedCurrentUser();
+        if (cachedProfile && cachedProfile.id === supabaseAuthUser.id) {
+            this.currentUser = cachedProfile;
+        }
         // Load profile from users table
-        const profile = await Storage.getById('users', supabaseAuthUser.id);
+        let profile = null;
+        try {
+            profile = await this.withTimeout(
+                Storage.getById('users', supabaseAuthUser.id),
+                2500,
+                'Profil-Lookup Zeitüberschreitung'
+            );
+        } catch (error) {
+            console.warn('[Auth.setCurrentUser] Profile lookup timed out or failed:', error);
+        }
         // console.log('[Auth.setCurrentUser] Profile from storage:', profile);
 
         if (profile) {
             this.currentUser = profile;
+            this.cacheCurrentUser(profile);
         } else {
+            if (this.currentUser && this.currentUser.id === supabaseAuthUser.id) {
+                return;
+            }
+
             console.warn('[Auth.setCurrentUser] Profile not found in storage, using fallback');
             this.currentUser = {
                 id: supabaseAuthUser.id,
@@ -138,6 +222,7 @@ const Auth = {
                 name: supabaseAuthUser.user_metadata?.name || supabaseAuthUser.email.split('@')[0],
                 isAdmin: false // Explicitly set to false in fallback if unknown
             };
+            this.cacheCurrentUser(this.currentUser);
         }
         // console.log('[Auth.setCurrentUser] Final currentUser:', JSON.stringify(this.currentUser, null, 2));
 
@@ -391,6 +476,7 @@ const Auth = {
 
         // Clear any cached session data
         sessionStorage.removeItem('currentUser');
+        this.clearCachedCurrentUser();
         SupabaseClient.clearStoredAuthSession();
 
         // Clear module-level caches to prevent data from persisting between users
@@ -464,6 +550,7 @@ const Auth = {
             const updatedUser = await Storage.getById('users', this.currentUser.id);
             this.currentUser = updatedUser;
             sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
+            this.cacheCurrentUser(updatedUser);
         }
     },
 

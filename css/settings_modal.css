@@ -1384,6 +1384,75 @@
     box-shadow: 0 0 0 4px rgba(108, 84, 210, 0.14);
 }
 
+#settingsModal .external-calendars-help {
+    margin: 0.55rem 0 0;
+    font-size: 0.88rem;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+}
+
+#settingsModal .external-calendars-help strong {
+    color: var(--color-text);
+    font-weight: 700;
+}
+
+#settingsModal .external-calendars-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+}
+
+#settingsModal .external-calendar-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.45fr) auto;
+    gap: 0.75rem;
+    align-items: center;
+    padding: 0.75rem;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+#settingsModal .external-calendar-visibility {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    align-self: stretch;
+    padding-inline: 0.15rem;
+}
+
+#settingsModal .external-calendar-field {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+#settingsModal .external-calendar-field .profile-form-input {
+    margin: 0;
+}
+
+#settingsModal .external-calendar-field-hint {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary, rgba(255, 255, 255, 0.52));
+    padding-inline: 0.15rem;
+}
+
+#settingsModal .external-calendar-delete {
+    color: var(--color-error);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.18);
+}
+
+#settingsModal .external-calendar-delete:hover {
+    background: rgba(239, 68, 68, 0.16);
+    border-color: rgba(239, 68, 68, 0.24);
+}
+
 #settingsModal .settings-inline-note {
     display: block;
     margin-top: 0.55rem;
@@ -2705,5 +2774,14 @@ html[data-theme="dark"] #settingsModal .multiselect-option:hover,
 
     #settingsModal .settings-meta-links > * {
         width: 100%;
+    }
+
+    #settingsModal .external-calendar-row {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+        gap: 0.6rem;
+    }
+
+    #settingsModal .external-calendar-field-url {
+        grid-column: 1 / -1;
     }
 }

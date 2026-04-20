@@ -3,6 +3,33 @@
 const UI = {
     LOADING_TIMEOUT_MS: 25000,
 
+    resetAuthOverlayScroll(targetTab = null) {
+        const overlay = document.getElementById('authOverlay');
+        if (!overlay) return;
+
+        const authCard = overlay.querySelector('.auth-white-card');
+        const activeForm = targetTab
+            ? overlay.querySelector(`#${targetTab}Form`)
+            : overlay.querySelector('.auth-form.active');
+
+        const scrollTargets = new Set([
+            overlay,
+            authCard,
+            activeForm,
+            ...overlay.querySelectorAll('.auth-form')
+        ]);
+
+        scrollTargets.forEach((element) => {
+            if (!element) return;
+            element.scrollTop = 0;
+            element.scrollLeft = 0;
+        });
+
+        window.scrollTo(0, 0);
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+    },
+
     _bindBackdropClose(element, onClose) {
         if (!element || element.dataset.hasBackdropCloseBinding === 'true') return;
 
@@ -139,11 +166,8 @@ const UI = {
                 document.documentElement.classList.add('modal-open');
                 // Auto-switch to requested tab
                 this.switchAuthTab(tabName);
-
-                const activeForm = overlay.querySelector('.auth-form.active');
-                if (activeForm) {
-                    activeForm.scrollTop = 0;
-                }
+                this.resetAuthOverlayScroll(tabName);
+                requestAnimationFrame(() => this.resetAuthOverlayScroll(tabName));
 
                 if (!overlay.dataset.hasClickOutside) {
                     this._bindBackdropClose(overlay, () => {
@@ -152,7 +176,7 @@ const UI = {
                     overlay.dataset.hasClickOutside = 'true';
                 }
             } else {
-
+                this.resetAuthOverlayScroll();
                 overlay.classList.remove('active');
                 overlay.setAttribute('aria-hidden', 'true');
                 overlay.hidden = true;
@@ -160,9 +184,7 @@ const UI = {
                 document.documentElement.classList.remove('modal-open');
 
                 // FORCE RESET SCROLL POSITION - Fix for iOS keyboard layout issues
-                window.scrollTo(0, 0);
-                document.documentElement.scrollTop = 0;
-                document.body.scrollTop = 0;
+                this.resetAuthOverlayScroll();
             }
         }
     },
@@ -206,12 +228,14 @@ const UI = {
             if (form.id === `${tabName}Form`) {
                 form.classList.add('active');
                 form.style.display = 'block'; // Ensure visibility
-                form.scrollTop = 0;
             } else {
                 form.classList.remove('active');
                 form.style.display = 'none'; // Ensure hidden
             }
         });
+
+        this.resetAuthOverlayScroll(tabName);
+        requestAnimationFrame(() => this.resetAuthOverlayScroll(tabName));
     },
 
     showForgotPassword() {
@@ -237,6 +261,9 @@ const UI = {
         document.querySelectorAll('#authOverlay .auth-tab').forEach(tab => {
             tab.classList.remove('active');
         });
+
+        this.resetAuthOverlayScroll('forgotPassword');
+        requestAnimationFrame(() => this.resetAuthOverlayScroll('forgotPassword'));
     },
 
     closeModal(modalId) {

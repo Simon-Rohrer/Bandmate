@@ -9,6 +9,7 @@ const PersonalCalendar = {
     currentMonth: new Date(),
     isLoading: false,
     hasLoaded: false,
+    loadingPromise: null,
     dayCreateMenuListenersBound: false,
 
     // Clear all cached data (called during logout or to force a full refresh)
@@ -21,42 +22,58 @@ const PersonalCalendar = {
             this.userBands = [];
         }
         this.hasLoaded = false;
+        this.loadingPromise = null;
     },
 
     // Silent background data loader for use by other modules (e.g., Events modal).
     // Loads data without touching the DOM/UI.
     async ensureDataLoaded() {
-        if (this.hasLoaded || this.isLoading) return;
+        if (this.hasLoaded) return Promise.resolve();
+        if (this.loadingPromise) return this.loadingPromise;
+
         this.isLoading = true;
-        try {
-            const user = Auth.getCurrentUser();
-            if (!user) return;
-            const userBands = await Storage.getUserBands(user.id);
-            this.userBands = Array.isArray(userBands) ? userBands : [];
-            const bandIds = this.userBands.map(b => b.id || b.band_id || b.bandId).filter(Boolean);
-            const [allEvents, allRehearsals, allAbsences, userCalendars] = await Promise.all([
-                bandIds.length > 0 ? this.loadUserEvents(bandIds) : Promise.resolve([]),
-                bandIds.length > 0 ? this.loadUserRehearsals(bandIds) : Promise.resolve([]),
-                this.loadUserAbsences(user.id),
-                Storage.get('external_calendars', { user_id: user.id })
-            ]);
-            let allExternal = [];
-            if (userCalendars && userCalendars.length > 0) {
-                const feeds = await Promise.all(userCalendars.map(c => this.loadExternalCalendar(c.url, c.name)));
-                allExternal = feeds.flat();
-            } else if (user.personal_ical_url) {
-                allExternal = await this.loadExternalCalendar(user.personal_ical_url, 'Hauptkalender');
+        this.loadingPromise = (async () => {
+            try {
+                const user = Auth.getCurrentUser();
+                if (!user) return;
+                const userBands = await Storage.getUserBands(user.id);
+                this.userBands = Array.isArray(userBands) ? userBands : [];
+                const bandIds = this.userBands.map(b => b.id || b.band_id || b.bandId).filter(Boolean);
+                const [allEvents, allRehearsals, allAbsences, userCalendarsRaw] = await Promise.all([
+                    bandIds.length > 0 ? this.loadUserEvents(bandIds) : Promise.resolve([]),
+                    bandIds.length > 0 ? this.loadUserRehearsals(bandIds) : Promise.resolve([]),
+                    this.loadUserAbsences(user.id),
+                    Storage.get('external_calendars', { user_id: user.id })
+                ]);
+                const userCalendars = Array.isArray(userCalendarsRaw) ? userCalendarsRaw : [];
+                let allExternal = [];
+                if (userCalendars && userCalendars.length > 0) {
+                    const feeds = await Promise.all(userCalendars.map(c => this.loadExternalCalendar(c.url, c.name, {
+                        sourceCalendarId: c.id
+                    })));
+                    allExternal = feeds.flat();
+                    try {
+                        await Storage.syncSharedExternalCalendarBusySlots(user.id, userCalendars, allExternal);
+                    } catch (error) {
+                        console.warn('[PersonalCalendar] Shared calendar sync failed:', error);
+                    }
+                } else if (user.personal_ical_url) {
+                    allExternal = await this.loadExternalCalendar(user.personal_ical_url, 'Hauptkalender');
+                }
+                this.events = allEvents || [];
+                this.rehearsals = allRehearsals || [];
+                this.absences = allAbsences || [];
+                this.externalEvents = allExternal || [];
+                this.hasLoaded = true;
+            } catch (e) {
+                console.warn('[PersonalCalendar] Silent data load failed:', e);
+            } finally {
+                this.isLoading = false;
+                this.loadingPromise = null;
             }
-            this.events = allEvents || [];
-            this.rehearsals = allRehearsals || [];
-            this.absences = allAbsences || [];
-            this.externalEvents = allExternal || [];
-            this.hasLoaded = true;
-        } catch (e) {
-            console.warn('[PersonalCalendar] Silent data load failed:', e);
-        } finally {
-            this.isLoading = false;
-        }
+        })();
+
+        return this.loadingPromise;
     },
 
     async loadPersonalCalendar(forceReload = false) {
@@ -83,20 +100,28 @@ const PersonalCalendar = {
             const bandIds = (userBands || []).map(b => b.id || b.band_id || b.bandId).filter(Boolean);
 
             // 3. Fetch data from Supabase (all sources)
-            const [allEvents, allRehearsals, allAbsences, userCalendars] = await Promise.all([
+            const [allEvents, allRehearsals, allAbsences, userCalendarsRaw] = await Promise.all([
                 bandIds.length > 0 ? this.loadUserEvents(bandIds) : [],
                 bandIds.length > 0 ? this.loadUserRehearsals(bandIds) : [],
                 this.loadUserAbsences(user.id),
                 Storage.get('external_calendars', { user_id: user.id })
             ]);
+            const userCalendars = Array.isArray(userCalendarsRaw) ? userCalendarsRaw : [];
 
             // 4. Fetch all external iCAL feeds concurrently
             let allExternal = [];
             if (userCalendars && userCalendars.length > 0) {
                 const externalFeeds = await Promise.all(
-                    userCalendars.map(cal => this.loadExternalCalendar(cal.url, cal.name))
+                    userCalendars.map(cal => this.loadExternalCalendar(cal.url, cal.name, {
+                        sourceCalendarId: cal.id
+                    }))
                 );
                 allExternal = externalFeeds.flat();
+                try {
+                    await Storage.syncSharedExternalCalendarBusySlots(user.id, userCalendars, allExternal);
+                } catch (error) {
+                    console.warn('[PersonalCalendar] Shared calendar sync failed:', error);
+                }
             } else if (user.personal_ical_url) {
                 // Migration/Legacy support
                 allExternal = await this.loadExternalCalendar(user.personal_ical_url, 'Hauptkalender');
@@ -831,70 +856,8 @@ const PersonalCalendar = {
         `;
     },
 
-    async loadExternalCalendar(url, sourceName = 'Externer Kalender') {
-        try {
-            // Normalize webcal protocol to https for proxy compatibility
-            const normalizedUrl = url.trim().replace(/^webcal(s)?:\/\//i, 'https://');
-            const icalData = await ProxyService.fetch(normalizedUrl);
-            if (!icalData || typeof icalData !== 'string' || !icalData.includes('BEGIN:VCALENDAR')) {
-                console.warn('[PersonalCalendar] Invalid iCal data from:', normalizedUrl);
-                return [];
-            }
-
-            // Yield to main thread before heavy parsing
-            await new Promise(resolve => setTimeout(resolve, 0));
-
-            const jcalData = ICAL.parse(icalData);
-            const vcalendar = new ICAL.Component(jcalData);
-            const vevents = vcalendar.getAllSubcomponents('vevent');
-
-            return vevents.map(vevent => {
-                try {
-                    const event = new ICAL.Event(vevent);
-                    const dtStart = event.startDate.toJSDate();
-                    const dtEnd = event.endDate.toJSDate();
-                    
-                    // Check if it's an all-day event
-                    const isAllDay = event.startDate.isDate;
-
-                    let dateStr = dtStart.toISOString();
-                    let endDateStr = dtEnd.toISOString();
-
-                    if (isAllDay) {
-                        // Retain exact date without TZ-offset shifts for all-day events
-                        dateStr = `${event.startDate.year}-${String(event.startDate.month).padStart(2, '0')}-${String(event.startDate.day).padStart(2, '0')}`;
-                        endDateStr = `${event.endDate.year}-${String(event.endDate.month).padStart(2, '0')}-${String(event.endDate.day).padStart(2, '0')}`;
-                    }
-
-                    return {
-                        id: 'ext_' + Math.random().toString(36).substr(2, 9),
-                        title: event.summary,
-                        location: event.location,
-                        description: event.description,
-                        date: dateStr,
-                        endDate: endDateStr,
-                        isAllDay: isAllDay,
-                        time: isAllDay ? null : `${dtStart.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} - ${dtEnd.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`,
-                        type: 'external',
-                        sourceName: sourceName
-                    };
-                } catch (e) {
-                    return null;
-                }
-            }).filter(Boolean).filter(e => {
-                // Filter events to a reasonable range (e.g., last 6 months to next 18 months)
-                const eventDate = new Date(e.date);
-                const now = new Date();
-                const pastLimit = new Date();
-                pastLimit.setMonth(now.getMonth() - 6);
-                const futureLimit = new Date();
-                futureLimit.setMonth(now.getMonth() + 18);
-                return eventDate >= pastLimit && eventDate <= futureLimit;
-            });
-        } catch (error) {
-            console.error('[PersonalCalendar] Error loading external calendar:', error);
-            return [];
-        }
+    async loadExternalCalendar(url, sourceName = 'Externer Kalender', options = {}) {
+        return Storage.fetchExternalCalendarEntries(url, sourceName, options);
     },
 
     canUserEdit(bandId) {

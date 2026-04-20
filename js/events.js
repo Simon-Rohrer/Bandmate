@@ -8,6 +8,39 @@ const Events = {
     eventsCache: null,
     dataContextCache: null,
     isLoading: false,
+    availabilityRefreshTimer: null,
+
+    requestAvailabilityRefresh() {
+        if (this.availabilityRefreshTimer) {
+            clearTimeout(this.availabilityRefreshTimer);
+        }
+
+        this.availabilityRefreshTimer = setTimeout(() => {
+            this.availabilityRefreshTimer = null;
+            Promise.resolve(this.updateAvailabilityIndicators()).catch(error => {
+                console.warn('[Events] Availability refresh failed:', error);
+            });
+        }, 0);
+    },
+
+    attachAvailabilityListeners(context = document) {
+        const availabilityInputs = [
+            ...context.querySelectorAll('.event-date-input-date'),
+            ...context.querySelectorAll('.event-date-input-start'),
+            ...context.querySelectorAll('#eventFixedDate, #eventFixedTime')
+        ];
+
+        availabilityInputs.forEach(input => {
+            if (input._availabilityBound) return;
+
+            const refreshAvailability = () => this.requestAvailabilityRefresh();
+
+            input.addEventListener('input', refreshAvailability);
+            input.addEventListener('change', refreshAvailability);
+            input.addEventListener('blur', refreshAvailability);
+            input._availabilityBound = true;
+        });
+    },
 
     // Clear all cached data (called during logout)
     clearCache() {
@@ -1053,6 +1086,30 @@ const Events = {
             };
         }
 
+        const proposalsContainer = document.getElementById('eventDateProposals');
+        if (proposalsContainer && !proposalsContainer.dataset.initialized) {
+            proposalsContainer.dataset.initialized = 'true';
+            const refreshProposalAvailability = () => {
+                window._eventFormDirty = true;
+                this.requestAvailabilityRefresh();
+            };
+            proposalsContainer.addEventListener('input', (event) => {
+                if (event.target.closest('.event-date-input-date, .event-date-input-start')) {
+                    refreshProposalAvailability();
+                }
+            });
+            proposalsContainer.addEventListener('change', (event) => {
+                if (event.target.closest('.event-date-input-date, .event-date-input-start')) {
+                    refreshProposalAvailability();
+                }
+            });
+            proposalsContainer.addEventListener('focusout', (event) => {
+                if (event.target.closest('.event-date-input-date, .event-date-input-start')) {
+                    refreshProposalAvailability();
+                }
+            });
+        }
+
         document.querySelectorAll('input[name="eventScheduleMode"]').forEach(input => {
             if (input.dataset.initialized) return;
             input.dataset.initialized = 'true';
@@ -1070,7 +1127,7 @@ const Events = {
                 const bandId = bandSelect.value;
                 if (bandId) {
                     await this.fetchBandMemberAbsences(bandId);
-                    this.updateAvailabilityIndicators();
+                    this.requestAvailabilityRefresh();
                 }
             });
         }
@@ -1231,9 +1288,21 @@ const Events = {
     },
 
     getScheduleMode() {
-        return document.querySelector('input[name="eventScheduleMode"]:checked')?.value === 'proposals'
-            ? 'proposals'
-            : 'fixed';
+        const checkedMode = document.querySelector('input[name="eventScheduleMode"]:checked')?.value;
+        const fixedSection = document.getElementById('eventFixedDateSection');
+        const proposalsSection = document.getElementById('eventDateProposalsSection');
+        const isFixedVisible = fixedSection && window.getComputedStyle(fixedSection).display !== 'none';
+        const isProposalsVisible = proposalsSection && window.getComputedStyle(proposalsSection).display !== 'none';
+
+        if (isProposalsVisible && !isFixedVisible) {
+            return 'proposals';
+        }
+
+        if (isFixedVisible && !isProposalsVisible) {
+            return 'fixed';
+        }
+
+        return checkedMode === 'proposals' ? 'proposals' : 'fixed';
     },
 
     resolveScheduleModeFromEvent(event, confirmDate = null) {
@@ -1303,6 +1372,8 @@ const Events = {
 
         container.innerHTML = '';
         this.addDateProposalRow();
+        this.attachAvailabilityListeners(container);
+        this.requestAvailabilityRefresh();
     },
 
     setScheduleMode(mode = 'fixed', options = {}) {
@@ -1347,8 +1418,12 @@ const Events = {
             this.addDateProposalRow();
         }
 
+        if (proposalsContainer) {
+            this.attachAvailabilityListeners(proposalsContainer);
+        }
+
         if (options.refreshAvailability !== false) {
-            this.updateAvailabilityIndicators();
+            this.requestAvailabilityRefresh();
         }
     },
 
@@ -1391,19 +1466,14 @@ const Events = {
         const initialBandId = bandSelect ? bandSelect.value : null;
         if (initialBandId) {
             await this.fetchBandMemberAbsences(initialBandId);
-            this.updateAvailabilityIndicators();
+            this.requestAvailabilityRefresh();
         }
 
         row.querySelector('.remove-event-date').onclick = () => {
              row.remove();
-             this.updateAvailabilityIndicators();
+             this.requestAvailabilityRefresh();
         };
-
-        row.querySelectorAll('input').forEach(input => {
-             // Use input for live validation, same as fixed date fields
-             input.addEventListener('input', () => this.updateAvailabilityIndicators());
-             input.addEventListener('change', () => this.updateAvailabilityIndicators());
-        });
+        this.attachAvailabilityListeners(row);
     },
 
     async openEventDetails(eventId) {
@@ -1871,20 +1941,16 @@ const Events = {
                     container.appendChild(row);
                     row.querySelector('.remove-event-date').onclick = () => {
                         row.remove();
-                        this.updateAvailabilityIndicators();
+                        this.requestAvailabilityRefresh();
                     };
-                    row.querySelectorAll('input').forEach(input => {
-                        input.addEventListener('input', () => this.updateAvailabilityIndicators());
-                        input.addEventListener('change', () => this.updateAvailabilityIndicators());
-                    });
                 });
             } else if (scheduleMode === 'proposals') {
                 this.addDateProposalRow();
             }
 
+            this.attachAvailabilityListeners(container);
             this.setScheduleMode(scheduleMode, { lockMode: false, refreshAvailability: false });
-            // Trigger availability check immediately after proposals rows are built
-            setTimeout(() => this.updateAvailabilityIndicators(), 0);
+            this.requestAvailabilityRefresh();
         }
 
         const songPoolBtn = document.getElementById('copyBandSongsBtn');
@@ -1895,10 +1961,8 @@ const Events = {
         // Reset dirty flag when modal opens
         window._eventFormDirty = false;
 
-        // Immediate update for data already in memory
-        setTimeout(() => this.updateAvailabilityIndicators(), 50);
-        // Delayed update to catch data arriving from background fetches (cold start)
-        setTimeout(() => this.updateAvailabilityIndicators(), 1500);
+        this.requestAvailabilityRefresh();
+        setTimeout(() => this.requestAvailabilityRefresh(), 1500);
 
     },
 
@@ -1965,14 +2029,13 @@ const Events = {
     buildMemberStatusMarkup(memberConflicts = [], hasPersonalConflict = false) {
         const lines = [];
 
-        if (hasPersonalConflict) {
-            lines.push(`<span class="proposal-status-line is-warning" style="color: var(--color-warning);">⚠️ Du hast in diesem Zeitraum bereits einen persönlichen Termin</span>`);
-        }
-
         const memberStatus = this.getMemberStatusMeta(memberConflicts);
         if (memberStatus) {
-            const icon = memberStatus.tone === 'conflict' ? '⚠️' : '✓';
-            lines.push(`<span class="proposal-status-line is-${memberStatus.tone}">${icon} ${memberStatus.text}</span>`);
+            lines.push(`<span class="proposal-status-line is-${memberStatus.tone}">${memberStatus.text}</span>`);
+        }
+
+        if (hasPersonalConflict) {
+            lines.push('<span class="proposal-status-line is-conflict">Persönlicher Termin in diesem Zeitraum vorhanden</span>');
         }
 
         if (lines.length === 0) return '';
@@ -2021,18 +2084,15 @@ const Events = {
         `;
     },
 
-    buildAvailabilityDetailsHtml(memberConflicts = [], startDateTime = null, endDateTime = null) {
+    buildAvailabilityDetailsHtml({ memberConflicts = [], personalConflicts = [] } = {}) {
         const sections = [];
         
         if (Array.isArray(memberConflicts) && memberConflicts.length > 0) {
             sections.push(`<div class="member-details-box">${this.buildMemberConflictDetailsSection(memberConflicts)}</div>`);
         }
 
-        if (startDateTime && endDateTime && typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
-            const pConflicts = PersonalCalendar.getPersonalConflicts(startDateTime, endDateTime);
-            if (pConflicts.length > 0) {
-                sections.push(`<div class="conflict-details-box">${this.buildPersonalConflictDetailsSection(pConflicts)}</div>`);
-            }
+        if (Array.isArray(personalConflicts) && personalConflicts.length > 0) {
+            sections.push(`<div class="conflict-details-box">${this.buildPersonalConflictDetailsSection(personalConflicts)}</div>`);
         }
 
         if (sections.length === 0) return '';
@@ -2046,7 +2106,7 @@ const Events = {
             ${conflicts.map(c => {
                 const start = new Date(c.start).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
                 const end = new Date(c.end).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
-                return `<div class="conflict-item" style="color: var(--color-warning);">• ${Bands.escapeHtml(c.title)} (${start} - ${end})</div>`;
+                return `<div class="conflict-item">• ${Bands.escapeHtml(c.title)} (${start} - ${end} Uhr)</div>`;
             }).join('')}
         `;
     },
@@ -2060,16 +2120,16 @@ const Events = {
         const conflicts = [];
 
         for (const memberId of selectedMembers) {
-            const [user, absences] = await Promise.all([
+            const [user, availabilityBlocks] = await Promise.all([
                 Storage.getById('users', memberId),
-                Storage.getUserAbsences(memberId)
+                Storage.getUserAvailabilityBlocks(memberId)
             ]);
 
             const userConflicts = dateValues
                 .filter(rangeToCheck => {
                     const start = typeof rangeToCheck === 'object' && rangeToCheck.start ? rangeToCheck.start : rangeToCheck;
                     const end = typeof rangeToCheck === 'object' && rangeToCheck.end ? rangeToCheck.end : (new Date(new Date(start).getTime() + 4 * 60 * 60 * 1000).toISOString());
-                    return (absences || []).some(absence => Storage.absenceOverlapsRange(absence, start, end));
+                    return (availabilityBlocks || []).some(absence => Storage.absenceOverlapsRange(absence, start, end));
                 })
                 .map(rangeToCheck => {
                     const date = typeof rangeToCheck === 'object' && rangeToCheck.start ? rangeToCheck.start : rangeToCheck;
@@ -2165,19 +2225,11 @@ const Events = {
             });
         });
 
-        this.updateAvailabilityIndicators();
+        this.requestAvailabilityRefresh();
     },
 
     async fetchBandMemberAbsences(bandId, userIds = null) {
         try {
-            // Parallel: ensure personal calendar data is loaded (fixes cold-start)
-            if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.ensureDataLoaded === 'function') {
-                PersonalCalendar.ensureDataLoaded().then(() => {
-                    // Re-run indicators after personal data is available
-                    this.updateAvailabilityIndicators();
-                });
-            }
-
             let targetUserIds = userIds;
             if (!targetUserIds && bandId) {
                 const members = await Storage.getBandMembers(bandId);
@@ -2185,7 +2237,7 @@ const Events = {
             }
             
             if (targetUserIds && targetUserIds.length > 0) {
-                this.currentBandMemberAbsences = await Storage.getAbsencesForUsers(targetUserIds);
+                this.currentBandMemberAbsences = await Storage.getAvailabilityBlocksForUsers(targetUserIds);
             } else {
                 this.currentBandMemberAbsences = [];
             }
@@ -2203,10 +2255,15 @@ const Events = {
         const fixedDateSection = document.getElementById('eventFixedDateSection');
         const fixedDateValue = this.getFixedDateTimeValue();
 
-        // Ensure personal calendar data is available (silent, no-op if already loaded)
+        // Wait until personal calendar data is available so proposal rows resolve
+        // personal conflicts immediately, just like rehearsals and fixed dates.
         if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.ensureDataLoaded === 'function'
-            && !PersonalCalendar.hasLoaded && !PersonalCalendar.isLoading) {
-            PersonalCalendar.ensureDataLoaded().then(() => this.updateAvailabilityIndicators());
+            && !PersonalCalendar.hasLoaded) {
+            try {
+                await PersonalCalendar.ensureDataLoaded();
+            } catch (error) {
+                console.warn('[Events] Personal calendar availability could not be loaded:', error);
+            }
         }
 
         if (fixedDateIndicator && (scheduleMode !== 'fixed' || !fixedDateValue)) {
@@ -2234,14 +2291,17 @@ const Events = {
             if (scheduleMode === 'fixed' && fixedDateValue) {
                 const dateValue = new Date(fixedDateValue).toISOString();
                 const endValue = new Date(new Date(dateValue).getTime() + 4 * 60 * 60 * 1000).toISOString();
-                // Band member conflicts only if absences are loaded
                 const memberConflicts = this.currentBandMemberAbsences ? this.collectMemberConflicts(dateValue, endValue) : [];
-                const hasPersonalConflict = getPersonalConflicts(dateValue, endValue).length > 0;
+                const personalConflicts = getPersonalConflicts(dateValue, endValue);
+                const hasPersonalConflict = personalConflicts.length > 0;
 
                 fixedDateIndicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts, hasPersonalConflict);
                 fixedDateIndicator.className = `date-availability ${(memberConflicts.length > 0 || hasPersonalConflict) ? 'has-conflict' : 'is-available'}`;
 
-                const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts, dateValue, endValue);
+                const detailsHtml = this.buildAvailabilityDetailsHtml({
+                    memberConflicts,
+                    personalConflicts
+                });
                 if (detailsHtml) {
                     fixedDateIndicator.insertAdjacentHTML('afterend', `<div class="availability-details-stack">${detailsHtml}</div>`);
                 }
@@ -2260,8 +2320,7 @@ const Events = {
 
             if (!indicator) continue;
 
-            const existingDetails = item.querySelector('.availability-details-stack, .member-details-box');
-            if (existingDetails) existingDetails.remove();
+            item.querySelectorAll('.availability-details-stack, .conflict-details-box, .member-details-box').forEach(details => details.remove());
 
             if (scheduleMode !== 'proposals') {
                 indicator.textContent = '';
@@ -2277,14 +2336,17 @@ const Events = {
 
             const startDateTime = new Date(`${dateInput.value}T${startInput.value}`).toISOString();
             const endDateTime = new Date(new Date(startDateTime).getTime() + 4 * 60 * 60 * 1000).toISOString();
-            // Band member conflicts only if absences are loaded
             const memberConflicts = this.currentBandMemberAbsences ? this.collectMemberConflicts(startDateTime, endDateTime) : [];
-            const hasPersonalConflict = getPersonalConflicts(startDateTime, endDateTime).length > 0;
+            const personalConflicts = getPersonalConflicts(startDateTime, endDateTime);
+            const hasPersonalConflict = personalConflicts.length > 0;
 
             indicator.innerHTML = this.buildMemberStatusMarkup(memberConflicts, hasPersonalConflict);
             indicator.className = `date-availability ${(memberConflicts.length > 0 || hasPersonalConflict) ? 'has-conflict' : 'is-available'}`;
 
-            const detailsHtml = this.buildAvailabilityDetailsHtml(memberConflicts, startDateTime, endDateTime);
+            const detailsHtml = this.buildAvailabilityDetailsHtml({
+                memberConflicts,
+                personalConflicts
+            });
             if (detailsHtml) {
                 const footer = item.querySelector('.date-proposal-footer');
                 if (footer) {

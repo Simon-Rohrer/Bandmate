@@ -706,7 +706,7 @@ const PDFGenerator = {
         headerMeta = []
     } = {}) {
         const safeTitle = String(title || 'Ablauf').trim() || 'Ablauf';
-        const titleText = safeTitle.toLowerCase().startsWith('ablauf')
+        const titleText = (safeTitle.toLowerCase().includes('rider') || safeTitle.toLowerCase().startsWith('ablauf'))
             ? safeTitle
             : `Ablauf ${safeTitle}`;
         const logoUrl = this.getRundownBrandLogoUrl();
@@ -1037,6 +1037,100 @@ const PDFGenerator = {
             orientation: 'p',
             canvasWidth: 794
         });
+    },
+
+    async generateBandRiderPDF({
+        bandName = 'Band',
+        members = [], // Array of { name: '', instrument: '', mic: '', monitor: '', extra: '' }
+        fontScale = 1,
+        filename = '',
+        previewOnly = false
+    } = {}) {
+        const resolvedFilename = this.sanitizeFilename(filename || `Tech_Rider_${bandName}.pdf`, 'rider.pdf');
+        
+        const pages = this.buildBandRiderPDFPages({
+            bandName,
+            members,
+            fontScale
+        });
+
+        return this.renderMarkupToPDF({
+            pages,
+            filename: resolvedFilename,
+            previewOnly,
+            orientation: 'p',
+            canvasWidth: 794
+        });
+    },
+
+    buildBandRiderPDFPages({ bandName, members = [], fontScale = 1 }) {
+        const scale = this.normalizeRundownFontScale(fontScale);
+        const px = (size, minimum = 0) => this.scaleRundownSize(size, scale, minimum);
+
+        // Header and layout follow buildRundownPDFPageMarkup logic implicitly
+        // but we'll build a specific body structure here.
+
+        const renderRiderMember = (member) => `
+            <div style="border:1px solid #dbe3ef; border-radius:${px(18)}; background:#ffffff; padding:${px(16)}; margin-bottom:${px(14)}; page-break-inside:avoid;">
+                <div style="display:flex; align-items:center; gap:${px(12)}; margin-bottom:${px(12)}; border-bottom:1px solid #f1f5f9; padding-bottom:${px(10)};">
+                    <div style="width:${px(32)}; height:${px(32)}; border-radius:50%; background:#6366f1; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${px(13)};">
+                        ${this.escapeHtml((member.name || '?').charAt(0).toUpperCase())}
+                    </div>
+                    <div>
+                        <div style="font-size:${px(16)}; font-weight:800; color:#0f172a;">${this.escapeHtml(member.name || 'Mitglied')}</div>
+                        <div style="font-size:${px(11)}; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.05em;">${this.escapeHtml(member.instrument || 'Instrument')}</div>
+                    </div>
+                </div>
+                
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:${px(16)};">
+                    <div>
+                        <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b; margin-bottom:${px(4)};">Mikrofon / DI</div>
+                        <div style="font-size:${px(12)}; color:#0f172a; line-height:1.4;">${this.escapeHtml(member.mic || '-')}</div>
+                    </div>
+                    <div>
+                        <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b; margin-bottom:${px(4)};">Monitoring</div>
+                        <div style="font-size:${px(12)}; color:#0f172a; line-height:1.4;">${this.escapeHtml(member.monitor || '-')}</div>
+                    </div>
+                </div>
+                
+                ${member.extra ? `
+                <div style="margin-top:${px(12)}; padding-top:${px(10)}; border-top:1px dashed #f1f5f9;">
+                    <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b; margin-bottom:${px(4)};">Besonderheiten</div>
+                    <div style="font-size:${px(12)}; color:#0f172a; line-height:1.4; white-space:pre-line;">${this.escapeHtml(member.extra)}</div>
+                </div>
+                ` : ''}
+            </div>
+        `;
+
+        // Split members into pages if necessary (simple estimation)
+        const itemsPerPage = members.length > 5 ? 3 : 5; // Very rough
+        const pages = [];
+        for (let i = 0; i < members.length; i += itemsPerPage) {
+            const chunk = members.slice(i, i + itemsPerPage);
+            pages.push(this.buildRundownPDFPageMarkup({
+                title: 'Technical Rider',
+                subtitle: bandName,
+                modeLabel: 'Band-Spezifikation',
+                pageNumber: pages.length + 1,
+                totalPages: Math.ceil(members.length / itemsPerPage),
+                bodyHtml: chunk.map(m => renderRiderMember(m)).join(''),
+                headerMeta: []
+            }));
+        }
+
+        if (pages.length === 0) {
+            pages.push(this.buildRundownPDFPageMarkup({
+                title: 'Technical Rider',
+                subtitle: bandName,
+                modeLabel: 'Band-Spezifikation',
+                pageNumber: 1,
+                totalPages: 1,
+                bodyHtml: '<div style="text-align:center; padding:50px; color:#64748b;">Keine Mitgliederdaten vorhanden.</div>',
+                headerMeta: []
+            }));
+        }
+
+        return pages;
     }
 };
 

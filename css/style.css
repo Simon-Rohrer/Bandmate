@@ -581,6 +581,10 @@
     color: var(--color-success);
 }
 
+.scheduler-modal .proposal-status-line.is-conflict {
+    color: var(--color-danger);
+}
+
 .scheduler-modal .proposal-status-line.is-warning {
     color: var(--color-warning);
 }
@@ -3972,7 +3976,8 @@ input:checked+.slider:before {
     max-height: 95vh;
 }
 
-.rundown-pdf-modal-content {
+.rundown-pdf-modal-content,
+.bandrider-pdf-modal-content {
     width: min(96vw, 1500px);
     max-width: min(96vw, 1500px);
     height: min(94vh, 1080px);
@@ -3982,12 +3987,14 @@ input:checked+.slider:before {
     overflow: hidden;
 }
 
-.rundown-pdf-modal-header {
+.rundown-pdf-modal-header,
+.bandrider-pdf-modal-header {
     padding-bottom: var(--spacing-lg);
     border-bottom: 1px solid var(--color-border);
 }
 
-.rundown-pdf-modal-copy {
+.rundown-pdf-modal-copy,
+.bandrider-pdf-modal-copy {
     display: flex;
     flex-direction: column;
     gap: 0.35rem;
@@ -3995,6 +4002,7 @@ input:checked+.slider:before {
 }
 
 .rundown-pdf-modal-kicker,
+.bandrider-pdf-modal-kicker,
 .rundown-pdf-preview-kicker {
     display: inline-flex;
     align-self: flex-start;
@@ -4009,13 +4017,15 @@ input:checked+.slider:before {
     text-transform: uppercase;
 }
 
-.rundown-pdf-modal-copy p {
+.rundown-pdf-modal-copy p,
+.bandrider-pdf-modal-copy p {
     margin: 0;
     color: var(--color-text-secondary);
     max-width: 40rem;
 }
 
-.rundown-pdf-modal-body {
+.rundown-pdf-modal-body,
+.bandrider-pdf-modal-body {
     flex: 1;
     display: grid;
     grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
@@ -4024,7 +4034,8 @@ input:checked+.slider:before {
     overflow: hidden;
 }
 
-.rundown-pdf-editor-panel {
+.rundown-pdf-editor-panel,
+.bandrider-pdf-editor-panel {
     padding: var(--spacing-xl);
     border-right: 1px solid var(--color-border);
     background:
@@ -4035,7 +4046,8 @@ input:checked+.slider:before {
     overflow-y: auto;
 }
 
-.rundown-pdf-toolbar-card {
+.rundown-pdf-toolbar-card,
+.bandrider-pdf-toolbar-card {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -4052,14 +4064,16 @@ input:checked+.slider:before {
         linear-gradient(180deg, rgba(34, 45, 68, 0.68) 0%, rgba(20, 29, 48, 0.68) 100%);
 }
 
-.rundown-pdf-card-head {
+.rundown-pdf-card-head,
+.bandrider-pdf-card-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-md);
 }
 
-.rundown-pdf-section-label {
+.rundown-pdf-section-label,
+.bandrider-pdf-section-label {
     font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -4074,20 +4088,23 @@ input:checked+.slider:before {
     color: var(--color-text-secondary);
 }
 
-.rundown-pdf-slider-field {
+.rundown-pdf-slider-field,
+.bandrider-pdf-slider-field {
     display: flex;
     flex-direction: column;
     gap: 0.65rem;
 }
 
-.rundown-pdf-slider-head {
+.rundown-pdf-slider-head,
+.bandrider-pdf-slider-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
 }
 
-.rundown-pdf-slider-label {
+.rundown-pdf-slider-label,
+.bandrider-pdf-slider-label {
     font-size: 0.78rem;
     font-weight: 700;
     letter-spacing: 0.08em;
@@ -8486,18 +8503,19 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
 }
 
 .conflict-details-box {
-    background: #fee;
-    border: 1px solid #fcc;
-    border-radius: var(--radius-sm);
-    padding: var(--spacing-sm);
+    width: 100%;
+    margin-top: 0;
+    padding: 0.85rem 0.95rem;
+    border-radius: 0.95rem;
+    border: 1px solid rgba(239, 68, 68, 0.24);
+    background: rgba(248, 113, 113, 0.08);
     font-size: 0.875rem;
-    margin-top: var(--spacing-xs);
 }
 
 .conflict-details-header {
-    font-weight: 600;
-    color: #c00;
-    margin-bottom: var(--spacing-xs);
+    font-weight: 700;
+    color: #f87171;
+    margin-bottom: 0.4rem;
 }
 
 .conflict-details-header:not(:first-child) {
@@ -8505,8 +8523,9 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
 }
 
 .conflict-item {
-    color: #800;
+    color: var(--color-text);
     margin: 0.25rem 0;
+    line-height: 1.5;
 }
 
 .availability-details-stack {
@@ -35599,6 +35618,47 @@ html[data-theme="light"] #landingPage .auth-forgot-password-link,
     margin-top: -0.05rem;
 }
 
+.scheduler-modal-event .date-proposal-item {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.9rem;
+    padding: 1rem;
+}
+
+.scheduler-modal-event .date-proposal-footer,
+.scheduler-modal-event .date-proposal-summary {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+    gap: 0.9rem;
+    width: 100%;
+}
+
+.scheduler-modal-event .date-availability {
+    min-width: 0;
+    min-height: 0;
+    line-height: 1.45;
+}
+
+.scheduler-modal-event .conflict-details-box {
+    width: 100%;
+    margin-top: 0;
+    padding: 0.85rem 0.95rem;
+    border-radius: 0.95rem;
+    border-color: rgba(239, 68, 68, 0.24);
+    background: rgba(248, 113, 113, 0.08);
+}
+
+.scheduler-modal-event .conflict-details-header {
+    color: #f87171;
+}
+
+.scheduler-modal-event .conflict-item {
+    color: var(--color-text);
+    line-height: 1.5;
+}
+
 .scheduler-modal-rehearsal #rehearsalDateProposalsSection .date-proposal-footer {
     grid-template-columns: minmax(0, 1fr);
     gap: 0.35rem;
@@ -37536,4 +37596,348 @@ html[data-theme="light"] #landingPage .landing-hero-features span:not(.dot),
         gap: 14px;
         width: 100%;
     }
+}
+
+/* Bandrider Modal Styles */
+.bandrider-modal-content {
+    width: min(96vw, 1400px);
+    max-width: min(96vw, 1400px);
+    height: min(94vh, 1000px);
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.bandrider-modal-header {
+    padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+}
+
+.bandrider-modal-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+}
+
+.bandrider-modal-kicker {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 0.12rem 0.68rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--color-text-light);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+}
+
+.bandrider-modal-copy p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    max-width: 40rem;
+}
+
+.bandrider-modal-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.bandrider-editor-panel {
+    padding: var(--spacing-xl);
+    border-right: 1px solid var(--color-border);
+    background:
+        linear-gradient(180deg, rgba(16, 22, 35, 0.98) 0%, rgba(10, 15, 25, 0.98) 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+    overflow-y: auto;
+}
+
+.bandrider-toolbar-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 0.95rem;
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bandrider-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+}
+
+.bandrider-section-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-light);
+}
+
+.bandrider-slider-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.bandrider-slider-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.bandrider-slider-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-light);
+    opacity: 0.82;
+}
+
+.bandrider-slider-head strong {
+    font-size: 0.92rem;
+    color: var(--color-text);
+}
+
+.bandrider-slider-field input[type="range"] {
+    width: 100%;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+}
+
+.bandrider-members-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.bandrider-member-card {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.2rem;
+    border-radius: 16px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bandrider-member-name {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-weight: 700;
+    font-size: 1rem;
+    color: var(--color-text);
+}
+
+.bandrider-member-name-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(122, 162, 255, 0.18);
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: rgba(122, 162, 255, 0.8);
+    flex-shrink: 0;
+}
+
+.bandrider-member-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.bandrider-field-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.bandrider-field-label {
+    font-size: 0.74rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-light);
+    opacity: 0.82;
+}
+
+.bandrider-field-input,
+.bandrider-field-select,
+.bandrider-field-textarea {
+    padding: 0.6rem 0.8rem;
+    border-radius: 8px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 0.9rem;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+}
+
+.bandrider-field-textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.bandrider-field-input:focus,
+.bandrider-field-select:focus,
+.bandrider-field-textarea:focus {
+    outline: none;
+    border-color: rgba(122, 162, 255, 0.68);
+    background: rgba(122, 162, 255, 0.12);
+}
+
+.bandrider-preview-panel {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    background:
+        radial-gradient(circle at top left, rgba(91, 143, 249, 0.12), transparent 30%),
+        linear-gradient(180deg, rgba(15, 18, 27, 0.99) 0%, rgba(8, 11, 18, 0.99) 100%);
+}
+
+.bandrider-preview-stage {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    margin: 0;
+    border-radius: 0;
+    overflow: hidden;
+    border-left: 1px solid rgba(148, 163, 184, 0.12);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.015) 100%);
+    display: flex;
+    align-items: stretch;
+    justify-content: center;
+    padding: 0;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bandrider-preview-paper {
+    width: 100%;
+    height: 100%;
+    border-radius: 0;
+    overflow: hidden;
+    border: none;
+    background: #101828;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bandrider-preview-stage iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    background: #101828;
+}
+
+.bandrider-preview-loading {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--spacing-xl);
+    background: rgba(8, 16, 30, 0.72);
+    color: rgba(255, 255, 255, 0.92);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(8px);
+}
+
+.bandrider-preview-loading[hidden] {
+    display: none !important;
+}
+
+.bandrider-modal-actions {
+    padding: var(--spacing-lg) var(--spacing-xl) var(--spacing-xl);
+    border-top: 1px solid var(--color-border);
+    background: rgba(8, 16, 30, 0.96);
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: flex-end;
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-modal-content,
+:root:not(.theme-dark) #bandRiderModal .bandrider-modal-content {
+    box-shadow: 0 32px 80px rgba(15, 23, 42, 0.16);
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-modal-header,
+:root:not(.theme-dark) #bandRiderModal .bandrider-modal-header {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.96) 100%);
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-modal-kicker,
+:root:not(.theme-dark) #bandRiderModal .bandrider-modal-kicker {
+    border-color: rgba(203, 213, 225, 0.85);
+    background: rgba(241, 245, 249, 0.92);
+    color: #64748b;
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-editor-panel,
+:root:not(.theme-dark) #bandRiderModal .bandrider-editor-panel {
+    border-right: 1px solid rgba(226, 232, 240, 0.95);
+    background:
+        radial-gradient(circle at top left, rgba(59, 130, 246, 0.06), transparent 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.98) 100%);
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-member-card,
+:root:not(.theme-dark) #bandRiderModal .bandrider-member-card {
+    border: 1px solid rgba(226, 232, 240, 0.98);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.95) 100%);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.06);
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-field-label,
+:root:not(.theme-dark) #bandRiderModal .bandrider-field-label {
+    color: #64748b;
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-field-input,
+html[data-theme="light"] #bandRiderModal .bandrider-field-select,
+html[data-theme="light"] #bandRiderModal .bandrider-field-textarea,
+:root:not(.theme-dark) #bandRiderModal .bandrider-field-input,
+:root:not(.theme-dark) #bandRiderModal .bandrider-field-select,
+:root:not(.theme-dark) #bandRiderModal .bandrider-field-textarea {
+    border-color: rgba(226, 232, 240, 0.95);
+    background: rgba(248, 250, 252, 0.98);
+    color: #1f2937;
+}
+
+html[data-theme="light"] #bandRiderModal .bandrider-field-input:focus,
+html[data-theme="light"] #bandRiderModal .bandrider-field-select:focus,
+html[data-theme="light"] #bandRiderModal .bandrider-field-textarea:focus,
+:root:not(.theme-dark) #bandRiderModal .bandrider-field-input:focus,
+:root:not(.theme-dark) #bandRiderModal .bandrider-field-select:focus,
+:root:not(.theme-dark) #bandRiderModal .bandrider-field-textarea:focus {
+    border-color: rgba(59, 130, 246, 0.68);
+    background: rgba(59, 130, 246, 0.06);
 }

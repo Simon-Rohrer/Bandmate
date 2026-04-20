@@ -56,6 +56,7 @@
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="css/style.css?v=20260409-1">
+    <link rel="stylesheet" href="css/rider.css">
     <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
     <link rel="stylesheet" href="css/calendar.css?v=20260408-4">
     <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
@@ -2102,7 +2103,11 @@
                                         </div>
                                         <div class="form-group full-width">
                                             <label>Externe Kalender (iCal / Webcal Links)</label>
-                                            <div id="externalCalendarsList" class="external-calendars-container" style="display: flex; flex-direction: column; gap: 0.75rem; margin-top: 0.5rem;">
+                                            <p class="external-calendars-help">
+                                                Aktiviere den Schalter links neben einem Kalender, wenn Leiter und Co-Leiter bei der Planung nur sehen dürfen,
+                                                <strong>dass</strong> in diesem Zeitraum ein externer Termin existiert. Titel, Ort und Inhalt bleiben dabei verborgen.
+                                            </p>
+                                            <div id="externalCalendarsList" class="external-calendars-container">
                                                 <!-- Dynamic rows will be inserted here by App.js -->
                                             </div>
                                             <button type="button" id="btnAddCalendar" class="btn btn-ghost btn-sm" style="margin-top: 0.75rem; width: fit-content;">
@@ -2728,8 +2733,12 @@
                                 <h3>Bandmitglieder</h3>
                                 <p id="bandDetailsMembersSummary" class="band-details-section-note"></p>
                             </div>
-                            <button id="addMemberBtn" class="btn btn-primary btn-sm">+ Mitglied<span
-                                    class="mobile-hidden-text"> hinzufügen</span></button>
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button id="bandRiderBtn" class="btn btn-primary btn-sm">📋 Rider<span
+                                        class="mobile-hidden-text">erstellen</span></button>
+                                <button id="addMemberBtn" class="btn btn-primary btn-sm">+ Mitglied<span
+                                        class="mobile-hidden-text">hinzufügen</span></button>
+                            </div>
                         </div>
                         <div id="membersList" class="members-list"></div>
                     </div>
@@ -4259,6 +4268,70 @@
             </div>
         </div>
     </div>
+
+    <!-- Band Rider Modal -->
+    <div id="bandRiderModal" class="modal">
+        <div class="modal-content modal-xl bandrider-pdf-modal-content">
+            <div class="modal-header bandrider-pdf-modal-header">
+                <div class="bandrider-pdf-modal-copy">
+                    <span class="bandrider-pdf-modal-kicker">Band Rider</span>
+                    <h2>Technical Rider exportieren</h2>
+                    <p>Erfasse links technische Anforderungen für jedes Bandmitglied. Die Vorschau aktualisiert sich automatisch.</p>
+                </div>
+                <button class="modal-close">&times;</button>
+            </div>
+            <div class="modal-body bandrider-pdf-modal-body">
+                <aside class="bandrider-pdf-editor-panel">
+                    <div class="bandrider-pdf-toolbar-card">
+                        <div class="bandrider-pdf-card-head">
+                            <span class="bandrider-pdf-section-label">Name der PDF</span>
+                        </div>
+                        <input type="text" id="bandRiderPdfFileName" class="form-input" placeholder="z. B. Tech Rider Bandname">
+                        <div class="bandrider-pdf-slider-field">
+                            <div class="bandrider-pdf-slider-head">
+                                <span class="bandrider-pdf-slider-label">Schriftgröße</span>
+                                <strong id="bandRiderPdfFontScaleValue">100%</strong>
+                            </div>
+                            <input
+                                type="range"
+                                id="bandRiderPdfFontScale"
+                                min="85"
+                                max="130"
+                                step="5"
+                                value="100"
+                            >
+                        </div>
+                    </div>
+
+                    <div class="bandrider-pdf-section-head">
+                        <span class="bandrider-pdf-section-label">Mitglieder & Technik</span>
+                    </div>
+                    <div class="bandrider-members-scroller" id="bandRiderMembersContainer">
+                        <!-- Member input cards will be injected here -->
+                    </div>
+                </aside>
+
+                <div class="bandrider-pdf-preview-panel">
+                    <div class="bandrider-pdf-preview-stage">
+                        <div class="bandrider-pdf-preview-loading" id="bandRiderPreviewLoading" hidden>
+                            Vorschau wird aktualisiert...
+                        </div>
+                        <div class="bandrider-pdf-preview-paper">
+                            <iframe id="bandRiderPreviewFrame" title="Band Rider Vorschau" src=""></iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions bandrider-pdf-modal-actions">
+                <button type="button" class="btn cancel" id="bandRiderCancel">Schließen</button>
+                <div class="modal-actions-right">
+                    <button type="button" class="btn btn-primary" id="bandRiderSave">Speichern</button>
+                    <button type="button" class="btn btn-primary" id="bandRiderExportPdf">PDF exportieren</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <div id="rundownPdfExportModal" class="modal">
         <div class="modal-content modal-xl rundown-pdf-modal-content">

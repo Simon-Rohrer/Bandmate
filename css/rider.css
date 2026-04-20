@@ -1,0 +1,293 @@
+/* Band Rider Specific Styles */
+.bandrider-pdf-modal-content {
+    width: min(96vw, 1500px);
+    max-width: min(96vw, 1500px);
+    height: min(94vh, 1080px);
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+    overflow: hidden;
+}
+
+.bandrider-pdf-modal-header {
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--color-border);
+    background: #0f172a;
+    padding: 2.5rem;
+}
+
+.bandrider-pdf-modal-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    min-width: 0;
+    flex: 1;
+}
+
+.bandrider-pdf-modal-kicker {
+    display: inline-flex;
+    align-self: flex-start;
+    padding: 0.12rem 0.68rem;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(148, 163, 184, 0.08);
+    color: var(--color-text-light);
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+}
+
+.bandrider-pdf-modal-copy h2 {
+    color: white !important;
+    margin: 0 0 0.5rem 0;
+}
+
+.bandrider-pdf-modal-copy p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    max-width: 40rem;
+    opacity: 0.8;
+}
+
+.bandrider-pdf-modal-body {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 380px 1fr;
+    min-height: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+.bandrider-pdf-editor-panel {
+    padding: var(--spacing-xl);
+    border-right: 1px solid var(--color-border);
+    background: linear-gradient(180deg, rgba(16, 22, 35, 0.98) 0%, rgba(10, 15, 25, 0.98) 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow-y: auto;
+}
+
+.bandrider-pdf-toolbar-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.bandrider-pdf-section-head {
+    margin-top: 0.5rem;
+    padding: 0 0.5rem;
+}
+
+.bandrider-pdf-section-label {
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-light);
+}
+
+.bandrider-members-scroller {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding-bottom: 2rem;
+}
+
+.bandrider-member-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 16px;
+    padding: 1rem;
+    transition: all 0.2s ease;
+}
+
+.bandrider-member-card:focus-within {
+    border-color: var(--color-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.bandrider-member-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.bandrider-member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 0.8rem;
+}
+
+.bandrider-member-name {
+    font-weight: 700;
+    color: white;
+    font-size: 0.95rem;
+}
+
+.bandrider-member-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.bandrider-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.bandrider-input-group label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.bandrider-input-group input, 
+.bandrider-input-group textarea {
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    color: white;
+    font-size: 0.9rem;
+    width: 100%;
+    transition: all 0.2s ease;
+}
+
+.bandrider-input-group input:focus, 
+.bandrider-input-group textarea:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.bandrider-pdf-slider-field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.bandrider-pdf-slider-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.bandrider-pdf-slider-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-light);
+    opacity: 0.82;
+}
+
+.bandrider-pdf-slider-head strong {
+    font-size: 0.92rem;
+    color: var(--color-text-light);
+}
+
+.bandrider-pdf-preview-panel {
+    flex: 1;
+    background: linear-gradient(135deg, rgba(8, 12, 22, 1) 0%, rgba(15, 23, 42, 1) 100%);
+    padding: var(--spacing-3xl);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-width: 0;
+    overflow: auto;
+    position: relative;
+}
+
+.bandrider-pdf-preview-stage {
+    width: 100%;
+    flex: 1;
+    min-width: 0;
+    min-height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 0 0 2rem;
+}
+
+.bandrider-pdf-preview-paper {
+    width: min(100%, 794px);
+    min-height: 1123px;
+    flex: 0 0 auto;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+    position: relative;
+    transform-origin: top center;
+}
+
+.bandrider-pdf-preview-loading {
+    position: absolute;
+    top: calc(var(--spacing-3xl) + 20px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(99, 102, 241, 0.9);
+    backdrop-filter: blur(12px);
+    color: white;
+    padding: 0.6rem 1.2rem;
+    border-radius: 999px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    z-index: 100;
+}
+
+.bandrider-pdf-preview-paper iframe {
+    width: 100%;
+    min-height: 1123px;
+    height: 100%;
+    border: none;
+    display: block;
+    background: transparent;
+}
+
+.bandrider-pdf-modal-actions {
+    padding: 1.5rem 2.5rem;
+    background: #0f172a;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-actions-right {
+    display: flex;
+    gap: 0.75rem;
+}
+
+/* Light Mode Overrides for consistency with Ablauf modal context */
+:root:not(.theme-dark) .bandrider-pdf-modal-header,
+:root:not(.theme-dark) .bandrider-pdf-modal-actions {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+}
+
+:root:not(.theme-dark) .bandrider-pdf-modal-copy h2 {
+    color: #0f172a !important;
+}
+
+:root:not(.theme-dark) .bandrider-pdf-modal-copy p {
+    color: #64748b !important;
+}

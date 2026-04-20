@@ -577,6 +577,9 @@ const App = {
     currentRundownPdfExportSession: null,
     currentRundownPdfPreviewTimer: null,
     currentRundownPdfPreviewRequestId: 0,
+    currentBandRiderSession: null,
+    currentBandRiderPreviewTimer: null,
+    currentBandRiderPreviewRequestId: 0,
 
     // Caching for settings lists
     locationsCache: null,
@@ -1544,10 +1547,10 @@ const App = {
             this._autoExpanded = false; // Reset on manual toggle
             this._sidebarHoverExpanded = false;
             sidebar.classList.remove('hover-expanded');
-            
+
             const nowCollapsed = sidebar.classList.contains('collapsed');
             localStorage.setItem('sidebarCollapsed', nowCollapsed);
-            
+
             // Trigger a resize event to layout charts or components if needed
             window.dispatchEvent(new Event('resize'));
         });
@@ -1597,7 +1600,7 @@ const App = {
             document.body.style.cursor = 'col-resize';
             sidebar.classList.add('is-resizing');
             wrapper.classList.add('is-resizing');
-            
+
             // Disable text selection during resize
             document.body.style.userSelect = 'none';
         });
@@ -1626,13 +1629,13 @@ const App = {
                     wrapper.classList.remove('sidebar-collapsed');
                     localStorage.setItem('sidebarCollapsed', 'false');
                 }
-                
+
                 if (newWidth < minWidth) newWidth = minWidth;
                 if (newWidth > maxWidth) newWidth = maxWidth;
             }
 
             root.style.setProperty('--sidebar-width', `${newWidth}px`);
-            
+
             // Only save non-collapsed width
             if (newWidth >= minWidth) {
                 localStorage.setItem('sidebarWidth', newWidth);
@@ -1641,13 +1644,13 @@ const App = {
 
         document.addEventListener('mouseup', () => {
             if (!isResizing) return;
-            
+
             isResizing = false;
             document.body.style.cursor = '';
             sidebar.classList.remove('is-resizing');
             wrapper.classList.remove('is-resizing');
             document.body.style.userSelect = '';
-            
+
             // Trigger resize for components
             window.dispatchEvent(new Event('resize'));
         });
@@ -2676,6 +2679,303 @@ const App = {
         }
     },
 
+    // Band Rider Logic
+    async showBandRiderExportModal(bandId) {
+        if (!bandId) return;
+
+        try {
+            const band = await Storage.getBand(bandId);
+            if (!band) throw new Error('Band nicht gefunden');
+
+            // Get band members
+            const memberIds = Array.isArray(band.members) ? band.members : [];
+            const members = await Promise.all(memberIds.map(async id => {
+                try {
+                    return await Storage.getUser(id);
+                } catch (e) {
+                    return { id, username: 'Unbewusster User' };
+                }
+            }));
+
+            // Get existing rider
+            const existingRider = await Storage.getBandRider(bandId);
+            const savedMembersData = existingRider?.members || {};
+
+            // Initialize session
+            this.currentBandRiderSession = {
+                bandId,
+                bandName: band.name,
+                title: existingRider?.title || `Tech Rider ${band.name}`,
+                fontScale: existingRider?.fontScale || 1.0,
+                members: members.map(m => {
+                    // Try to get name from user object, fallback to entry name if possible
+                    let name = UI.getUserDisplayName(m);
+                    if (name === 'Unbekannt' && band.members_data?.[m.id]?.name) {
+                        name = band.members_data[m.id].name;
+                    }
+
+                    return {
+                        id: m.id,
+                        name: name,
+                        instrument: savedMembersData[m.id]?.instrument || '',
+                        mic: savedMembersData[m.id]?.mic || '',
+                        monitor: savedMembersData[m.id]?.monitor || '',
+                        extra: savedMembersData[m.id]?.extra || ''
+                    };
+                }),
+                isRendering: false,
+                isDirty: false
+            };
+
+            // Setup UI
+            const nameInput = document.getElementById('bandRiderPdfFileName');
+            if (nameInput) nameInput.value = this.currentBandRiderSession.title;
+
+            const scaleInput = document.getElementById('bandRiderPdfFontScale');
+            if (scaleInput) scaleInput.value = String(Math.round(this.currentBandRiderSession.fontScale * 100));
+
+            const scaleValue = document.getElementById('bandRiderPdfFontScaleValue');
+            if (scaleValue) scaleValue.textContent = `${Math.round(this.currentBandRiderSession.fontScale * 100)}%`;
+
+            // Populate member cards
+            const container = document.getElementById('bandRiderMembersContainer');
+            if (container) {
+                container.innerHTML = this.currentBandRiderSession.members.map((m, idx) => `
+                    <div class="bandrider-member-card" data-index="${idx}">
+                        <div class="bandrider-member-card-header">
+                            <div class="bandrider-member-avatar">${m.name.charAt(0).toUpperCase()}</div>
+                            <div class="bandrider-member-name">${this.escapeHtml(m.name)}</div>
+                        </div>
+                        <div class="bandrider-member-inputs">
+                            <div class="bandrider-input-group">
+                                <label>Instrument / Gesang</label>
+                                <input type="text" class="rider-member-instrument" value="${this.escapeHtml(m.instrument)}" placeholder="z. B. Gesang & Gitarre">
+                            </div>
+                            <div class="bandrider-input-group">
+                                <label>Mikrofon / DI-Box</label>
+                                <input type="text" class="rider-member-mic" value="${this.escapeHtml(m.mic)}" placeholder="z. B. SM58 (funk) o. 2x DI">
+                            </div>
+                            <div class="bandrider-input-group">
+                                <label>Monitoring</label>
+                                <input type="text" class="rider-member-monitor" value="${this.escapeHtml(m.monitor)}" placeholder="z. B. In-Ear (Stereo) o. Wedge">
+                            </div>
+                            <div class="bandrider-input-group">
+                                <label>Zusatz-Infos</label>
+                                <textarea class="rider-member-extra" rows="2" placeholder="z. B. Eigene Backline...">${this.escapeHtml(m.extra)}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Add input listeners
+                container.querySelectorAll('input, textarea').forEach(input => {
+                    input.addEventListener('input', () => {
+                        const card = input.closest('.bandrider-member-card');
+                        const idx = parseInt(card.dataset.index);
+                        const member = this.currentBandRiderSession.members[idx];
+
+                        if (input.classList.contains('rider-member-instrument')) member.instrument = input.value;
+                        if (input.classList.contains('rider-member-mic')) member.mic = input.value;
+                        if (input.classList.contains('rider-member-monitor')) member.monitor = input.value;
+                        if (input.classList.contains('rider-member-extra')) member.extra = input.value;
+
+                        this.currentBandRiderSession.isDirty = true;
+                        this.scheduleBandRiderPreviewRefresh();
+                    });
+                });
+            }
+
+            // Open Modal
+            UI.openModal('bandRiderModal');
+            this.bindBandRiderModal(); // Bind buttons if not yet bound
+            this.refreshBandRiderPreview(true);
+
+        } catch (error) {
+            console.error('[Band Rider] Failed to show modal:', error);
+            UI.showToast('Fehler beim Laden des Riders.', 'error');
+        }
+    },
+
+    bindBandRiderModal() {
+        const modal = document.getElementById('bandRiderModal');
+        if (!modal || modal.dataset.bound === 'true') return;
+
+        const nameInput = document.getElementById('bandRiderPdfFileName');
+        const scaleInput = document.getElementById('bandRiderPdfFontScale');
+        const saveBtn = document.getElementById('bandRiderSave');
+        const exportBtn = document.getElementById('bandRiderExportPdf');
+        const cancelBtn = document.getElementById('bandRiderCancel');
+
+        nameInput?.addEventListener('input', () => {
+            if (this.currentBandRiderSession) {
+                this.currentBandRiderSession.title = nameInput.value.trim();
+                this.currentBandRiderSession.isDirty = true;
+                this.scheduleBandRiderPreviewRefresh();
+            }
+        });
+
+        scaleInput?.addEventListener('input', () => {
+            if (this.currentBandRiderSession) {
+                const scale = (parseInt(scaleInput.value) || 100) / 100;
+                this.currentBandRiderSession.fontScale = scale;
+                document.getElementById('bandRiderPdfFontScaleValue').textContent = `${scaleInput.value}%`;
+                this.currentBandRiderSession.isDirty = true;
+                this.scheduleBandRiderPreviewRefresh();
+            }
+        });
+
+        saveBtn?.addEventListener('click', () => this.saveBandRider());
+        exportBtn?.addEventListener('click', () => this.exportBandRiderPDF());
+        cancelBtn?.addEventListener('click', () => UI.closeModal('bandRiderModal'));
+
+        modal.querySelector('.modal-close')?.addEventListener('click', () => UI.closeModal('bandRiderModal'));
+
+        modal.dataset.bound = 'true';
+    },
+
+    scheduleBandRiderPreviewRefresh(delay = 300) {
+        if (this.currentBandRiderPreviewTimer) clearTimeout(this.currentBandRiderPreviewTimer);
+        this.currentBandRiderPreviewTimer = setTimeout(() => {
+            this.currentBandRiderPreviewTimer = null;
+            this.refreshBandRiderPreview();
+        }, delay);
+    },
+
+    async refreshBandRiderPreview(force = false) {
+        const session = this.currentBandRiderSession;
+        const frame = document.getElementById('bandRiderPreviewFrame');
+        const loading = document.getElementById('bandRiderPreviewLoading');
+
+        if (!session || !frame) return;
+        if (session.isRendering && !force) return;
+
+        session.isRendering = true;
+        if (loading) loading.hidden = false;
+
+        const requestId = ++this.currentBandRiderPreviewRequestId;
+
+        try {
+            const pages = PDFGenerator.buildBandRiderPDFPages({
+                bandName: session.bandName,
+                members: session.members,
+                fontScale: session.fontScale
+            });
+
+            const previewDoc = this.buildBandRiderPreviewDocument(session, pages);
+
+            if (requestId !== this.currentBandRiderPreviewRequestId) return;
+
+            frame.srcdoc = previewDoc;
+
+        } catch (error) {
+            console.error('[Band Rider] Preview failed:', error);
+        } finally {
+            session.isRendering = false;
+            if (loading) loading.hidden = true;
+        }
+    },
+
+    buildBandRiderPreviewDocument(session, pages) {
+        const isDarkTheme = document.documentElement.classList.contains('theme-dark')
+            || document.documentElement.dataset.theme === 'dark';
+
+        const pageMarkup = (Array.isArray(pages) ? pages : []).map(page => `
+            <div style="
+                width: 794px;
+                margin: 0 auto 30px;
+                background: white;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.3);
+                border-radius: 4px;
+                overflow: hidden;
+                position: relative;
+                transform-origin: top center;
+            ">
+                ${page}
+            </div>
+        `).join('');
+
+        return `
+            <!doctype html>
+            <html>
+                <head>
+                    <style>
+                        body {
+                            margin: 0;
+                            background: ${isDarkTheme ? '#1e293b' : '#f1f5f9'};
+                            padding: 40px 20px;
+                            font-family: 'Inter', Arial, sans-serif;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                        }
+                        * { box-sizing: border-box; }
+                    </style>
+                </head>
+                <body>
+                    ${pageMarkup}
+                </body>
+            </html>
+        `;
+    },
+
+    async saveBandRider() {
+        const session = this.currentBandRiderSession;
+        if (!session) return;
+
+        try {
+            const membersData = {};
+            session.members.forEach(m => {
+                membersData[m.id] = {
+                    instrument: m.instrument,
+                    mic: m.mic,
+                    monitor: m.monitor,
+                    extra: m.extra
+                };
+            });
+
+            const riderData = {
+                title: session.title,
+                fontScale: session.fontScale,
+                members: membersData
+            };
+
+            await Storage.createOrUpdateBandRider(session.bandId, riderData);
+            UI.showToast('Rider erfolgreich gespeichert.', 'success');
+            session.isDirty = false;
+        } catch (err) {
+            console.error('[Band Rider] Save failed:', err);
+            UI.showToast('Fehler beim Speichern.', 'error');
+        }
+    },
+
+    async exportBandRiderPDF() {
+        const session = this.currentBandRiderSession;
+        if (!session) return;
+
+        const btn = document.getElementById('bandRiderExportPdf');
+        const origText = btn.innerHTML;
+
+        try {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> PDF wird erstellt...';
+
+            await PDFGenerator.generateBandRiderPDF({
+                bandName: session.bandName,
+                members: session.members,
+                fontScale: session.fontScale,
+                filename: session.title
+            });
+
+            UI.showToast('PDF-Export erfolgreich.', 'success');
+        } catch (err) {
+            console.error('[Band Rider] Export failed:', err);
+            UI.showToast('PDF-Export fehlgeschlagen.', 'error');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = origText;
+        }
+    },
+
     async openRundownPdfExportModal(payload = null) {
         if (!payload || !Array.isArray(payload.items) || payload.items.length === 0) {
             UI.showToast('Kein Ablauf für den PDF-Export vorhanden.', 'warning');
@@ -2683,6 +2983,7 @@ const App = {
         }
 
         this.bindRundownPdfExportModal();
+        this.bindBandRiderModal();
         this.cleanupRundownPdfExportPreview();
 
         this.currentRundownPdfExportSession = {
@@ -3459,7 +3760,7 @@ const App = {
             }
         };
 
-        // Remove old listener if re-initializing on same container? 
+        // Remove old listener if re-initializing on same container?
         // We cleared innerHTML so listeners on elements are gone, but document listener persists.
         // Actually, we can attach to document once or handle it here.
         // For simplicity, let's attach to document and rely on garbage collection if container is removed? No, that leaks.
@@ -3505,16 +3806,16 @@ const App = {
                         () => {
                             window.isProfileDirty = false;
                             window.isAbsenceFormDirty = false;
-                            
+
                             // Reset absence form
                             this.resetAbsenceFormSettings();
-                            
+
                             // Reset profile drafts if needed
                             this.resetProfileImageDraftState({
                                 resetInput: true,
                                 root: document.querySelector('#settingsModal .modal-body') || document
                             });
-                            
+
                             UI._originalCloseModal.call(UI, modalId);
                         },
                         null,
@@ -3528,7 +3829,7 @@ const App = {
                     );
                     return;
                 }
-                
+
                 if (modalId === 'settingsModal') {
                     this.resetProfileImageDraftState({
                         resetInput: true,
@@ -3587,7 +3888,7 @@ const App = {
             if (Auth.isAuthenticated()) {
                 console.log('[App.init] Step 2: Displaying main application...');
                 await this.showApp();
-                
+
                 const appShowTime = ((performance.now() - startTime) / 1000).toFixed(2);
                 console.log(`[App.init] Application rendered at ${appShowTime}s.`);
 
@@ -3599,11 +3900,11 @@ const App = {
                         if (window.innerWidth <= 768) {
                             this.updateHeaderSubmenu('dashboard');
                         }
-                        
+
                         await this.updateAbsenceIndicator();
                         await this.preloadStandardCalendars();
                         Storage.cleanupPastItems(); // already parallelized internally now
-                        
+
                         const totalLoadTime = ((performance.now() - startTime) / 1000).toFixed(2);
                         console.log(`[App.init] All background tasks initiated. Total lifecycle: ${totalLoadTime}s.`);
                     } catch (bgErr) {
@@ -3905,9 +4206,9 @@ const App = {
                 try {
                     // 1. Trigger Supabase Password Reset (which sends an email)
                     await Auth.requestPasswordReset(email);
-                    
+
                     UI.showToast('Reset-Link wurde an deine E-Mail gesendet!', 'success');
-                    
+
                     // Switch back to login after success
                     setTimeout(() => {
                         UI.switchAuthTab('login');
@@ -4320,6 +4621,19 @@ const App = {
             UI.openModal('addMemberModal');
         });
 
+        // Band Rider button
+        const bandRiderBtn = document.getElementById('bandRiderBtn');
+        if (bandRiderBtn) {
+            bandRiderBtn.addEventListener('click', () => {
+                const bandId = Bands.currentBandId;
+                if (bandId) {
+                    this.showBandRiderExportModal(bandId);
+                } else {
+                    UI.showToast('Fehler: Keine Band ausgewählt.', 'error');
+                }
+            });
+        }
+
         // Add member form
         document.getElementById('addMemberForm').addEventListener('submit', (e) => {
             e.preventDefault();
@@ -4521,6 +4835,18 @@ const App = {
             document.getElementById('saveEventBtn').textContent = 'Auftritt erstellen';
             document.getElementById('editEventId').value = '';
             UI.clearForm('createEventForm');
+            if (typeof Events !== 'undefined') {
+                Events.currentEventId = null;
+            }
+
+            window._eventFormDirty = false;
+            UI.guardModalClose('createEventModal', '_eventFormDirty');
+            const eventForm = document.getElementById('createEventForm');
+            if (eventForm && !eventForm.dataset.dirtyTracking) {
+                eventForm.dataset.dirtyTracking = 'true';
+                eventForm.addEventListener('input', () => { window._eventFormDirty = true; });
+                eventForm.addEventListener('change', () => { window._eventFormDirty = true; });
+            }
 
             // Do not pre-fill date, keep it empty as requested by user
             const eventDateInput = document.getElementById('eventFixedDate');
@@ -4548,6 +4874,20 @@ const App = {
                 Events.setScheduleMode('fixed', { lockMode: false, refreshAvailability: true });
             }
 
+            if (typeof Events !== 'undefined') {
+                const currentBandId = document.getElementById('eventBand')?.value || '';
+                if (currentBandId) {
+                    if (typeof Events.fetchBandMemberAbsences === 'function') {
+                        await Events.fetchBandMemberAbsences(currentBandId);
+                    }
+                    if (typeof Events.loadBandMembers === 'function') {
+                        await Events.loadBandMembers(currentBandId, []);
+                    }
+                } else if (typeof Events.loadBandMembers === 'function') {
+                    await Events.loadBandMembers('', []);
+                }
+            }
+
             // Clear draft song selection and deleted songs for new event
             this.resetDraftEventState();
             await this.renderDraftEventSongs();
@@ -4555,6 +4895,17 @@ const App = {
             if (copyBtn) copyBtn.style.display = 'none';
             UI.openModal('createEventModal');
             this.applyPendingCreateEventDefaults();
+
+            if (typeof Events !== 'undefined') {
+                if (typeof Events.attachAvailabilityListeners === 'function') {
+                    Events.attachAvailabilityListeners(document.getElementById('createEventModal'));
+                }
+                if (typeof Events.requestAvailabilityRefresh === 'function') {
+                    Events.requestAvailabilityRefresh();
+                } else if (typeof Events.updateAvailabilityIndicators === 'function') {
+                    Events.updateAvailabilityIndicators();
+                }
+            }
         });
 
         // Create event form
@@ -4583,6 +4934,17 @@ const App = {
                 const copyBtn = document.getElementById('copyBandSongsBtn');
                 if (copyBtn) copyBtn.style.display = 'none';
             }
+
+            if (typeof Events !== 'undefined') {
+                if (typeof Events.attachAvailabilityListeners === 'function') {
+                    Events.attachAvailabilityListeners(document.getElementById('eventDateProposals'));
+                }
+                if (typeof Events.requestAvailabilityRefresh === 'function') {
+                    Events.requestAvailabilityRefresh();
+                } else if (typeof Events.updateAvailabilityIndicators === 'function') {
+                    Events.updateAvailabilityIndicators();
+                }
+            }
         });
 
         // Event fixed date change
@@ -4594,8 +4956,12 @@ const App = {
             if (eventDateInput.dataset.rundownBound === 'true') return;
             eventDateInput.dataset.rundownBound = 'true';
             const handler = () => {
-                if (typeof Events !== 'undefined' && typeof Events.updateAvailabilityIndicators === 'function') {
-                    Events.updateAvailabilityIndicators();
+                if (typeof Events !== 'undefined') {
+                    if (typeof Events.requestAvailabilityRefresh === 'function') {
+                        Events.requestAvailabilityRefresh();
+                    } else if (typeof Events.updateAvailabilityIndicators === 'function') {
+                        Events.updateAvailabilityIndicators();
+                    }
                 }
                 this.syncDraftEventRundownStartFromEventDate(true);
                 this.renderEventRundownEditor();
@@ -4603,6 +4969,38 @@ const App = {
             eventDateInput.addEventListener('change', handler);
             eventDateInput.addEventListener('input', handler);
         });
+
+        const eventDateProposals = document.getElementById('eventDateProposals');
+        if (eventDateProposals && eventDateProposals.dataset.availabilityBound !== 'true') {
+            eventDateProposals.dataset.availabilityBound = 'true';
+            const handleEventProposalAvailabilityChange = () => {
+                if (typeof Events !== 'undefined') {
+                    if (typeof Events.requestAvailabilityRefresh === 'function') {
+                        Events.requestAvailabilityRefresh();
+                    } else if (typeof Events.updateAvailabilityIndicators === 'function') {
+                        Events.updateAvailabilityIndicators();
+                    }
+                }
+            };
+
+            eventDateProposals.addEventListener('input', (event) => {
+                if (event.target.closest('.event-date-input-date, .event-date-input-start')) {
+                    handleEventProposalAvailabilityChange();
+                }
+            });
+
+            eventDateProposals.addEventListener('change', (event) => {
+                if (event.target.closest('.event-date-input-date, .event-date-input-start')) {
+                    handleEventProposalAvailabilityChange();
+                }
+            });
+
+            eventDateProposals.addEventListener('focusout', (event) => {
+                if (event.target.closest('.event-date-input-date, .event-date-input-start')) {
+                    handleEventProposalAvailabilityChange();
+                }
+            });
+        }
 
         const eventRundownPdfBtn = document.getElementById('eventRundownPdfBtn');
         if (eventRundownPdfBtn && !eventRundownPdfBtn.dataset.bound) {
@@ -4636,6 +5034,16 @@ const App = {
             input.addEventListener('change', () => {
                 if (typeof Events !== 'undefined' && typeof Events.setScheduleMode === 'function') {
                     Events.setScheduleMode(input.value);
+                }
+                if (typeof Events !== 'undefined') {
+                    if (typeof Events.attachAvailabilityListeners === 'function') {
+                        Events.attachAvailabilityListeners(document.getElementById('eventDateProposals'));
+                    }
+                    if (typeof Events.requestAvailabilityRefresh === 'function') {
+                        Events.requestAvailabilityRefresh();
+                    } else if (typeof Events.updateAvailabilityIndicators === 'function') {
+                        Events.updateAvailabilityIndicators();
+                    }
                 }
             });
         });
@@ -6585,8 +6993,8 @@ const App = {
                 try {
                     const rangeStart = typeof d === 'object' && d.start ? d.start : d;
                     const rangeEnd = typeof d === 'object' && d.end ? d.end : rangeStart;
-                    
-                    if (await Storage.isUserAbsentInRange(user.id, rangeStart, rangeEnd)) {
+
+                    if (await Storage.isUserUnavailableInRange(user.id, rangeStart, rangeEnd)) {
                         // Format date nicely
                         badDates.push(UI.formatDateOnly(new Date(rangeStart).toISOString()));
                     }
@@ -7033,16 +7441,16 @@ const App = {
 
         if (!presetToolbar.dataset.bound) {
             presetToolbar.dataset.bound = 'true';
-            
+
             const dropdownBtn = document.getElementById('eventRundownDropdownBtn');
             const dropdownMenu = document.getElementById('eventRundownDropdownMenu');
-            
+
             if (dropdownBtn && dropdownMenu) {
                 dropdownBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     dropdownMenu.classList.toggle('active');
                 });
-                
+
                 document.addEventListener('click', (e) => {
                     if (!dropdownMenu.contains(e.target) && !dropdownBtn.contains(e.target)) {
                         dropdownMenu.classList.remove('active');
@@ -7605,7 +8013,7 @@ const App = {
     async openSongpoolSelectorForRundownItem(itemId) {
         const { eventId, bandId } = this.getCurrentEventEditorContext();
         const user = Auth.getCurrentUser();
-        
+
         if (!user) {
             UI.showToast('Bitte melde dich an, um auf deinen Songpool zuzugreifen.', 'warning');
             return;
@@ -7613,7 +8021,7 @@ const App = {
 
         try {
             const songpoolSongs = await Storage.getSongpoolSongs(user.id, { includePublic: true });
-            
+
             if (!songpoolSongs || songpoolSongs.length === 0) {
                 UI.showToast('Es sind noch keine Songs im Songpool vorhanden.', 'info');
                 return;
@@ -7629,7 +8037,7 @@ const App = {
 
             // We reuse the draft selector UI but feed it songpool songs
             this.showSongpoolSelectorForDraft(songpoolSongs, options);
-            
+
         } catch (error) {
             console.error('[Event] Error loading songpool:', error);
             UI.showToast(Storage._getSongpoolErrorMessage(error, 'Songpool konnte nicht geladen werden.'), 'error');
@@ -7675,7 +8083,7 @@ const App = {
 
                 // Insert into regular songs table via Storage.createSong
                 const created = await Storage.createSong(songData);
-                
+
                 if (created && created.id) {
                     mappedSongIds.push(created.id);
                     successCount++;
@@ -8021,7 +8429,7 @@ const App = {
                 // Detect delimiter
                 const delimiter = line.includes(';') ? ';' : ',';
                 // Split by delimiter, handling quotes generically is hard without a library,
-                // so we assume simple CSV first. 
+                // so we assume simple CSV first.
                 // Remove quotes from start/end of parts
                 const parts = line.split(delimiter).map(p => p.trim().replace(/^"|"$/g, ''));
 
@@ -11664,13 +12072,13 @@ const App = {
                         } else {
                             selectedSongIds.delete(songId);
                         }
-                        
+
                         // Update Select All state after individual change
                         const stillAllSelected = visibleSongs.every(s => selectedSongIds.has(String(s.id)));
                         const stillSomeSelected = visibleSongs.some(s => selectedSongIds.has(String(s.id)));
                         selectAllCheckbox.checked = stillAllSelected;
                         selectAllCheckbox.indeterminate = stillSomeSelected && !stillAllSelected;
-                        
+
                         updateConfirmState();
                     });
                 });
@@ -11716,9 +12124,9 @@ const App = {
             confirmButton.addEventListener('click', async () => {
                 const selectedIds = Array.from(selectedSongIds);
                 if (!selectedIds.length) return;
-                
+
                 const visibility = tempModal.querySelector('input[name="importVisibility"]:checked')?.value || 'public';
-                
+
                 closeModal();
                 await this.copyBandSongsToSongpool(selectedIds, visibility);
             });
@@ -13507,20 +13915,89 @@ const App = {
         const externalCalendarsList = effectiveRoot.querySelector('#externalCalendarsList');
         const btnAddCalendar = effectiveRoot.querySelector('#btnAddCalendar');
 
-        const renderCalendarRow = (calendar = { name: '', url: '' }) => {
-            const rowId = 'cal_' + Math.random().toString(36).substr(2, 9);
+        const showExternalCalendarVisibilityInfo = async () => {
+            return UI.confirmAction(
+                'Wenn du die Sichtbarkeit aktivierst, sehen Leiter und Co-Leiter deiner Bands bei Proben und Auftritten nur, dass in diesem Zeitraum ein externer Kalendereintrag existiert. Titel, Ort und Inhalt des Termins bleiben verborgen.',
+                'Kalender für die Bandplanung freigeben?',
+                'Freigeben',
+                'btn-primary',
+                {
+                    kicker: 'Kalenderfreigabe',
+                    cancelText: 'Abbrechen'
+                }
+            );
+        };
+
+        const renderCalendarRow = (calendar = { name: '', url: '', share_for_band_planning: false }) => {
+            if (!externalCalendarsList) return null;
+
+            const rowId = `cal_${Math.random().toString(36).slice(2, 11)}`;
+            const toggleId = `${rowId}_share`;
+            const isVisibleForLeads = Boolean(calendar.share_for_band_planning ?? calendar.shareForBandPlanning);
             const row = document.createElement('div');
             row.className = 'external-calendar-row';
-            row.id = rowId;
-            row.style.cssText = 'display: grid; grid-template-columns: 1fr 2fr auto; gap: 0.5rem; align-items: center; background: rgba(255,255,255,0.03); padding: 0.5rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);';
+            row.dataset.calendarId = calendar.id ? String(calendar.id) : '';
+
             row.innerHTML = `
-                <input type="text" class="profile-form-input calendar-name" placeholder="Name (z.B. Privat)" value="${calendar.name || ''}" style="margin: 0;">
-                <input type="url" class="profile-form-input calendar-url" placeholder="https://..." value="${calendar.url || ''}" style="margin: 0;">
-                <button type="button" class="btn btn-icon btn-sm" onclick="this.closest('.external-calendar-row').remove()" title="Löschen" style="color: var(--color-error); background: rgba(239, 68, 68, 0.1);">
+                <label class="external-calendar-visibility" for="${toggleId}">
+                    <span class="toggle-switch">
+                        <input
+                            type="checkbox"
+                            class="calendar-share-toggle-input"
+                            id="${toggleId}"
+                            ${isVisibleForLeads ? 'checked' : ''}
+                        >
+                        <span class="toggle-slider"></span>
+                    </span>
+                </label>
+                <div class="external-calendar-field">
+                    <input
+                        type="text"
+                        class="profile-form-input calendar-name"
+                        placeholder="Name (z.B. Privat)"
+                        value="${this.escapeHtmlAttr(calendar.name || '')}"
+                    >
+                    <span class="external-calendar-field-hint">Name des Kalenders</span>
+                </div>
+                <div class="external-calendar-field external-calendar-field-url">
+                    <input
+                        type="url"
+                        class="profile-form-input calendar-url"
+                        placeholder="https://..."
+                        value="${this.escapeHtmlAttr(calendar.url || '')}"
+                    >
+                    <span class="external-calendar-field-hint">iCal- oder Webcal-Link</span>
+                </div>
+                <button type="button" class="btn btn-icon btn-sm external-calendar-delete" title="Kalender entfernen" aria-label="Kalender entfernen">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18m-2 0v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path></svg>
                 </button>
             `;
+
+            const shareToggle = row.querySelector('.calendar-share-toggle-input');
+            const deleteButton = row.querySelector('.external-calendar-delete');
+
+            if (shareToggle) {
+                shareToggle.addEventListener('change', async () => {
+                    if (!shareToggle.checked) return;
+
+                    const approved = await showExternalCalendarVisibilityInfo();
+                    if (!approved) {
+                        shareToggle.checked = false;
+                        return;
+                    }
+
+                    UI.showToast('Kalender wird bei der nächsten Speicherung für die Bandplanung freigegeben.', 'info', 7000);
+                });
+            }
+
+            if (deleteButton) {
+                deleteButton.addEventListener('click', () => {
+                    row.remove();
+                });
+            }
+
             externalCalendarsList.appendChild(row);
+            return row;
         };
 
         if (btnAddCalendar) {
@@ -13678,6 +14155,7 @@ const App = {
                     const externalCalendars = Array.from(calendarRows).map(row => ({
                         name: (row.querySelector('.calendar-name') || {}).value || '',
                         url: (row.querySelector('.calendar-url') || {}).value || '',
+                        share_for_band_planning: Boolean((row.querySelector('.calendar-share-toggle-input') || {}).checked),
                         user_id: user.id
                     })).filter(cal => cal.url.trim() !== '');
 
@@ -13693,18 +14171,39 @@ const App = {
 
                     const updateResult = await Storage.updateUser(user.id, updates);
 
-                    // Update External Calendars Table
+                    // Update External Calendars Table + sanitized busy slots
+                    const sb = SupabaseClient.getClient();
                     try {
-                        // 1. Delete old entries
-                        const sb = SupabaseClient.getClient();
-                        await sb.from('external_calendars').delete().eq('user_id', user.id);
-                        
-                        // 2. Insert new entries
-                        if (externalCalendars.length > 0) {
-                            await sb.from('external_calendars').insert(externalCalendars);
+                        const { error: deleteCalendarError } = await sb
+                            .from('external_calendars')
+                            .delete()
+                            .eq('user_id', user.id);
+
+                        if (deleteCalendarError) {
+                            throw deleteCalendarError;
                         }
+
+                        let savedExternalCalendars = [];
+                        if (externalCalendars.length > 0) {
+                            const { data: insertedCalendars, error: insertCalendarError } = await sb
+                                .from('external_calendars')
+                                .insert(externalCalendars)
+                                .select('*');
+
+                            if (insertCalendarError) {
+                                throw insertCalendarError;
+                            }
+
+                            savedExternalCalendars = insertedCalendars || [];
+                        }
+
+                        await Storage.syncSharedExternalCalendarBusySlots(user.id, savedExternalCalendars);
                     } catch (error) {
                         console.error('Error updating external calendars records:', error);
+                        throw new Error(Storage._getExternalCalendarSharingErrorMessage(
+                            error,
+                            'Externe Kalender konnten nicht gespeichert werden.'
+                        ));
                     }
 
 
@@ -14037,7 +14536,7 @@ const App = {
         return `
             <div class="feedback-card" data-expanded="false" data-id="${item.id}">
                 <div class="feedback-card-accent" style="background: ${badgeColor};"></div>
-                
+
                 <div class="feedback-card-header">
                     <div class="feedback-badge-row">
                         <span class="feedback-badge" style="background: ${badgeColor}20; color: ${badgeColor};">
@@ -14051,7 +14550,7 @@ const App = {
                 </div>
 
                 ${item.title ? `<h3 class="feedback-title">${Bands.escapeHtml(item.title)}</h3>` : ''}
-                
+
                 <div class="feedback-message-box">${Bands.escapeHtml(item.message)}</div>
 
                 <div class="feedback-actions">
@@ -15918,7 +16417,7 @@ const App = {
                             </button>
                         </div>
                     </div>
-                    
+
                     <div class="accordion-content" style="display: ${isExpanded ? 'block' : 'none'};">
                         <div class="accordion-body">
                             <div class="band-details-expanded">
@@ -15928,7 +16427,7 @@ const App = {
                                         <div class="detail-value">${Bands.escapeHtml(band.description)}</div>
                                     </div>
                                 ` : ''}
-                                
+
                                 <div class="detail-row detail-row-members">
                                     <div class="detail-label">Mitglieder (${members.length})</div>
                                     <div class="detail-value detail-value-members">
@@ -15937,7 +16436,7 @@ const App = {
                                             : '<p class="text-muted">Keine Mitglieder</p>'}
                                     </div>
                                 </div>
-                                
+
                                 <div class="detail-row">
                                     <div class="detail-label">Erstellt</div>
                                     <div class="detail-value">${UI.formatDate(band.createdAt)}</div>
@@ -17112,7 +17611,7 @@ const App = {
                     ? 'Du spielst aktuell in keiner Band.'
                     : `Du spielst aktuell in ${formatCountLabel(bands.length, 'Band', 'Bands')}.`;
             }
-            
+
             // Next Event Hero
             const nextEventContent = document.getElementById('nextEventContent');
             if (nextEventContent) {
@@ -17846,18 +18345,18 @@ const App = {
     // Handle editing an existing rehearsal
     async handleEditRehearsal(rehearsalId) {
         if (!rehearsalId) return;
-        
+
         // Close calendar detail modal if open
         if (window.PersonalCalendar) {
             window.PersonalCalendar.closeDetailsModal();
         }
-        
+
         // Close all other modals to be safe
         UI.closeAllModals();
-        
+
         // Navigate to rehearsals view
         await this.navigateTo('rehearsals');
-        
+
         // Open edit modal
         if (typeof Rehearsals !== 'undefined' && Rehearsals.editRehearsal) {
             await Rehearsals.editRehearsal(rehearsalId);
@@ -18013,18 +18512,18 @@ const App = {
     // Handle editing an existing event
     async handleEditEvent(eventId) {
         if (!eventId) return;
-        
+
         // Close calendar detail modal if open
         if (window.PersonalCalendar) {
             window.PersonalCalendar.closeDetailsModal();
         }
-        
+
         // Close all other modals to be safe
         UI.closeAllModals();
-        
+
         // Navigate to events view
         await this.navigateTo('events');
-        
+
         // Open edit modal
         if (typeof Events !== 'undefined' && Events.editEvent) {
             await Events.editEvent(eventId);
@@ -18066,10 +18565,10 @@ const App = {
 
         if (editId && editId.trim() !== '') {
             // update existing absence
-            await Storage.update('absences', editId, { 
-                startDate: startIso, 
-                endDate: endIso, 
-                reason: Storage.buildAbsenceReasonPayload(reason, meta) 
+            await Storage.update('absences', editId, {
+                startDate: startIso,
+                endDate: endIso,
+                reason: Storage.buildAbsenceReasonPayload(reason, meta)
             });
             UI.showToast('Abwesenheit aktualisiert', 'success');
         } else {
@@ -18109,7 +18608,7 @@ const App = {
         // Or run every time view is opened? Let's run every time to be safe.
         // But optimizing: fetch only if needed.
 
-        // Actually, we need to fetch all to check dates. 
+        // Actually, we need to fetch all to check dates.
         // Logic:
         // 1. Fetch all absences locally (Storage.getUserAbsences usually fetches fresh)
         // 2. Filter for past ones
