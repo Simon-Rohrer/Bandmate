@@ -2680,116 +2680,611 @@ const App = {
     },
 
     // Band Rider Logic
+    getBandRiderStoredMeta(existingRider = null) {
+        const membersPayload = existingRider?.members && typeof existingRider.members === 'object'
+            ? existingRider.members
+            : {};
+        const nestedMeta = membersPayload.__settings && typeof membersPayload.__settings === 'object'
+            ? membersPayload.__settings
+            : {};
+
+        return {
+            title: nestedMeta.title || existingRider?.title || '',
+            fontScale: Number(nestedMeta.fontScale || existingRider?.fontScale || 1) || 1,
+            orientation: nestedMeta.orientation === 'l' ? 'l' : 'p',
+            showPositions: nestedMeta.showPositions === true,
+            stageRows: Math.min(5, Math.max(1, Number(nestedMeta.stageRows || 2) || 2))
+        };
+    },
+
+    getBandRiderStoredMemberMap(existingRider = null) {
+        const membersPayload = existingRider?.members && typeof existingRider.members === 'object'
+            ? existingRider.members
+            : {};
+
+        return Object.entries(membersPayload).reduce((accumulator, [key, value]) => {
+            if (key === '__settings' || !value || typeof value !== 'object') return accumulator;
+            accumulator[key] = value;
+            return accumulator;
+        }, {});
+    },
+
+    getBandRiderDefaultInstrument(profile = null) {
+        if (!profile) return '';
+
+        if (typeof Bands !== 'undefined' && typeof Bands.getInstrumentLabels === 'function') {
+            const labels = Bands.getInstrumentLabels(profile.instrument || profile.instruments || profile.instrumentType || '');
+            if (labels.length > 0) {
+                return labels.join(', ');
+            }
+        }
+
+        return String(profile.instrumentLabel || profile.instrument || '').trim();
+    },
+
+    createBandRiderMemberSessionEntry({
+        id = '',
+        type = 'band',
+        name = '',
+        instrument = '',
+        mic = '',
+        monitor = '',
+        extra = '',
+        showOnStage = false,
+        stageRow = 1,
+        stageOrder = 1
+    } = {}) {
+        return {
+            id,
+            type,
+            name: String(name || '').trim() || 'Unbekannt',
+            instrument: String(instrument || '').trim(),
+            mic: String(mic || '').trim(),
+            monitor: String(monitor || '').trim(),
+            extra: String(extra || '').trim(),
+            showOnStage: showOnStage === true,
+            stageRow: Math.max(1, Number(stageRow) || 1),
+            stageOrder: Math.max(1, Number(stageOrder) || 1)
+        };
+    },
+
+    getBandRiderMemberLabel(member = {}) {
+        const instrument = String(member.instrument || '').trim();
+        const name = String(member.name || '').trim() || 'Unbekannt';
+        return instrument ? `${instrument} ${name}` : name;
+    },
+
+    getBandRiderSortedStageMembers(rowNumber, session = this.currentBandRiderSession, excludeMemberId = null) {
+        if (!session) return [];
+        const normalizedRow = Math.max(1, Number(rowNumber) || 1);
+
+        return session.members
+            .map((member, index) => ({ member, index }))
+            .filter(({ member }) => member.showOnStage === true && member.stageRow === normalizedRow && member.id !== excludeMemberId)
+            .sort((a, b) => {
+                const orderDelta = (Number(a.member.stageOrder) || 9999) - (Number(b.member.stageOrder) || 9999);
+                if (orderDelta !== 0) return orderDelta;
+                return a.index - b.index;
+            })
+            .map(({ member }) => member);
+    },
+
+    normalizeBandRiderStageOrder(session = this.currentBandRiderSession) {
+        if (!session) return;
+
+        session.members.forEach((member) => {
+            member.stageRow = Math.min(Math.max(1, Number(member.stageRow) || 1), Math.max(1, Number(session.stageRows) || 1));
+            member.stageOrder = Math.max(1, Number(member.stageOrder) || 1);
+        });
+
+        for (let row = 1; row <= Math.max(1, Number(session.stageRows) || 1); row += 1) {
+            const rowMembers = this.getBandRiderSortedStageMembers(row, session);
+            rowMembers.forEach((member, index) => {
+                member.stageOrder = index + 1;
+            });
+        }
+    },
+
+    placeBandRiderMemberOnStage(memberId, targetRow, targetIndex = Number.POSITIVE_INFINITY) {
+        const session = this.currentBandRiderSession;
+        if (!session || !memberId) return;
+
+        const member = session.members.find((entry) => entry.id === memberId);
+        if (!member) return;
+
+        const normalizedRow = Math.min(Math.max(1, Number(targetRow) || 1), Math.max(1, Number(session.stageRows) || 1));
+        const rowMembers = this.getBandRiderSortedStageMembers(normalizedRow, session, memberId);
+        const insertIndex = Number.isFinite(targetIndex)
+            ? Math.max(0, Math.min(rowMembers.length, Number(targetIndex) || 0))
+            : rowMembers.length;
+
+        member.showOnStage = true;
+        member.stageRow = normalizedRow;
+
+        const reordered = [...rowMembers];
+        reordered.splice(insertIndex, 0, member);
+        reordered.forEach((entry, index) => {
+            entry.stageRow = normalizedRow;
+            entry.stageOrder = index + 1;
+        });
+
+        this.normalizeBandRiderStageOrder(session);
+    },
+
+    buildBandRiderMemberCardMarkup(member, index, session) {
+        const initials = (member.name || '?').trim().charAt(0).toUpperCase() || '?';
+        const rowCount = Math.max(1, Number(session?.stageRows) || 1);
+        const showStageControls = session?.showPositions === true;
+        const rowOptions = Array.from({ length: rowCount }, (_, optionIndex) => {
+            const rowNumber = rowCount - optionIndex;
+            return `<option value="${rowNumber}" ${rowNumber === member.stageRow ? 'selected' : ''}>Reihe ${rowNumber}</option>`;
+        }).join('');
+
+        return `
+            <div class="bandrider-member-card" data-index="${index}" data-member-id="${this.escapeHtml(member.id)}" data-member-type="${this.escapeHtml(member.type)}">
+                <div class="bandrider-member-card-header">
+                    <div class="bandrider-member-avatar">${this.escapeHtml(initials)}</div>
+                    <div class="bandrider-member-name-wrap">
+                        ${member.type === 'extra'
+                ? `
+                                <div class="bandrider-input-group bandrider-inline-name">
+                                    <label>Name</label>
+                                    <input type="text" class="rider-member-name" value="${this.escapeHtml(member.name)}" placeholder="z. B. Schlagzeug Silas">
+                                </div>
+                            `
+                : `
+                                <div class="bandrider-member-name">${this.escapeHtml(member.name)}</div>
+                            `}
+                    </div>
+                    ${member.type === 'extra'
+                ? `
+                            <button type="button" class="btn-icon bandrider-remove-member" title="Zusatzmitglied entfernen" aria-label="Zusatzmitglied entfernen">
+                                <svg viewBox="0 0 20 20" fill="none">
+                                    <path d="M6 6l8 8M14 6l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"></path>
+                                </svg>
+                            </button>
+                        `
+                : ''}
+                </div>
+                <div class="bandrider-member-inputs">
+                    <div class="bandrider-input-group">
+                        <label>Instrument / Gesang</label>
+                        <input type="text" class="rider-member-instrument" value="${this.escapeHtml(member.instrument)}" placeholder="z. B. Gesang & Gitarre">
+                    </div>
+                    <div class="bandrider-input-group">
+                        <label>XLR / Audio-Eingänge</label>
+                        <input type="text" class="rider-member-mic" value="${this.escapeHtml(member.mic)}" placeholder="z. B. SM58 (funk) o. 2x DI">
+                    </div>
+                    <div class="bandrider-input-group">
+                        <label>Monitoring</label>
+                        <input type="text" class="rider-member-monitor" value="${this.escapeHtml(member.monitor)}" placeholder="z. B. In-Ear (Stereo) oder Wedge">
+                    </div>
+                    <div class="bandrider-input-group">
+                        <label>Zusatz-Infos</label>
+                        <textarea class="rider-member-extra" rows="2" placeholder="z. B. Eigene Backline, Strom oder Funkstrecke">${this.escapeHtml(member.extra)}</textarea>
+                    </div>
+                    <div class="bandrider-member-stage-settings ${showStageControls ? '' : 'is-hidden'}">
+                        <label class="bandrider-toggle-row bandrider-toggle-row-compact">
+                            <span class="bandrider-toggle-copy">
+                                <span class="bandrider-toggle-title">Position anzeigen</span>
+                                <span class="bandrider-toggle-note">Dieses Mitglied auf der Bühnen-Seite platzieren</span>
+                            </span>
+                            <input type="checkbox" class="rider-member-show-position" ${member.showOnStage ? 'checked' : ''}>
+                            <span class="bandrider-toggle-switch" aria-hidden="true"></span>
+                        </label>
+                        <div class="bandrider-input-group rider-member-row-wrap">
+                            <label>Reihe auf Bühne</label>
+                            <select class="rider-member-stage-row form-input" ${rowCount <= 1 ? 'disabled' : ''}>
+                                ${rowOptions}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    },
+
+    renderBandRiderStageOrderEditor() {
+        const session = this.currentBandRiderSession;
+        const container = document.getElementById('bandRiderStageOrderEditor');
+        if (!session || !container) return;
+
+        if (session.showPositions !== true) {
+            container.classList.add('is-hidden');
+            container.innerHTML = '';
+            return;
+        }
+
+        this.normalizeBandRiderStageOrder(session);
+
+        const rowMarkup = Array.from({ length: Math.max(1, Number(session.stageRows) || 1) }, (_, index) => {
+            const rowNumber = Math.max(1, Number(session.stageRows) || 1) - index;
+            const members = this.getBandRiderSortedStageMembers(rowNumber, session);
+            const rowHint = rowNumber === 1
+                ? 'Vorne / FOH-Seite'
+                : (rowNumber === session.stageRows ? 'Hinten auf der Bühne' : 'Mittlere Reihe');
+
+            return `
+                <section class="bandrider-stage-order-row">
+                    <div class="bandrider-stage-order-row-head">
+                        <div class="bandrider-stage-order-row-title">Reihe ${rowNumber}</div>
+                        <div class="bandrider-stage-order-row-note">${this.escapeHtml(rowHint)}</div>
+                    </div>
+                    <div class="bandrider-stage-order-dropzone ${members.length === 0 ? 'is-empty' : ''}" data-stage-row="${rowNumber}">
+                        ${members.length > 0
+                ? members.map((member, memberIndex) => `
+                                <div class="bandrider-stage-chip" draggable="true" data-member-id="${this.escapeHtml(member.id)}" data-stage-row="${rowNumber}" title="${this.escapeHtml(this.getBandRiderMemberLabel(member))}">
+                                    <span class="bandrider-stage-chip-handle" aria-hidden="true">
+                                        <svg viewBox="0 0 16 16" fill="none">
+                                            <circle cx="5" cy="4.5" r="1" fill="currentColor"></circle>
+                                            <circle cx="5" cy="8" r="1" fill="currentColor"></circle>
+                                            <circle cx="5" cy="11.5" r="1" fill="currentColor"></circle>
+                                            <circle cx="11" cy="4.5" r="1" fill="currentColor"></circle>
+                                            <circle cx="11" cy="8" r="1" fill="currentColor"></circle>
+                                            <circle cx="11" cy="11.5" r="1" fill="currentColor"></circle>
+                                        </svg>
+                                    </span>
+                                    <span class="bandrider-stage-chip-copy">
+                                        <span class="bandrider-stage-chip-name">${this.escapeHtml(member.name || 'Mitglied')}</span>
+                                    </span>
+                                </div>
+                            `).join('')
+                : '<div class="bandrider-stage-order-empty">Noch kein Mitglied in dieser Reihe.</div>'}
+                    </div>
+                </section>
+            `;
+        }).join('');
+
+        container.classList.remove('is-hidden');
+        container.innerHTML = `
+            <div class="bandrider-stage-order-head">
+                <span class="bandrider-pdf-section-label">Bühnen Reihenfolge</span>
+                <p>Ziehe die Mitglieder innerhalb einer Reihe in die gewünschte Reihenfolge von links nach rechts.</p>
+            </div>
+            <div class="bandrider-stage-order-list">
+                ${rowMarkup}
+            </div>
+        `;
+
+        container.querySelectorAll('.bandrider-stage-chip').forEach((chip) => {
+            chip.addEventListener('dragstart', (event) => {
+                this.currentBandRiderDraggedMemberId = chip.dataset.memberId || '';
+                chip.classList.add('is-dragging');
+                event.dataTransfer.effectAllowed = 'move';
+                event.dataTransfer.setData('text/plain', this.currentBandRiderDraggedMemberId);
+            });
+
+            chip.addEventListener('dragend', () => {
+                this.currentBandRiderDraggedMemberId = null;
+                container.querySelectorAll('.is-dragging, .is-drag-over').forEach((element) => {
+                    element.classList.remove('is-dragging', 'is-drag-over');
+                });
+            });
+
+            chip.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                chip.classList.add('is-drag-over');
+            });
+
+            chip.addEventListener('dragleave', () => {
+                chip.classList.remove('is-drag-over');
+            });
+
+            chip.addEventListener('drop', (event) => {
+                event.preventDefault();
+                chip.classList.remove('is-drag-over');
+
+                const draggedMemberId = this.currentBandRiderDraggedMemberId || event.dataTransfer.getData('text/plain');
+                const targetMemberId = chip.dataset.memberId || '';
+                const targetRow = Number(chip.dataset.stageRow) || 1;
+                if (!draggedMemberId || !targetMemberId || draggedMemberId === targetMemberId) return;
+
+                const targetMembers = this.getBandRiderSortedStageMembers(targetRow, session, draggedMemberId);
+                const targetMemberIndex = targetMembers.findIndex((member) => member.id === targetMemberId);
+                const chipBounds = chip.getBoundingClientRect();
+                const insertAfter = event.clientX > (chipBounds.left + chipBounds.width / 2);
+                const targetIndex = targetMemberIndex < 0 ? targetMembers.length : targetMemberIndex + (insertAfter ? 1 : 0);
+
+                this.placeBandRiderMemberOnStage(draggedMemberId, targetRow, targetIndex);
+                this.setBandRiderDirtyState(true);
+                this.renderBandRiderMembers();
+                this.scheduleBandRiderPreviewRefresh(80);
+            });
+        });
+
+        container.querySelectorAll('.bandrider-stage-order-dropzone').forEach((dropzone) => {
+            dropzone.addEventListener('dragover', (event) => {
+                event.preventDefault();
+                dropzone.classList.add('is-drag-over');
+            });
+
+            dropzone.addEventListener('dragleave', () => {
+                dropzone.classList.remove('is-drag-over');
+            });
+
+            dropzone.addEventListener('drop', (event) => {
+                event.preventDefault();
+                dropzone.classList.remove('is-drag-over');
+
+                const draggedMemberId = this.currentBandRiderDraggedMemberId || event.dataTransfer.getData('text/plain');
+                const targetRow = Number(dropzone.dataset.stageRow) || 1;
+                if (!draggedMemberId) return;
+
+                const chipTarget = event.target.closest('.bandrider-stage-chip');
+                if (chipTarget) return;
+
+                this.placeBandRiderMemberOnStage(draggedMemberId, targetRow, Number.POSITIVE_INFINITY);
+                this.setBandRiderDirtyState(true);
+                this.renderBandRiderMembers();
+                this.scheduleBandRiderPreviewRefresh(80);
+            });
+        });
+    },
+
+    renderBandRiderMembers() {
+        const session = this.currentBandRiderSession;
+        const container = document.getElementById('bandRiderMembersContainer');
+        if (!session || !container) return;
+
+        const cardsMarkup = session.members.map((member, index) => this.buildBandRiderMemberCardMarkup(member, index, session)).join('');
+        container.innerHTML = `
+            ${cardsMarkup}
+            <button type="button" class="bandrider-add-member-btn" id="bandRiderAddMemberBtn">
+                <span class="bandrider-add-member-icon" aria-hidden="true">+</span>
+                <span>Weiteres Mitglied für diesen Export hinzufügen</span>
+            </button>
+        `;
+
+        container.querySelectorAll('.bandrider-member-card').forEach((card) => {
+            const index = Number(card.dataset.index);
+            const member = session.members[index];
+            if (!member) return;
+
+            card.querySelector('.rider-member-name')?.addEventListener('input', (event) => {
+                member.name = event.target.value.trim();
+                this.setBandRiderDirtyState(true);
+                this.renderBandRiderStageOrderEditor();
+                this.scheduleBandRiderPreviewRefresh();
+            });
+
+            card.querySelector('.rider-member-instrument')?.addEventListener('input', (event) => {
+                member.instrument = event.target.value;
+                this.setBandRiderDirtyState(true);
+                this.renderBandRiderStageOrderEditor();
+                this.scheduleBandRiderPreviewRefresh();
+            });
+
+            card.querySelector('.rider-member-mic')?.addEventListener('input', (event) => {
+                member.mic = event.target.value;
+                this.setBandRiderDirtyState(true);
+                this.scheduleBandRiderPreviewRefresh();
+            });
+
+            card.querySelector('.rider-member-monitor')?.addEventListener('input', (event) => {
+                member.monitor = event.target.value;
+                this.setBandRiderDirtyState(true);
+                this.scheduleBandRiderPreviewRefresh();
+            });
+
+            card.querySelector('.rider-member-extra')?.addEventListener('input', (event) => {
+                member.extra = event.target.value;
+                this.setBandRiderDirtyState(true);
+                this.scheduleBandRiderPreviewRefresh();
+            });
+
+            card.querySelector('.rider-member-show-position')?.addEventListener('change', (event) => {
+                member.showOnStage = event.target.checked;
+                if (member.showOnStage) {
+                    this.placeBandRiderMemberOnStage(member.id, member.stageRow, Number.POSITIVE_INFINITY);
+                } else {
+                    this.normalizeBandRiderStageOrder(session);
+                }
+                this.setBandRiderDirtyState(true);
+                this.renderBandRiderStageOrderEditor();
+                this.scheduleBandRiderPreviewRefresh();
+            });
+
+            card.querySelector('.rider-member-stage-row')?.addEventListener('change', (event) => {
+                member.stageRow = Math.max(1, Number(event.target.value) || 1);
+                if (member.showOnStage) {
+                    this.placeBandRiderMemberOnStage(member.id, member.stageRow, Number.POSITIVE_INFINITY);
+                } else {
+                    this.normalizeBandRiderStageOrder(session);
+                }
+                this.setBandRiderDirtyState(true);
+                this.renderBandRiderStageOrderEditor();
+                this.scheduleBandRiderPreviewRefresh();
+            });
+
+            card.querySelector('.bandrider-remove-member')?.addEventListener('click', () => {
+                session.members = session.members.filter((_, memberIndex) => memberIndex !== index);
+                this.normalizeBandRiderStageOrder(session);
+                this.setBandRiderDirtyState(true);
+                this.renderBandRiderMembers();
+                this.scheduleBandRiderPreviewRefresh();
+            });
+        });
+
+        container.querySelector('#bandRiderAddMemberBtn')?.addEventListener('click', () => {
+            const uniqueId = typeof Storage !== 'undefined' && typeof Storage.generateId === 'function'
+                ? Storage.generateId()
+                : `extra-${Date.now()}`;
+
+            session.members.push(this.createBandRiderMemberSessionEntry({
+                id: `extra-${uniqueId}`,
+                type: 'extra',
+                name: 'Zusatzmitglied',
+                stageRow: 1,
+                stageOrder: this.getBandRiderSortedStageMembers(1, session).length + 1
+            }));
+            this.setBandRiderDirtyState(true);
+            this.renderBandRiderMembers();
+            this.scheduleBandRiderPreviewRefresh();
+        });
+
+        this.renderBandRiderStageOrderEditor();
+    },
+
+    syncBandRiderStageControls() {
+        const session = this.currentBandRiderSession;
+        const rowsGroup = document.getElementById('bandRiderStageRowsGroup');
+        if (!session) return;
+
+        if (rowsGroup) {
+            rowsGroup.classList.toggle('is-hidden', session.showPositions !== true);
+        }
+
+        session.members.forEach((member) => {
+            if (member.stageRow > session.stageRows) {
+                member.stageRow = session.stageRows;
+            }
+            if (member.stageRow < 1) {
+                member.stageRow = 1;
+            }
+        });
+
+        this.normalizeBandRiderStageOrder(session);
+        this.renderBandRiderMembers();
+    },
+
+    buildBandRiderStoragePayload() {
+        const session = this.currentBandRiderSession;
+        if (!session) return {};
+
+        const payload = {
+            __settings: {
+                title: session.title,
+                fontScale: session.fontScale,
+                orientation: session.orientation,
+                showPositions: session.showPositions === true,
+                stageRows: session.stageRows
+            }
+        };
+
+        session.members.forEach((member) => {
+            payload[member.id] = {
+                type: member.type,
+                name: member.name,
+                instrument: member.instrument,
+                mic: member.mic,
+                monitor: member.monitor,
+                extra: member.extra,
+                showOnStage: member.showOnStage === true,
+                stageRow: Math.max(1, Number(member.stageRow) || 1),
+                stageOrder: Math.max(1, Number(member.stageOrder) || 1)
+            };
+        });
+
+        return payload;
+    },
+
     async showBandRiderExportModal(bandId) {
         if (!bandId) return;
 
         try {
-            const band = await Storage.getBand(bandId);
+            const [band, bandMembers, existingRider] = await Promise.all([
+                Storage.getBand(bandId),
+                Storage.getBandMembers(bandId),
+                Storage.getBandRider(bandId)
+            ]);
+
             if (!band) throw new Error('Band nicht gefunden');
 
-            // Get band members
-            const memberIds = Array.isArray(band.members) ? band.members : [];
-            const members = await Promise.all(memberIds.map(async id => {
-                try {
-                    return await Storage.getUser(id);
-                } catch (e) {
-                    return { id, username: 'Unbewusster User' };
-                }
-            }));
+            const memberProfiles = await Promise.all(
+                (Array.isArray(bandMembers) ? bandMembers : []).map(async (membership) => {
+                    try {
+                        const profile = await Storage.getById('users', membership.userId);
+                        return { membership, profile };
+                    } catch (error) {
+                        console.warn('[Band Rider] Mitglied konnte nicht geladen werden:', error);
+                        return { membership, profile: null };
+                    }
+                })
+            );
 
-            // Get existing rider
-            const existingRider = await Storage.getBandRider(bandId);
-            const savedMembersData = existingRider?.members || {};
+            const storedMemberMap = this.getBandRiderStoredMemberMap(existingRider);
+            const storedMeta = this.getBandRiderStoredMeta(existingRider);
+            const knownMemberIds = new Set();
 
-            // Initialize session
+            const members = memberProfiles.map(({ membership, profile }) => {
+                const memberId = String(membership.userId || membership.id || '');
+                knownMemberIds.add(memberId);
+
+                const fallbackName = band.members_data?.[memberId]?.name
+                    || profile?.username
+                    || profile?.email?.split('@')[0]
+                    || 'Unbekannt';
+                const resolvedName = (profile && typeof UI !== 'undefined' && typeof UI.getUserDisplayName === 'function'
+                    ? UI.getUserDisplayName(profile)
+                    : fallbackName) || fallbackName;
+                const stored = storedMemberMap[memberId] || {};
+
+                return this.createBandRiderMemberSessionEntry({
+                    id: memberId,
+                    type: 'band',
+                    name: resolvedName === 'Unbekannt' ? fallbackName : resolvedName,
+                    instrument: stored.instrument || this.getBandRiderDefaultInstrument(profile),
+                    mic: stored.mic || '',
+                    monitor: stored.monitor || '',
+                    extra: stored.extra || '',
+                    showOnStage: stored.showOnStage === true,
+                    stageRow: stored.stageRow || 1,
+                    stageOrder: stored.stageOrder || 1
+                });
+            });
+
+            Object.entries(storedMemberMap).forEach(([memberId, stored]) => {
+                if (knownMemberIds.has(memberId)) return;
+                if (stored?.type !== 'extra') return;
+
+                members.push(this.createBandRiderMemberSessionEntry({
+                    id: memberId,
+                    type: 'extra',
+                    name: stored.name || 'Zusatzmitglied',
+                    instrument: stored.instrument || '',
+                    mic: stored.mic || '',
+                    monitor: stored.monitor || '',
+                    extra: stored.extra || '',
+                    showOnStage: stored.showOnStage === true,
+                    stageRow: stored.stageRow || 1,
+                    stageOrder: stored.stageOrder || 1
+                }));
+            });
+
             this.currentBandRiderSession = {
                 bandId,
                 bandName: band.name,
-                title: existingRider?.title || `Tech Rider ${band.name}`,
-                fontScale: existingRider?.fontScale || 1.0,
-                members: members.map(m => {
-                    // Try to get name from user object, fallback to entry name if possible
-                    let name = UI.getUserDisplayName(m);
-                    if (name === 'Unbekannt' && band.members_data?.[m.id]?.name) {
-                        name = band.members_data[m.id].name;
-                    }
-
-                    return {
-                        id: m.id,
-                        name: name,
-                        instrument: savedMembersData[m.id]?.instrument || '',
-                        mic: savedMembersData[m.id]?.mic || '',
-                        monitor: savedMembersData[m.id]?.monitor || '',
-                        extra: savedMembersData[m.id]?.extra || ''
-                    };
-                }),
+                title: storedMeta.title || `Rider ${band.name}`,
+                fontScale: storedMeta.fontScale || 1,
+                orientation: storedMeta.orientation || 'p',
+                showPositions: storedMeta.showPositions === true,
+                stageRows: storedMeta.stageRows || 2,
+                members,
                 isRendering: false,
                 isDirty: false
             };
 
-            // Setup UI
+            this.normalizeBandRiderStageOrder(this.currentBandRiderSession);
+
             const nameInput = document.getElementById('bandRiderPdfFileName');
-            if (nameInput) nameInput.value = this.currentBandRiderSession.title;
-
             const scaleInput = document.getElementById('bandRiderPdfFontScale');
-            if (scaleInput) scaleInput.value = String(Math.round(this.currentBandRiderSession.fontScale * 100));
-
             const scaleValue = document.getElementById('bandRiderPdfFontScaleValue');
+            const orientationInput = document.getElementById('bandRiderPdfOrientation');
+            const positionsInput = document.getElementById('bandRiderShowPositions');
+            const rowsInput = document.getElementById('bandRiderStageRows');
+
+            if (nameInput) nameInput.value = this.currentBandRiderSession.title;
+            if (scaleInput) scaleInput.value = String(Math.round(this.currentBandRiderSession.fontScale * 100));
             if (scaleValue) scaleValue.textContent = `${Math.round(this.currentBandRiderSession.fontScale * 100)}%`;
+            if (orientationInput) orientationInput.value = this.currentBandRiderSession.orientation;
+            if (positionsInput) positionsInput.checked = this.currentBandRiderSession.showPositions === true;
+            if (rowsInput) rowsInput.value = String(this.currentBandRiderSession.stageRows);
 
-            // Populate member cards
-            const container = document.getElementById('bandRiderMembersContainer');
-            if (container) {
-                container.innerHTML = this.currentBandRiderSession.members.map((m, idx) => `
-                    <div class="bandrider-member-card" data-index="${idx}">
-                        <div class="bandrider-member-card-header">
-                            <div class="bandrider-member-avatar">${m.name.charAt(0).toUpperCase()}</div>
-                            <div class="bandrider-member-name">${this.escapeHtml(m.name)}</div>
-                        </div>
-                        <div class="bandrider-member-inputs">
-                            <div class="bandrider-input-group">
-                                <label>Instrument / Gesang</label>
-                                <input type="text" class="rider-member-instrument" value="${this.escapeHtml(m.instrument)}" placeholder="z. B. Gesang & Gitarre">
-                            </div>
-                            <div class="bandrider-input-group">
-                                <label>Mikrofon / DI-Box</label>
-                                <input type="text" class="rider-member-mic" value="${this.escapeHtml(m.mic)}" placeholder="z. B. SM58 (funk) o. 2x DI">
-                            </div>
-                            <div class="bandrider-input-group">
-                                <label>Monitoring</label>
-                                <input type="text" class="rider-member-monitor" value="${this.escapeHtml(m.monitor)}" placeholder="z. B. In-Ear (Stereo) o. Wedge">
-                            </div>
-                            <div class="bandrider-input-group">
-                                <label>Zusatz-Infos</label>
-                                <textarea class="rider-member-extra" rows="2" placeholder="z. B. Eigene Backline...">${this.escapeHtml(m.extra)}</textarea>
-                            </div>
-                        </div>
-                    </div>
-                `).join('');
-
-                // Add input listeners
-                container.querySelectorAll('input, textarea').forEach(input => {
-                    input.addEventListener('input', () => {
-                        const card = input.closest('.bandrider-member-card');
-                        const idx = parseInt(card.dataset.index);
-                        const member = this.currentBandRiderSession.members[idx];
-
-                        if (input.classList.contains('rider-member-instrument')) member.instrument = input.value;
-                        if (input.classList.contains('rider-member-mic')) member.mic = input.value;
-                        if (input.classList.contains('rider-member-monitor')) member.monitor = input.value;
-                        if (input.classList.contains('rider-member-extra')) member.extra = input.value;
-
-                        this.currentBandRiderSession.isDirty = true;
-                        this.scheduleBandRiderPreviewRefresh();
-                    });
-                });
-            }
-
-            // Open Modal
+            this.setBandRiderDirtyState(false);
+            this.bindBandRiderModal();
+            this.syncBandRiderStageControls();
             UI.openModal('bandRiderModal');
-            this.bindBandRiderModal(); // Bind buttons if not yet bound
-            this.refreshBandRiderPreview(true);
-
+            await this.refreshBandRiderPreview(true);
         } catch (error) {
             console.error('[Band Rider] Failed to show modal:', error);
             UI.showToast('Fehler beim Laden des Riders.', 'error');
@@ -2802,51 +3297,171 @@ const App = {
 
         const nameInput = document.getElementById('bandRiderPdfFileName');
         const scaleInput = document.getElementById('bandRiderPdfFontScale');
+        const orientationInput = document.getElementById('bandRiderPdfOrientation');
+        const positionsInput = document.getElementById('bandRiderShowPositions');
+        const rowsInput = document.getElementById('bandRiderStageRows');
         const saveBtn = document.getElementById('bandRiderSave');
         const exportBtn = document.getElementById('bandRiderExportPdf');
         const cancelBtn = document.getElementById('bandRiderCancel');
 
+        if (cancelBtn) {
+            cancelBtn.dataset.modalClose = 'true';
+        }
+
+        UI.guardModalClose('bandRiderModal', 'isBandRiderDirty');
+
         nameInput?.addEventListener('input', () => {
-            if (this.currentBandRiderSession) {
-                this.currentBandRiderSession.title = nameInput.value.trim();
-                this.currentBandRiderSession.isDirty = true;
-                this.scheduleBandRiderPreviewRefresh();
-            }
+            if (!this.currentBandRiderSession) return;
+            this.currentBandRiderSession.title = nameInput.value.trim();
+            this.setBandRiderDirtyState(true);
+            this.scheduleBandRiderPreviewRefresh();
         });
 
         scaleInput?.addEventListener('input', () => {
-            if (this.currentBandRiderSession) {
-                const scale = (parseInt(scaleInput.value) || 100) / 100;
-                this.currentBandRiderSession.fontScale = scale;
-                document.getElementById('bandRiderPdfFontScaleValue').textContent = `${scaleInput.value}%`;
-                this.currentBandRiderSession.isDirty = true;
-                this.scheduleBandRiderPreviewRefresh();
+            if (!this.currentBandRiderSession) return;
+            const scale = (parseInt(scaleInput.value, 10) || 100) / 100;
+            this.currentBandRiderSession.fontScale = scale;
+            const scaleValue = document.getElementById('bandRiderPdfFontScaleValue');
+            if (scaleValue) {
+                scaleValue.textContent = `${scaleInput.value}%`;
             }
+            this.setBandRiderDirtyState(true);
+            this.scheduleBandRiderPreviewRefresh();
+        });
+
+        orientationInput?.addEventListener('change', () => {
+            if (!this.currentBandRiderSession) return;
+            this.currentBandRiderSession.orientation = orientationInput.value === 'l' ? 'l' : 'p';
+            this.setBandRiderDirtyState(true);
+            this.scheduleBandRiderPreviewRefresh(80);
+        });
+
+        positionsInput?.addEventListener('change', () => {
+            if (!this.currentBandRiderSession) return;
+            this.currentBandRiderSession.showPositions = positionsInput.checked;
+            this.setBandRiderDirtyState(true);
+            this.syncBandRiderStageControls();
+            this.scheduleBandRiderPreviewRefresh(80);
+        });
+
+        rowsInput?.addEventListener('change', () => {
+            if (!this.currentBandRiderSession) return;
+            this.currentBandRiderSession.stageRows = Math.min(5, Math.max(1, Number(rowsInput.value) || 1));
+            this.setBandRiderDirtyState(true);
+            this.syncBandRiderStageControls();
+            this.scheduleBandRiderPreviewRefresh(80);
         });
 
         saveBtn?.addEventListener('click', () => this.saveBandRider());
         exportBtn?.addEventListener('click', () => this.exportBandRiderPDF());
-        cancelBtn?.addEventListener('click', () => UI.closeModal('bandRiderModal'));
-
-        modal.querySelector('.modal-close')?.addEventListener('click', () => UI.closeModal('bandRiderModal'));
+        window.addEventListener('resize', () => this.applyBandRiderPreviewScaling());
 
         modal.dataset.bound = 'true';
     },
 
-    scheduleBandRiderPreviewRefresh(delay = 300) {
-        if (this.currentBandRiderPreviewTimer) clearTimeout(this.currentBandRiderPreviewTimer);
+    scheduleBandRiderPreviewRefresh(delay = 220) {
+        if (this.currentBandRiderPreviewTimer) {
+            clearTimeout(this.currentBandRiderPreviewTimer);
+        }
+
         this.currentBandRiderPreviewTimer = setTimeout(() => {
             this.currentBandRiderPreviewTimer = null;
             this.refreshBandRiderPreview();
         }, delay);
     },
 
+    setBandRiderDirtyState(isDirty = false) {
+        window.isBandRiderDirty = isDirty === true;
+        if (this.currentBandRiderSession) {
+            this.currentBandRiderSession.isDirty = window.isBandRiderDirty;
+        }
+    },
+
+    applyBandRiderPreviewScaling() {
+        const stage = document.querySelector('.bandrider-pdf-preview-stage');
+        const paper = document.querySelector('.bandrider-pdf-preview-paper');
+        const frame = document.getElementById('bandRiderPreviewFrame');
+        if (!stage || !paper || !frame) return;
+
+        const rawWidth = Number(paper.dataset.rawWidth || 0);
+        const rawHeight = Number(paper.dataset.rawHeight || 0);
+        if (!rawWidth || !rawHeight) return;
+
+        const availableWidth = Math.max(stage.clientWidth - 24, 320);
+        const scale = Math.min(1, availableWidth / rawWidth);
+        const scaledWidth = Math.round(rawWidth * scale);
+        const scaledHeight = Math.round(rawHeight * scale);
+
+        paper.style.width = `${scaledWidth}px`;
+        paper.style.height = `${scaledHeight}px`;
+        frame.style.width = `${rawWidth}px`;
+        frame.style.height = `${rawHeight}px`;
+        frame.style.transform = `scale(${scale})`;
+        frame.style.transformOrigin = 'top left';
+    },
+
+    buildBandRiderPreviewDocument(session, pages = []) {
+        const isDarkTheme = document.documentElement.classList.contains('theme-dark')
+            || document.documentElement.dataset.theme === 'dark';
+        const safePages = Array.isArray(pages) ? pages : [];
+        const gap = 28;
+        const pageMarkup = safePages.map((page) => `
+            <div style="
+                width:${page.previewWidth}px;
+                min-height:${page.previewHeight}px;
+                margin:0 auto ${gap}px;
+                background:#ffffff;
+                border-radius:0;
+                overflow:hidden;
+                box-shadow:0 28px 60px rgba(0,0,0,0.28);
+            ">
+                ${page.markup}
+            </div>
+        `).join('');
+
+        const totalHeight = safePages.reduce((sum, page, index) => sum + page.previewHeight + (index < safePages.length - 1 ? gap : 0), 60);
+        const maxWidth = safePages.reduce((max, page) => Math.max(max, page.previewWidth), 794);
+
+        return {
+            maxWidth,
+            totalHeight,
+            html: `
+                <!doctype html>
+                <html>
+                    <head>
+                        <style>
+                            html, body {
+                                margin: 0;
+                                padding: 0;
+                                overflow: hidden;
+                                background: ${isDarkTheme ? '#0b1220' : '#eef2f7'};
+                                font-family: 'Inter', Arial, sans-serif;
+                            }
+                            body {
+                                padding: 24px 0 36px;
+                                display: flex;
+                                flex-direction: column;
+                                align-items: center;
+                                box-sizing: border-box;
+                            }
+                            * { box-sizing: border-box; }
+                        </style>
+                    </head>
+                    <body>
+                        ${pageMarkup}
+                    </body>
+                </html>
+            `
+        };
+    },
+
     async refreshBandRiderPreview(force = false) {
         const session = this.currentBandRiderSession;
         const frame = document.getElementById('bandRiderPreviewFrame');
+        const paper = document.querySelector('.bandrider-pdf-preview-paper');
         const loading = document.getElementById('bandRiderPreviewLoading');
 
-        if (!session || !frame) return;
+        if (!session || !frame || !paper) return;
         if (session.isRendering && !force) return;
 
         session.isRendering = true;
@@ -2857,16 +3472,37 @@ const App = {
         try {
             const pages = PDFGenerator.buildBandRiderPDFPages({
                 bandName: session.bandName,
+                title: session.title,
                 members: session.members,
-                fontScale: session.fontScale
+                fontScale: session.fontScale,
+                orientation: session.orientation,
+                showPositions: session.showPositions,
+                stageRows: session.stageRows
             });
 
-            const previewDoc = this.buildBandRiderPreviewDocument(session, pages);
+            const previewDocument = this.buildBandRiderPreviewDocument(session, pages);
 
             if (requestId !== this.currentBandRiderPreviewRequestId) return;
 
-            frame.srcdoc = previewDoc;
+            frame.srcdoc = previewDocument.html;
+            paper.dataset.rawWidth = String(previewDocument.maxWidth);
+            paper.dataset.rawHeight = String(previewDocument.totalHeight);
 
+            await new Promise((resolve) => {
+                let finished = false;
+                const finish = () => {
+                    if (finished) return;
+                    finished = true;
+                    resolve();
+                };
+                const timeoutId = setTimeout(finish, 180);
+                frame.addEventListener('load', () => {
+                    clearTimeout(timeoutId);
+                    finish();
+                }, { once: true });
+            });
+
+            this.applyBandRiderPreviewScaling();
         } catch (error) {
             console.error('[Band Rider] Preview failed:', error);
         } finally {
@@ -2875,73 +3511,16 @@ const App = {
         }
     },
 
-    buildBandRiderPreviewDocument(session, pages) {
-        const isDarkTheme = document.documentElement.classList.contains('theme-dark')
-            || document.documentElement.dataset.theme === 'dark';
-
-        const pageMarkup = (Array.isArray(pages) ? pages : []).map(page => `
-            <div style="
-                width: 794px;
-                margin: 0 auto 30px;
-                background: white;
-                box-shadow: 0 30px 60px rgba(0,0,0,0.3);
-                border-radius: 4px;
-                overflow: hidden;
-                position: relative;
-                transform-origin: top center;
-            ">
-                ${page}
-            </div>
-        `).join('');
-
-        return `
-            <!doctype html>
-            <html>
-                <head>
-                    <style>
-                        body {
-                            margin: 0;
-                            background: ${isDarkTheme ? '#1e293b' : '#f1f5f9'};
-                            padding: 40px 20px;
-                            font-family: 'Inter', Arial, sans-serif;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                        }
-                        * { box-sizing: border-box; }
-                    </style>
-                </head>
-                <body>
-                    ${pageMarkup}
-                </body>
-            </html>
-        `;
-    },
-
     async saveBandRider() {
         const session = this.currentBandRiderSession;
         if (!session) return;
 
         try {
-            const membersData = {};
-            session.members.forEach(m => {
-                membersData[m.id] = {
-                    instrument: m.instrument,
-                    mic: m.mic,
-                    monitor: m.monitor,
-                    extra: m.extra
-                };
+            await Storage.createOrUpdateBandRider(session.bandId, {
+                members: this.buildBandRiderStoragePayload()
             });
-
-            const riderData = {
-                title: session.title,
-                fontScale: session.fontScale,
-                members: membersData
-            };
-
-            await Storage.createOrUpdateBandRider(session.bandId, riderData);
             UI.showToast('Rider erfolgreich gespeichert.', 'success');
-            session.isDirty = false;
+            this.setBandRiderDirtyState(false);
         } catch (err) {
             console.error('[Band Rider] Save failed:', err);
             UI.showToast('Fehler beim Speichern.', 'error');
@@ -2953,17 +3532,23 @@ const App = {
         if (!session) return;
 
         const btn = document.getElementById('bandRiderExportPdf');
-        const origText = btn.innerHTML;
+        const originalText = btn?.innerHTML || 'PDF exportieren';
 
         try {
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> PDF wird erstellt...';
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> PDF wird erstellt...';
+            }
 
             await PDFGenerator.generateBandRiderPDF({
                 bandName: session.bandName,
+                title: session.title,
                 members: session.members,
                 fontScale: session.fontScale,
-                filename: session.title
+                filename: session.title,
+                orientation: session.orientation,
+                showPositions: session.showPositions,
+                stageRows: session.stageRows
             });
 
             UI.showToast('PDF-Export erfolgreich.', 'success');
@@ -2971,8 +3556,10 @@ const App = {
             console.error('[Band Rider] Export failed:', err);
             UI.showToast('PDF-Export fehlgeschlagen.', 'error');
         } finally {
-            btn.disabled = false;
-            btn.innerHTML = origText;
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = originalText;
+            }
         }
     },
 

@@ -263,7 +263,6 @@ const PDFGenerator = {
             song.bpm ? `BPM: ${song.bpm}` : '',
             song.timeSignature ? `Time: ${song.timeSignature}` : '',
             song.key ? `Tonart: ${song.key}` : '',
-            song.originalKey ? `Orig.: ${song.originalKey}` : '',
             song.leadVocal ? `Lead: ${song.leadVocal}` : '',
             song.language ? `Sprache: ${song.language}` : '',
             song.tracks === 'yes' ? 'Tracks: Ja' : (song.tracks === 'no' ? 'Tracks: Nein' : ''),
@@ -304,7 +303,7 @@ const PDFGenerator = {
             const filtered = parts.filter(Boolean).map((entry) => this.escapeHtml(String(entry)));
             return filtered.length > 0 ? filtered.join(' &middot; ') : fallback;
         };
-        const compactSongColumns = `${px(22)} minmax(0, 2.5fr) minmax(0, 1.45fr) minmax(0, 0.92fr) minmax(0, 1fr) minmax(0, 1.15fr) minmax(0, 0.92fr) minmax(0, 1.2fr)`;
+        const compactSongColumns = `${px(22)} minmax(0, 2.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 0.7fr) minmax(0, 0.82fr) minmax(0, 0.9fr) minmax(0, 0.62fr) minmax(0, 0.98fr) minmax(0, 1.08fr)`;
 
         if (!Array.isArray(songs) || songs.length === 0) {
             if (suppressEmptyState) return '';
@@ -336,8 +335,19 @@ const PDFGenerator = {
 
         const headerMarkup = showColumnHeaders ? `
             <div style="display:grid; grid-template-columns:${compactSongColumns}; gap:${px(8)}; align-items:end; padding:0 0 ${px(6)}; border-bottom:1px solid #dbe3ef; margin-bottom:${px(2)};">
-                ${['#', 'Titel', 'Interpret', 'BPM / Time', 'Tonart', 'Lead / Sprache', 'Tracks / CCLI', 'Infos'].map((label) => `
-                    <div style="font-size:${px(9.5)}; line-height:1.3; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                ${[
+                    { label: '#', wrap: false },
+                    { label: 'Titel', wrap: false },
+                    { label: 'Interpret / Genre', wrap: true },
+                    { label: 'BPM / Time', wrap: true },
+                    { label: 'Tonart', wrap: false },
+                    { label: 'Lead', wrap: false },
+                    { label: 'Sprache', wrap: false },
+                    { label: 'Tracks', wrap: false },
+                    { label: 'CCLI-Nr.', wrap: true },
+                    { label: 'Infos', wrap: false }
+                ].map(({ label, wrap }) => `
+                    <div style="font-size:${px(9.5)}; line-height:1.2; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b; ${wrap ? 'white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; word-break:break-word;' : 'white-space:nowrap; overflow:hidden; text-overflow:ellipsis;'}">
                         ${this.escapeHtml(label)}
                     </div>
                 `).join('')}
@@ -357,13 +367,19 @@ const PDFGenerator = {
                     ${joinParts([song.bpm || '', song.timeSignature])}
                 </div>
                 <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${joinParts([song.key, song.originalKey])}
+                    ${joinParts([song.key])}
                 </div>
                 <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${joinParts([song.leadVocal, song.language])}
+                    ${joinParts([song.leadVocal])}
                 </div>
                 <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${joinParts([resolveTracks(song.tracks), song.ccli])}
+                    ${joinParts([song.language])}
+                </div>
+                <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${joinParts([resolveTracks(song.tracks)])}
+                </div>
+                <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${joinParts([song.ccli])}
                 </div>
                 <div style="${metaStyle}; font-size:${px(11)}; line-height:1.35; color:#334155; white-space:normal; overflow:visible; text-overflow:clip; overflow-wrap:anywhere; word-break:break-word;">
                     ${joinParts([song.infoDisplay && song.infoDisplay !== '-' ? song.infoDisplay : ''], '-')}
@@ -703,20 +719,22 @@ const PDFGenerator = {
         totalPages = 1,
         detailsHtml = '',
         bodyHtml = '',
-        headerMeta = []
+        headerMeta = [],
+        footerMeta = ''
     } = {}) {
         const safeTitle = String(title || 'Ablauf').trim() || 'Ablauf';
         const titleText = (safeTitle.toLowerCase().includes('rider') || safeTitle.toLowerCase().startsWith('ablauf'))
             ? safeTitle
             : `Ablauf ${safeTitle}`;
         const logoUrl = this.getRundownBrandLogoUrl();
+        const isRiderPage = /rider/i.test(safeTitle) || /rider/i.test(String(subtitle || ''));
         const styles = {
-            page: "font-family:'Inter', Arial, sans-serif; width:794px; min-height:1123px; box-sizing:border-box; margin:0 auto; padding:28px 32px 22px; background:#ffffff; color:#0f172a; display:flex; flex-direction:column;",
-            top: "display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:10px;",
+            page: `font-family:'Inter', Arial, sans-serif; width:794px; min-height:1123px; box-sizing:border-box; margin:0 auto; padding:${isRiderPage ? '24px 28px 18px' : '28px 32px 22px'}; background:#ffffff; color:#0f172a; display:flex; flex-direction:column;`,
+            top: `display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:${isRiderPage ? '8px' : '10px'};`,
             titleGroup: "display:flex; flex-direction:column; gap:6px; min-width:0; flex:1;",
-            title: "margin:0; font-size:24px; line-height:1.18; font-weight:800; letter-spacing:-0.02em; color:#0f172a;",
+            title: `margin:0; font-size:${isRiderPage ? '22px' : '24px'}; line-height:1.14; font-weight:800; letter-spacing:-0.02em; color:#0f172a;`,
             subtitle: "margin:0; font-size:12px; line-height:1.45; color:#64748b; font-weight:500;",
-            logo: "width:118px; height:auto; flex-shrink:0;",
+            logo: `width:${isRiderPage ? '124px' : '118px'}; max-width:${isRiderPage ? '124px' : '118px'}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;`,
             detailWrap: "display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;",
             detailCard: "flex:1 1 220px; min-width:220px; background:#f8fafc; border-radius:16px; padding:12px 14px;",
             detailCardWide: "flex:1 1 100%; min-width:100%;",
@@ -741,6 +759,7 @@ const PDFGenerator = {
                 </div>
                 <div style="${styles.footer}">
                     <div>Erstellt mit <strong>Bandmate</strong></div>
+                    ${footerMeta ? `<div>${this.escapeHtml(footerMeta)}</div>` : ''}
                     <div>Seite ${pageNumber} / ${totalPages}</div>
                 </div>
             </div>
@@ -910,17 +929,37 @@ const PDFGenerator = {
 
     async renderMarkupToPDF({ markup = '', pages = null, filename = 'export.pdf', previewOnly = false, orientation = 'p', canvasWidth = 860 }) {
         let currentElement = null;
-        const sourcePages = Array.isArray(pages) && pages.length > 0
-            ? pages
-            : [markup];
+        const rawPages = Array.isArray(pages) && pages.length > 0 ? pages : [markup];
+        const sourcePages = rawPages.map((page) => {
+            if (page && typeof page === 'object' && !Array.isArray(page)) {
+                return {
+                    markup: page.markup || page.pageMarkup || '',
+                    orientation: page.orientation === 'l' ? 'l' : 'p',
+                    canvasWidth: Number(page.canvasWidth) || canvasWidth,
+                    canvasHeight: Number(page.canvasHeight || page.previewHeight) || 0
+                };
+            }
+
+            return {
+                markup: page || '',
+                orientation: orientation === 'l' ? 'l' : 'p',
+                canvasWidth,
+                canvasHeight: 0
+            };
+        });
 
         try {
-            const pdf = new window.jsPDF(orientation, 'mm', 'a4');
-            const pageWidth = orientation === 'l' ? 297 : 210;
-            const pageHeight = orientation === 'l' ? 210 : 297;
+            const firstPage = sourcePages[0] || { orientation: orientation === 'l' ? 'l' : 'p' };
+            const pdf = new window.jsPDF(firstPage.orientation, 'mm', 'a4');
 
             for (let index = 0; index < sourcePages.length; index += 1) {
-                const pageMarkup = sourcePages[index];
+                const pageDescriptor = sourcePages[index];
+                const pageMarkup = pageDescriptor.markup;
+                const pageOrientation = pageDescriptor.orientation === 'l' ? 'l' : 'p';
+                const resolvedCanvasWidth = Number(pageDescriptor.canvasWidth) || canvasWidth;
+                const resolvedCanvasHeight = Number(pageDescriptor.canvasHeight) || (pageOrientation === 'l' ? 794 : 1123);
+                const pageWidth = pageOrientation === 'l' ? 297 : 210;
+                const pageHeight = pageOrientation === 'l' ? 210 : 297;
 
                 currentElement = document.createElement('div');
                 currentElement.innerHTML = pageMarkup;
@@ -929,18 +968,18 @@ const PDFGenerator = {
                 currentElement.style.margin = '0';
                 currentElement.style.color = '#000000';
                 currentElement.style.position = 'fixed';
-                currentElement.style.left = '0';
+                currentElement.style.left = '-20000px';
                 currentElement.style.top = '0';
-                currentElement.style.opacity = '0';
+                currentElement.style.opacity = '1';
                 currentElement.style.pointerEvents = 'none';
                 currentElement.style.zIndex = '-1';
-                currentElement.style.width = `${canvasWidth}px`;
+                currentElement.style.width = `${resolvedCanvasWidth}px`;
 
                 document.body.appendChild(currentElement);
                 await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
-                const renderWidth = Math.max(canvasWidth, currentElement.scrollWidth || 0, currentElement.offsetWidth || 0);
-                const renderHeight = Math.max(currentElement.scrollHeight || 0, currentElement.offsetHeight || 0, 1180);
+                const renderWidth = Math.max(resolvedCanvasWidth, currentElement.scrollWidth || 0, currentElement.offsetWidth || 0);
+                const renderHeight = Math.max(currentElement.scrollHeight || 0, currentElement.offsetHeight || 0, resolvedCanvasHeight);
 
                 let canvas = null;
                 let lastRenderError = null;
@@ -972,7 +1011,7 @@ const PDFGenerator = {
                 }
 
                 if (index > 0) {
-                    pdf.addPage();
+                    pdf.addPage('a4', pageOrientation);
                 }
 
                 const imgData = canvas.toDataURL('image/png');
@@ -1041,93 +1080,365 @@ const PDFGenerator = {
 
     async generateBandRiderPDF({
         bandName = 'Band',
-        members = [], // Array of { name: '', instrument: '', mic: '', monitor: '', extra: '' }
+        title = '',
+        members = [],
         fontScale = 1,
         filename = '',
-        previewOnly = false
+        previewOnly = false,
+        orientation = 'p',
+        showPositions = false,
+        stageRows = 2
     } = {}) {
-        const resolvedFilename = this.sanitizeFilename(filename || `Tech_Rider_${bandName}.pdf`, 'rider.pdf');
-        
+        const resolvedFilename = this.sanitizeFilename(filename || title || `Tech_Rider_${bandName}.pdf`, 'rider.pdf');
+
         const pages = this.buildBandRiderPDFPages({
             bandName,
+            title,
             members,
-            fontScale
+            fontScale,
+            orientation,
+            showPositions,
+            stageRows
         });
 
         return this.renderMarkupToPDF({
             pages,
             filename: resolvedFilename,
             previewOnly,
-            orientation: 'p',
-            canvasWidth: 794
+            orientation: pages[0]?.orientation || 'p',
+            canvasWidth: pages[0]?.canvasWidth || 794
         });
     },
 
-    buildBandRiderPDFPages({ bandName, members = [], fontScale = 1 }) {
+    buildBandRiderStagePageMarkup({ bandName, title, members = [], fontScale = 1, stageRows = 2, pageNumber = 1, totalPages = 1, generatedAt = '' }) {
         const scale = this.normalizeRundownFontScale(fontScale);
         const px = (size, minimum = 0) => this.scaleRundownSize(size, scale, minimum);
+        const logoUrl = this.getRundownBrandLogoUrl();
+        const activeMembers = members
+            .map((member, index) => ({ member, index }))
+            .filter(({ member }) => member && member.showOnStage)
+            .sort((a, b) => {
+                const rowDelta = (Number(a.member.stageRow) || 1) - (Number(b.member.stageRow) || 1);
+                if (rowDelta !== 0) return rowDelta;
+                const orderDelta = (Number(a.member.stageOrder) || 9999) - (Number(b.member.stageOrder) || 9999);
+                if (orderDelta !== 0) return orderDelta;
+                return a.index - b.index;
+            })
+            .map(({ member }) => ({
+                ...member,
+                stageRow: Math.min(Math.max(1, Number(member.stageRow) || 1), Math.max(1, Number(stageRows) || 1)),
+                stageOrder: Math.max(1, Number(member.stageOrder) || 1)
+            }));
+        const getMemberInfoCount = (member = {}) => (
+            [member.mic, member.monitor, member.extra]
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+                .length
+        );
+        const getStageCardMetrics = (member = {}) => {
+            const infoCount = getMemberInfoCount(member);
+            const compact = infoCount === 0;
+            return {
+                compact,
+                width: compact ? Math.max(106, 130 * scale) : Math.max(154, 194 * scale),
+                height: compact ? Math.max(52, 70 * scale) : Math.max(110, 136 * scale)
+            };
+        };
 
-        // Header and layout follow buildRundownPDFPageMarkup logic implicitly
-        // but we'll build a specific body structure here.
+        const rows = Array.from({ length: Math.max(1, Number(stageRows) || 1) }, (_, index) => ({
+            rowNumber: index + 1,
+            members: activeMembers
+                .filter((member) => member.stageRow === index + 1)
+                .sort((a, b) => (Number(a.stageOrder) || 9999) - (Number(b.stageOrder) || 9999))
+        }));
 
-        const renderRiderMember = (member) => `
-            <div style="border:1px solid #dbe3ef; border-radius:${px(18)}; background:#ffffff; padding:${px(16)}; margin-bottom:${px(14)}; page-break-inside:avoid;">
-                <div style="display:flex; align-items:center; gap:${px(12)}; margin-bottom:${px(12)}; border-bottom:1px solid #f1f5f9; padding-bottom:${px(10)};">
-                    <div style="width:${px(32)}; height:${px(32)}; border-radius:50%; background:#6366f1; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${px(13)};">
+        const maxMembersInRow = Math.max(1, ...rows.map((row) => row.members.length));
+        const largestCardWidth = Math.max(1, ...activeMembers.map((member) => getStageCardMetrics(member).width), Math.max(108, 132 * scale));
+        const largestCardHeight = Math.max(1, ...activeMembers.map((member) => getStageCardMetrics(member).height), Math.max(54, 72 * scale));
+        const rawStageWidth = Math.max(820, (maxMembersInRow * largestCardWidth) + (Math.max(0, maxMembersInRow - 1) * 38) + 140);
+        const rawStageHeight = Math.max(430, (rows.length * largestCardHeight) + (Math.max(0, rows.length - 1) * 54) + 130);
+        const maxStageWidth = 1040;
+        const maxStageHeight = 610;
+        const stageScale = Math.min(maxStageWidth / rawStageWidth, maxStageHeight / rawStageHeight, 1);
+        const stageWidth = rawStageWidth * stageScale;
+        const stageHeight = rawStageHeight * stageScale;
+        const maxPerformerWidth = largestCardWidth * stageScale;
+        const maxPerformerHeight = largestCardHeight * stageScale;
+        const stageTopPadding = 32 * stageScale;
+        const stageBottomPadding = 72 * stageScale;
+        const stageSidePadding = 38 * stageScale;
+        const availableRowSpace = Math.max(maxPerformerHeight, stageHeight - stageTopPadding - stageBottomPadding);
+        const rowSpacing = rows.length > 1 ? (availableRowSpace - maxPerformerHeight) / (rows.length - 1) : 0;
+        const pageTitle = String(title || '').trim() || `Technical Rider ${bandName}`;
+
+        const renderStageDetail = (label, value) => {
+            const trimmedValue = String(value || '').trim();
+            if (!trimmedValue) return '';
+
+            return `
+                <div style="margin-top:${px(2)}; display:flex; flex-direction:column; gap:${px(4)}; text-align:left;">
+                    <div style="font-size:${px(9.5)}; line-height:1.05; font-weight:800; color:#1e3a8a;">${this.escapeHtml(label)}</div>
+                    <div style="padding-left:${px(8)}; font-size:${px(10.8)}; line-height:1.12; color:#334155; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
+                </div>
+            `;
+        };
+
+        const performerMarkup = rows.map((row) => {
+            const visualRowIndex = rows.length - row.rowNumber;
+            const rowTop = stageTopPadding + visualRowIndex * rowSpacing;
+            const rowMembers = row.members;
+            if (rowMembers.length === 0) {
+                return `
+                    <div style="position:absolute; left:50%; top:${rowTop + maxPerformerHeight / 2 - px(8)}px; transform:translateX(-50%); font-size:${px(11)}; color:#94a3b8; font-weight:600;">
+                        Reihe ${row.rowNumber} frei
+                    </div>
+                `;
+            }
+
+            const rowUsableWidth = Math.max(maxPerformerWidth, stageWidth - (stageSidePadding * 2));
+            const slotWidth = rowMembers.length > 0 ? rowUsableWidth / rowMembers.length : rowUsableWidth;
+
+            return rowMembers.map((member, memberIndex) => {
+                const metrics = getStageCardMetrics(member);
+                const performerWidth = metrics.width * stageScale;
+                const performerHeight = metrics.height * stageScale;
+                const left = rowMembers.length > 1
+                    ? stageSidePadding + (memberIndex * slotWidth) + ((slotWidth - performerWidth) / 2)
+                    : (stageWidth - performerWidth) / 2;
+                const top = rowTop + (maxPerformerHeight - performerHeight);
+                const memberDetails = [
+                    renderStageDetail('Eingänge', member.mic),
+                    renderStageDetail('Monitoring', member.monitor),
+                    renderStageDetail('Zusatzinfos', member.extra)
+                ].filter(Boolean).join('');
+
+                return `
+                    <div style="
+                        position:absolute;
+                        left:${left}px;
+                        top:${top}px;
+                        width:${performerWidth}px;
+                        min-height:${performerHeight}px;
+                        padding:${metrics.compact ? `${px(7)} ${px(9)}` : `${px(8)} ${px(10)}`};
+                        border-radius:${px(14)};
+                        border:1px solid #bfdbfe;
+                        background:#eff6ff;
+                        color:#0f172a;
+                        display:flex;
+                        flex-direction:column;
+                        justify-content:flex-start;
+                        align-items:center;
+                        text-align:center;
+                        box-shadow:0 ${px(6)} ${px(18)} rgba(15,23,42,0.08);
+                    ">
+                        <div style="font-size:${metrics.compact ? px(9.5) : px(10.4)}; line-height:1.06; font-weight:800; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.04em;">
+                            ${this.escapeHtml(member.instrument || 'Position')}
+                        </div>
+                        <div style="margin-top:${metrics.compact ? px(2) : px(3)}; font-size:${metrics.compact ? px(12.5) : px(13.5)}; line-height:1.1; font-weight:700; color:#0f172a;">
+                            ${this.escapeHtml(member.name || 'Mitglied')}
+                        </div>
+                        ${memberDetails ? `
+                            <div style="margin-top:${px(4)}; width:100%; border-top:1px solid #bfdbfe; padding-top:${px(3)}; text-align:left;">
+                                ${memberDetails}
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }).join('');
+
+        return `
+            <div style="font-family:'Inter', Arial, sans-serif; width:1123px; min-height:794px; box-sizing:border-box; margin:0 auto; padding:18px 24px 16px; background:#ffffff; color:#0f172a; display:flex; flex-direction:column;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:${px(16)}; margin-bottom:${px(10)};">
+                    <div style="min-width:0; flex:1;">
+                        <h1 style="margin:0; font-size:${px(24)}; line-height:1.08; font-weight:800; letter-spacing:-0.02em; color:#0f172a;">${this.escapeHtml(pageTitle)}</h1>
+                        <div style="margin-top:${px(4)}; font-size:${px(12)}; line-height:1.4; color:#64748b;">${this.escapeHtml(bandName)}</div>
+                        <div style="margin-top:${px(8)}; font-size:${px(12)}; line-height:1.45; color:#475569; max-width:${px(720)};">
+                            Bühnenplan von oben. Reihe 1 steht vorne an der Bühnenkante zur FOH-Seite, höhere Reihen stehen weiter hinten.
+                        </div>
+                    </div>
+                    <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="width:${px(108)}; max-width:${px(108)}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;">
+                </div>
+
+                <div style="display:flex; flex-direction:column; align-items:center; gap:${px(14)}; padding-top:${px(2)}; flex:1;">
+                    <div style="
+                        position:relative;
+                        width:${stageWidth}px;
+                        height:${stageHeight}px;
+                        border-radius:${px(26)};
+                        border:2px solid #0f172a;
+                        background:linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+                        box-shadow:inset 0 ${px(18)} ${px(36)} rgba(148,163,184,0.28);
+                    ">
+                        <div style="position:absolute; left:50%; bottom:${px(16)}; transform:translateX(-50%); font-size:${px(12)}; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#475569;">
+                            Bühne
+                        </div>
+                        ${performerMarkup}
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; align-items:center; gap:${px(8)};">
+                        <div style="width:${Math.max(140, 180 * stageScale)}px; height:${px(2)}; background:#cbd5e1;"></div>
+                        <div style="
+                            min-width:${Math.max(120, 160 * stageScale)}px;
+                            padding:${px(12)} ${px(14)};
+                            border-radius:${px(16)};
+                            border:1px solid #cbd5e1;
+                            background:#ffffff;
+                            text-align:center;
+                            box-shadow:0 ${px(8)} ${px(20)} rgba(15,23,42,0.08);
+                        ">
+                            <div style="font-size:${px(11)}; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#475569;">FOH</div>
+                            <div style="margin-top:${px(4)}; font-size:${px(12)}; line-height:1.35; color:#0f172a;">Mischerplatz</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:${px(10)}; padding-top:${px(8)}; border-top:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between; gap:${px(12)}; font-size:${px(11)}; color:#64748b;">
+                    <div>Erstellt mit <strong>Bandmate</strong></div>
+                    ${generatedAt ? `<div>Stand: ${this.escapeHtml(generatedAt)}</div>` : ''}
+                    <div>Seite ${pageNumber} / ${totalPages}</div>
+                </div>
+            </div>
+        `;
+    },
+
+    buildBandRiderPDFPages({
+        bandName,
+        title = '',
+        members = [],
+        fontScale = 1,
+        orientation = 'p',
+        showPositions = false,
+        stageRows = 2
+    } = {}) {
+        const safeMembers = Array.isArray(members) ? members.filter(Boolean) : [];
+        const resolvedOrientation = orientation === 'l' ? 'l' : 'p';
+        const canvasWidth = resolvedOrientation === 'l' ? 1123 : 794;
+        const previewHeight = resolvedOrientation === 'l' ? 794 : 1123;
+        const generatedAt = new Date().toLocaleDateString('de-DE');
+        const scale = this.normalizeRundownFontScale(fontScale);
+        const px = (size, minimum = 0) => this.scaleRundownSize(size, scale, minimum);
+        const pageTitle = String(title || '').trim() || `Technical Rider ${bandName}`;
+
+        const renderRiderMemberDetail = (label, value) => {
+            const trimmedValue = String(value || '').trim();
+            if (!trimmedValue) return '';
+
+            return `
+                <div style="display:flex; flex-direction:column; gap:${px(3)}; padding:${px(9)} ${px(10)}; border-radius:${px(12)}; border:1px solid #e2e8f0; background:#f8fafc;">
+                    <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b;">${this.escapeHtml(label)}</div>
+                    <div style="font-size:${px(11)}; color:#0f172a; line-height:1.45; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
+                </div>
+            `;
+        };
+
+        const estimateRiderMemberUnits = (member) => {
+            const infoCount = [member?.mic, member?.monitor, member?.extra]
+                .map((value) => String(value || '').trim())
+                .filter(Boolean)
+                .length;
+            const baseUnits = resolvedOrientation === 'l' ? 1.05 : 1.15;
+            return baseUnits + (infoCount * 0.32);
+        };
+
+        const riderColumns = 2;
+        const riderRows = [];
+        for (let index = 0; index < safeMembers.length; index += riderColumns) {
+            riderRows.push(safeMembers.slice(index, index + riderColumns));
+        }
+
+        const renderRiderMember = (member) => {
+            const technicalBlocks = [
+                renderRiderMemberDetail('XLR / Audio-Eingänge', member.mic),
+                renderRiderMemberDetail('Monitoring', member.monitor),
+                renderRiderMemberDetail('Zusatz-Infos', member.extra)
+            ].filter(Boolean).join('');
+
+            const stageBadge = member.showOnStage
+                ? `
+                    <div style="padding:${px(5)} ${px(9)}; border-radius:${px(999)}; background:#eff6ff; color:#1d4ed8; font-size:${px(10)}; font-weight:800; letter-spacing:0.05em; text-transform:uppercase;">
+                        Reihe ${Math.max(1, Number(member.stageRow) || 1)}
+                    </div>
+                `
+                : '';
+
+                return `
+            <div style="border:1px solid #dbe3ef; border-radius:${px(15)}; background:#ffffff; padding:${px(11)} ${px(12)}; margin-bottom:${px(8)}; page-break-inside:avoid;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:${px(10)}; margin-bottom:${px(8)}; border-bottom:1px solid #f1f5f9; padding-bottom:${px(7)};">
+                    <div style="display:flex; align-items:center; gap:${px(12)}; min-width:0;">
+                    <div style="width:${px(34)}; height:${px(34)}; border-radius:50%; background:#6366f1; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${px(13)};">
                         ${this.escapeHtml((member.name || '?').charAt(0).toUpperCase())}
                     </div>
-                    <div>
-                        <div style="font-size:${px(16)}; font-weight:800; color:#0f172a;">${this.escapeHtml(member.name || 'Mitglied')}</div>
-                        <div style="font-size:${px(11)}; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.05em;">${this.escapeHtml(member.instrument || 'Instrument')}</div>
+                    <div style="min-width:0; flex:1;">
+                        <div style="font-size:${px(14)}; font-weight:800; color:#0f172a; line-height:1.18;">${this.escapeHtml(member.name || 'Mitglied')}</div>
+                        <div style="font-size:${px(10.5)}; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.05em;">${this.escapeHtml(member.instrument || 'Instrument')}</div>
                     </div>
-                </div>
-                
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:${px(16)};">
-                    <div>
-                        <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b; margin-bottom:${px(4)};">Mikrofon / DI</div>
-                        <div style="font-size:${px(12)}; color:#0f172a; line-height:1.4;">${this.escapeHtml(member.mic || '-')}</div>
                     </div>
-                    <div>
-                        <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b; margin-bottom:${px(4)};">Monitoring</div>
-                        <div style="font-size:${px(12)}; color:#0f172a; line-height:1.4;">${this.escapeHtml(member.monitor || '-')}</div>
+                    ${stageBadge}
+                </div>
+                ${technicalBlocks ? `
+                    <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:${px(10)};">
+                        ${technicalBlocks}
                     </div>
-                </div>
-                
-                ${member.extra ? `
-                <div style="margin-top:${px(12)}; padding-top:${px(10)}; border-top:1px dashed #f1f5f9;">
-                    <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b; margin-bottom:${px(4)};">Besonderheiten</div>
-                    <div style="font-size:${px(12)}; color:#0f172a; line-height:1.4; white-space:pre-line;">${this.escapeHtml(member.extra)}</div>
-                </div>
                 ` : ''}
             </div>
         `;
+        };
 
-        // Split members into pages if necessary (simple estimation)
-        const itemsPerPage = members.length > 5 ? 3 : 5; // Very rough
-        const pages = [];
-        for (let i = 0; i < members.length; i += itemsPerPage) {
-            const chunk = members.slice(i, i + itemsPerPage);
-            pages.push(this.buildRundownPDFPageMarkup({
-                title: 'Technical Rider',
-                subtitle: bandName,
-                modeLabel: 'Band-Spezifikation',
-                pageNumber: pages.length + 1,
-                totalPages: Math.ceil(members.length / itemsPerPage),
-                bodyHtml: chunk.map(m => renderRiderMember(m)).join(''),
-                headerMeta: []
-            }));
-        }
+        const rowChunks = this.chunkByUnits(
+            riderRows,
+            (row) => Math.max(...row.map((member) => estimateRiderMemberUnits(member)), 1),
+            resolvedOrientation === 'l' ? 5.8 : 6.6,
+            resolvedOrientation === 'l' ? 6.1 : 6.9
+        );
 
-        if (pages.length === 0) {
-            pages.push(this.buildRundownPDFPageMarkup({
-                title: 'Technical Rider',
+        const totalPages = rowChunks.length + (showPositions ? 1 : 0);
+        const pages = rowChunks.map((chunk, index) => ({
+            markup: this.buildRundownPDFPageMarkup({
+                title: pageTitle,
                 subtitle: bandName,
-                modeLabel: 'Band-Spezifikation',
-                pageNumber: 1,
-                totalPages: 1,
-                bodyHtml: '<div style="text-align:center; padding:50px; color:#64748b;">Keine Mitgliederdaten vorhanden.</div>',
-                headerMeta: []
-            }));
+                modeLabel: 'Technik',
+                pageNumber: index + 1,
+                totalPages,
+                detailsHtml: '',
+                bodyHtml: chunk.length
+                    ? `
+                        <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:${px(10)} ${px(12)}; align-items:start;">
+                            ${chunk.flat().map((member) => renderRiderMember(member)).join('')}
+                        </div>
+                    `
+                    : '<div style="text-align:center; padding:50px; color:#64748b;">Keine Mitgliederdaten vorhanden.</div>',
+                headerMeta: [],
+                footerMeta: `Stand: ${generatedAt}`
+            }).replace(
+                'width:794px; min-height:1123px;',
+                resolvedOrientation === 'l'
+                    ? 'width:1123px; min-height:794px;'
+                    : 'width:794px; min-height:1123px;'
+            ),
+            orientation: resolvedOrientation,
+            canvasWidth,
+            previewWidth: canvasWidth,
+            previewHeight
+        }));
+
+        if (showPositions) {
+            pages.push({
+                markup: this.buildBandRiderStagePageMarkup({
+                    bandName,
+                    title: `${pageTitle} · Bühne`,
+                    members: safeMembers,
+                    fontScale,
+                    stageRows,
+                    pageNumber: totalPages,
+                    totalPages,
+                    generatedAt
+                }),
+                orientation: 'l',
+                canvasWidth: 1123,
+                previewWidth: 1123,
+                previewHeight: 794
+            });
         }
 
         return pages;

@@ -4276,7 +4276,6 @@
                 <div class="bandrider-pdf-modal-copy">
                     <span class="bandrider-pdf-modal-kicker">Band Rider</span>
                     <h2>Technical Rider exportieren</h2>
-                    <p>Erfasse links technische Anforderungen für jedes Bandmitglied. Die Vorschau aktualisiert sich automatisch.</p>
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
@@ -4284,9 +4283,12 @@
                 <aside class="bandrider-pdf-editor-panel">
                     <div class="bandrider-pdf-toolbar-card">
                         <div class="bandrider-pdf-card-head">
-                            <span class="bandrider-pdf-section-label">Name der PDF</span>
+                            <span class="bandrider-pdf-section-label">Settings</span>
                         </div>
-                        <input type="text" id="bandRiderPdfFileName" class="form-input" placeholder="z. B. Tech Rider Bandname">
+                        <div class="bandrider-input-group">
+                            <label for="bandRiderPdfFileName">Name der PDF</label>
+                            <input type="text" id="bandRiderPdfFileName" class="form-input" placeholder="z. B. Tech Rider Bandname">
+                        </div>
                         <div class="bandrider-pdf-slider-field">
                             <div class="bandrider-pdf-slider-head">
                                 <span class="bandrider-pdf-slider-label">Schriftgröße</span>
@@ -4301,6 +4303,32 @@
                                 value="100"
                             >
                         </div>
+                        <div class="bandrider-input-group">
+                            <label for="bandRiderPdfOrientation">Ausrichtung Seite 1</label>
+                            <select id="bandRiderPdfOrientation" class="form-input">
+                                <option value="p">Hochformat</option>
+                                <option value="l">Querformat</option>
+                            </select>
+                        </div>
+                        <label class="bandrider-toggle-row" for="bandRiderShowPositions">
+                            <span class="bandrider-toggle-copy">
+                                <span class="bandrider-toggle-title">Positionen</span>
+                                <span class="bandrider-toggle-note">Fügt eine zweite Bühnenseite mit Bandpositionen hinzu.</span>
+                            </span>
+                            <input type="checkbox" id="bandRiderShowPositions">
+                            <span class="bandrider-toggle-switch" aria-hidden="true"></span>
+                        </label>
+                        <div class="bandrider-input-group" id="bandRiderStageRowsGroup">
+                            <label for="bandRiderStageRows">Reihen auf der Bühne</label>
+                            <select id="bandRiderStageRows" class="form-input">
+                                <option value="1">1 Reihe</option>
+                                <option value="2" selected>2 Reihen</option>
+                                <option value="3">3 Reihen</option>
+                                <option value="4">4 Reihen</option>
+                                <option value="5">5 Reihen</option>
+                            </select>
+                        </div>
+                        <div id="bandRiderStageOrderEditor" class="bandrider-stage-order-editor is-hidden"></div>
                     </div>
 
                     <div class="bandrider-pdf-section-head">
@@ -4317,7 +4345,7 @@
                             Vorschau wird aktualisiert...
                         </div>
                         <div class="bandrider-pdf-preview-paper">
-                            <iframe id="bandRiderPreviewFrame" title="Band Rider Vorschau" src=""></iframe>
+                            <iframe id="bandRiderPreviewFrame" title="Band Rider Vorschau" src="" scrolling="no"></iframe>
                         </div>
                     </div>
                 </div>
