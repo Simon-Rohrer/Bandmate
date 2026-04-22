@@ -6607,7 +6607,6 @@ const App = {
         try {
             await Auth.login(username, password, rememberMe);
             UI.toggleAuthOverlay(false); // Ensure modal-open is removed
-            UI.showToast('Erfolgreich angemeldet!', 'success');
             await this.showApp();
         } catch (error) {
             if (error?.code === 'email_not_confirmed') {
