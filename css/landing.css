@@ -726,12 +726,14 @@ a {
 }
 
 #landingPage .landing-footer-link-label {
-    font-size: 0.75rem;
-    font-weight: 800;
+    font-size: 0.72rem;
+    font-weight: 900;
     line-height: 1.1;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--text-muted);
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    opacity: 0.9;
 }
 
 #landingPage .landing-footer-links a {
@@ -848,14 +850,14 @@ a {
 }
 
 #landingPage .auth-tab {
-    min-height: 48px;
+    min-height: 40px;
     border: 1px solid var(--landing-auth-border);
-    border-radius: 16px;
+    border-radius: 13px;
     background: rgba(255, 255, 255, 0.04);
     color: var(--landing-auth-muted);
-    font-size: 0.92rem;
+    font-size: 0.8rem;
     font-weight: 700;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.04em;
     text-transform: uppercase;
     transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
@@ -979,16 +981,16 @@ a {
 #landingPage .auth-checkbox-label {
     display: inline-flex;
     align-items: center;
-    gap: 0.7rem;
-    font-size: 0.96rem;
+    gap: 0.5rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
     cursor: pointer;
 }
 
 #landingPage .auth-checkbox-label input[type="checkbox"] {
-    width: 20px;
-    height: 20px;
-    min-height: 20px;
+    width: 16px;
+    height: 16px;
+    min-height: 16px;
     padding: 0;
     margin: 0;
     accent-color: var(--accent-secondary);
@@ -1003,6 +1005,7 @@ a {
 #landingPage .auth-inline-link {
     color: var(--landing-auth-muted) !important;
     text-decoration: none;
+    font-size: 0.82rem;
     transition: color 160ms ease;
 }
 
@@ -1371,8 +1374,8 @@ html[data-theme="light"] #landingPage .auth-white-card select,
 
 @media (max-width: 720px) {
     #landingPage .landing-auth-overlay {
-        align-items: flex-start;
-        padding: max(1rem, env(safe-area-inset-top)) 1rem 1rem;
+        align-items: center;
+        padding: 1rem;
     }
 
     #landingPage .auth-white-card,
@@ -1380,8 +1383,8 @@ html[data-theme="light"] #landingPage .auth-white-card select,
     #landingPage .auth-white-card:has(#registerForm.active) {
         width: min(100%, 640px) !important;
         max-width: min(100%, 640px) !important;
-        max-height: calc(100vh - 2rem);
-        max-height: calc(100dvh - 2rem);
+        max-height: 75vh;
+        max-height: 75dvh;
     }
 
     #landingPage .auth-grid-3,
@@ -1397,35 +1400,39 @@ html[data-theme="light"] #landingPage .auth-white-card select,
 
 @media (max-width: 560px) {
     #landingPage .landing-scene {
-        padding: env(safe-area-inset-top) 12px 18px;
-        gap: 12px;
+        padding: calc(env(safe-area-inset-top) + 20px) 16px 14px;
+        gap: 8px;
+    }
+
+    #landingPage .landing-header {
+        margin-bottom: 8px;
     }
 
     #landingPage .landing-logo {
-        gap: 0.7rem;
+        gap: 0.6rem;
     }
 
     #landingPage .landing-logo-mark {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
+        width: 36px;
+        height: 36px;
+        border-radius: 11px;
     }
 
     #landingPage .landing-brand-title {
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         letter-spacing: 0.08em;
     }
 
     #landingPage .landing-nav {
-        padding: 0.24rem;
-        gap: 0.45rem;
+        padding: 0.2rem;
+        gap: 0.35rem;
     }
 
     #landingPage .landing-nav-action {
-        min-height: 38px;
-        padding: 0 0.78rem;
-        font-size: 0.74rem;
-        border-radius: 13px;
+        min-height: 34px;
+        padding: 0 0.7rem;
+        font-size: 0.7rem;
+        border-radius: 11px;
     }
 
     #landingPage .landing-copy-column {
@@ -1437,8 +1444,12 @@ html[data-theme="light"] #landingPage .auth-white-card select,
         padding: 0.32rem 0.66rem;
     }
 
+    #landingPage .landing-hero-grid {
+        gap: 12px;
+    }
+
     #landingPage .landing-hero-title {
-        font-size: clamp(1.8rem, 8.5vw, 2.35rem);
+        font-size: clamp(1.45rem, 7.5vw, 1.85rem);
     }
 
     #landingPage .hero-sub {
@@ -1458,8 +1469,23 @@ html[data-theme="light"] #landingPage .auth-white-card select,
     }
 
     #landingPage .landing-hero-image-frame {
-        width: min(100%, 320px);
-        aspect-ratio: 1 / 0.9;
+        width: min(100%, 300px);
+        aspect-ratio: 1 / 0.85;
+        margin: 0 auto;
+    }
+
+    #landingPage .landing-divider-wrap:not(.footer-sep) {
+        height: 40px;
+    }
+
+    #landingPage .landing-divider-wrap.footer-sep {
+        height: 1px;
+        margin: 12px 0;
+    }
+
+    #landingPage .divider-glow {
+        box-shadow: 0 0 10px 1px var(--accent-secondary);
+        opacity: 0.3;
     }
 
     #landingPage .landing-feature-card {
@@ -1481,30 +1507,116 @@ html[data-theme="light"] #landingPage .auth-white-card select,
     }
 
     #landingPage .landing-main > .landing-footer {
-        padding: 18px 16px 20px;
-        border-radius: 22px;
-        gap: 16px;
+        padding: 14px 16px;
+        border-radius: 20px;
+        grid-template-columns: auto 1fr;
+        align-items: center;
+        gap: 20px;
     }
 
     #landingPage .landing-footer-logo {
-        height: 56px;
+        height: 32px;
     }
 
     #landingPage .landing-footer-links {
-        grid-template-columns: 1fr;
-        gap: 14px;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
         width: 100%;
+        text-align: left;
+    }
+
+    #landingPage .landing-footer-link-group {
+        gap: 2px;
+    }
+
+    #landingPage .landing-footer-link-label {
+        font-size: 0.65rem;
+        margin-bottom: 4px;
+        color: var(--text-primary);
+        opacity: 1;
+        font-weight: 900;
+    }
+
+    #landingPage .landing-footer-links a {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+    }
+
+    #landingPage .auth-white-card {
+        padding: 1rem !important;
+        margin-top: 0; /* Zentrierung */
     }
 
     #landingPage .auth-card-head {
-        padding: 1.2rem 1.2rem 0.9rem;
+        padding: 0.6rem 0.5rem 0.5rem;
+    }
+
+    #landingPage .auth-card-head h2 {
+        font-size: 1.15rem;
+    }
+
+    #landingPage .auth-card-head p {
+        font-size: 0.72rem;
     }
 
     #landingPage .auth-tabs {
-        padding: 0 1.2rem 0.9rem;
+        padding: 0 0.5rem 0.5rem;
+        gap: 4px;
+    }
+
+    #landingPage .auth-tab {
+        min-height: 36px;
+        padding: 6px;
+        font-size: 0.72rem;
+        border-radius: 10px;
     }
 
     #landingPage .auth-white-card .auth-form {
-        padding: 0 1.2rem 1.2rem !important;
+        padding: 0 0.5rem 0.4rem !important;
+    }
+
+    #landingPage .auth-actions-row {
+        gap: 0.5rem;
+    }
+
+    #landingPage .auth-checkbox-label {
+        font-size: 0.75rem;
+    }
+
+    #landingPage .auth-checkbox-label input[type="checkbox"] {
+        width: 14px;
+        height: 14px;
+        min-height: 14px;
+    }
+
+    #landingPage .auth-forgot-password-link {
+        font-size: 0.75rem;
+    }
+
+    #landingPage .auth-white-card .form-group {
+        margin-bottom: 10px;
+    }
+
+    #landingPage .auth-white-card .form-group label {
+        font-size: 0.72rem;
+        margin-bottom: 3px;
+    }
+
+    #landingPage .auth-white-card input {
+        min-height: 40px;
+        font-size: 0.82rem;
+        padding: 0 10px;
+    }
+
+    #landingPage .auth-white-card .btn-submit {
+        min-height: 44px;
+        font-size: 0.88rem;
+        margin-top: 0.2rem;
+    }
+
+    #landingPage .auth-form-footer {
+        margin-top: 8px;
+        gap: 6px;
+        font-size: 0.72rem;
     }
 }
