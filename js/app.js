@@ -2219,7 +2219,7 @@ const App = {
         if (fontScaleInput) {
             fontScaleInput.addEventListener('input', () => {
                 if (!this.currentRundownPdfExportSession) return;
-                const nextScale = Math.min(1.2, Math.max(0.85, (Number(fontScaleInput.value) || 100) / 100));
+                const nextScale = this.getRundownPdfActualFontScaleFromPercent(Number(fontScaleInput.value) || 100);
                 this.currentRundownPdfExportSession.fontScale = nextScale;
                 this.currentRundownPdfExportSession.isDirty = true;
                 this.updateRundownPdfExportModalMeta();
@@ -2267,7 +2267,10 @@ const App = {
         const resolvedFilename = typeof PDFGenerator !== 'undefined' && typeof PDFGenerator.sanitizeFilename === 'function'
             ? PDFGenerator.sanitizeFilename(resolvedTitle, 'ablauf.pdf')
             : `${resolvedTitle || 'ablauf'}.pdf`;
-        const resolvedFontScale = Math.min(1.2, Math.max(0.85, Number(session.fontScale) || 1));
+        const resolvedFontScale = this.getRundownPdfActualFontScaleFromPercent(
+            this.getRundownPdfPercentFromActualFontScale(Number(session.fontScale) || 0.9)
+        );
+        const resolvedFontScalePercent = this.getRundownPdfPercentFromActualFontScale(resolvedFontScale);
 
         if (previewTitle) {
             previewTitle.textContent = resolvedTitle;
@@ -2290,12 +2293,22 @@ const App = {
         }
 
         if (fontScaleInput) {
-            fontScaleInput.value = String(Math.round(resolvedFontScale * 100));
+            fontScaleInput.value = String(resolvedFontScalePercent);
         }
 
         if (fontScaleValue) {
-            fontScaleValue.textContent = `${Math.round(resolvedFontScale * 100)}%`;
+            fontScaleValue.textContent = `${resolvedFontScalePercent}%`;
         }
+    },
+
+    getRundownPdfActualFontScaleFromPercent(percent = 100) {
+        const safePercent = Math.min(120, Math.max(85, Number(percent) || 100));
+        return Math.min(1.2, Math.max(0.85, (safePercent / 100) * 0.9));
+    },
+
+    getRundownPdfPercentFromActualFontScale(scale = 0.9) {
+        const safeScale = Math.min(1.2, Math.max(0.85, Number(scale) || 0.9));
+        return Math.min(120, Math.max(85, Math.round((safeScale / 0.9) * 100)));
     },
 
     buildRundownPdfPreviewDocument(session = null) {
@@ -3578,7 +3591,7 @@ const App = {
             defaultTitle: payload.title || 'Ablauf',
             title: payload.title || 'Ablauf',
             mode: 'full-details',
-            fontScale: 1,
+            fontScale: 0.9,
             isDirty: true,
             isRendering: false,
             refreshQueued: false

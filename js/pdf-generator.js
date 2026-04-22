@@ -257,6 +257,14 @@ const PDFGenerator = {
         }
     },
 
+    getRiderBrandLogoUrl() {
+        try {
+            return new URL('/images/branding/bandmate-wordmark-short.svg', window.location.origin).href;
+        } catch (error) {
+            return '/images/branding/bandmate-wordmark-short.svg';
+        }
+    },
+
     renderRundownSongMetaChips(song = {}, chipStyle = '') {
         const entries = [
             song.artist ? `Interpret: ${song.artist}` : '',
@@ -726,15 +734,15 @@ const PDFGenerator = {
         const titleText = (safeTitle.toLowerCase().includes('rider') || safeTitle.toLowerCase().startsWith('ablauf'))
             ? safeTitle
             : `Ablauf ${safeTitle}`;
-        const logoUrl = this.getRundownBrandLogoUrl();
         const isRiderPage = /rider/i.test(safeTitle) || /rider/i.test(String(subtitle || ''));
+        const logoUrl = isRiderPage ? this.getRiderBrandLogoUrl() : this.getRundownBrandLogoUrl();
         const styles = {
             page: `font-family:'Inter', Arial, sans-serif; width:794px; min-height:1123px; box-sizing:border-box; margin:0 auto; padding:${isRiderPage ? '24px 28px 18px' : '28px 32px 22px'}; background:#ffffff; color:#0f172a; display:flex; flex-direction:column;`,
             top: `display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:${isRiderPage ? '8px' : '10px'};`,
             titleGroup: "display:flex; flex-direction:column; gap:6px; min-width:0; flex:1;",
             title: `margin:0; font-size:${isRiderPage ? '22px' : '24px'}; line-height:1.14; font-weight:800; letter-spacing:-0.02em; color:#0f172a;`,
             subtitle: "margin:0; font-size:12px; line-height:1.45; color:#64748b; font-weight:500;",
-            logo: `width:${isRiderPage ? '124px' : '118px'}; max-width:${isRiderPage ? '124px' : '118px'}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;`,
+            logo: `width:${isRiderPage ? '138px' : '118px'}; max-width:${isRiderPage ? '138px' : '118px'}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;`,
             detailWrap: "display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;",
             detailCard: "flex:1 1 220px; min-width:220px; background:#f8fafc; border-radius:16px; padding:12px 14px;",
             detailCardWide: "flex:1 1 100%; min-width:100%;",
@@ -1113,7 +1121,7 @@ const PDFGenerator = {
     buildBandRiderStagePageMarkup({ bandName, title, members = [], fontScale = 1, stageRows = 2, pageNumber = 1, totalPages = 1, generatedAt = '' }) {
         const scale = this.normalizeRundownFontScale(fontScale);
         const px = (size, minimum = 0) => this.scaleRundownSize(size, scale, minimum);
-        const logoUrl = this.getRundownBrandLogoUrl();
+        const logoUrl = this.getRiderBrandLogoUrl();
         const activeMembers = members
             .map((member, index) => ({ member, index }))
             .filter(({ member }) => member && member.showOnStage)
@@ -1176,9 +1184,9 @@ const PDFGenerator = {
             if (!trimmedValue) return '';
 
             return `
-                <div style="margin-top:${px(2)}; display:flex; flex-direction:column; gap:${px(4)}; text-align:left;">
-                    <div style="font-size:${px(9.5)}; line-height:1.05; font-weight:800; color:#1e3a8a;">${this.escapeHtml(label)}</div>
-                    <div style="padding-left:${px(8)}; font-size:${px(10.8)}; line-height:1.12; color:#334155; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
+                <div style="margin-top:${px(2)}; display:flex; flex-direction:column; gap:${px(6)}; text-align:left;">
+                    <div style="font-size:${px(9.5)}; line-height:1.05; font-weight:800; color:#475569;">${this.escapeHtml(label)}</div>
+                    <div style="padding-left:${px(8)}; font-size:${px(10.8)}; line-height:1.14; color:#334155; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
                 </div>
             `;
         };
@@ -1221,8 +1229,8 @@ const PDFGenerator = {
                         min-height:${performerHeight}px;
                         padding:${metrics.compact ? `${px(7)} ${px(9)}` : `${px(8)} ${px(10)}`};
                         border-radius:${px(14)};
-                        border:1px solid #bfdbfe;
-                        background:#eff6ff;
+                        border:1px solid #d7dee7;
+                        background:#ffffff;
                         color:#0f172a;
                         display:flex;
                         flex-direction:column;
@@ -1231,14 +1239,14 @@ const PDFGenerator = {
                         text-align:center;
                         box-shadow:0 ${px(6)} ${px(18)} rgba(15,23,42,0.08);
                     ">
-                        <div style="font-size:${metrics.compact ? px(9.5) : px(10.4)}; line-height:1.06; font-weight:800; color:#1d4ed8; text-transform:uppercase; letter-spacing:0.04em;">
+                        <div style="font-size:${metrics.compact ? px(9.5) : px(10.4)}; line-height:1.06; font-weight:800; color:#334155; text-transform:uppercase; letter-spacing:0.04em;">
                             ${this.escapeHtml(member.instrument || 'Position')}
                         </div>
                         <div style="margin-top:${metrics.compact ? px(2) : px(3)}; font-size:${metrics.compact ? px(12.5) : px(13.5)}; line-height:1.1; font-weight:700; color:#0f172a;">
                             ${this.escapeHtml(member.name || 'Mitglied')}
                         </div>
                         ${memberDetails ? `
-                            <div style="margin-top:${px(4)}; width:100%; border-top:1px solid #bfdbfe; padding-top:${px(3)}; text-align:left;">
+                            <div style="margin-top:${px(4)}; width:100%; border-top:1px solid #e2e8f0; padding-top:${px(5)}; text-align:left;">
                                 ${memberDetails}
                             </div>
                         ` : ''}
@@ -1257,7 +1265,7 @@ const PDFGenerator = {
                             Bühnenplan von oben. Reihe 1 steht vorne an der Bühnenkante zur FOH-Seite, höhere Reihen stehen weiter hinten.
                         </div>
                     </div>
-                    <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="width:${px(108)}; max-width:${px(108)}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;">
+                    <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="width:${px(150)}; max-width:${px(150)}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;">
                 </div>
 
                 <div style="display:flex; flex-direction:column; align-items:center; gap:${px(14)}; padding-top:${px(2)}; flex:1;">
@@ -1267,8 +1275,8 @@ const PDFGenerator = {
                         height:${stageHeight}px;
                         border-radius:${px(26)};
                         border:2px solid #0f172a;
-                        background:linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
-                        box-shadow:inset 0 ${px(18)} ${px(36)} rgba(148,163,184,0.28);
+                        background:linear-gradient(180deg, #f7f7f8 0%, #eceef1 100%);
+                        box-shadow:inset 0 ${px(16)} ${px(30)} rgba(148,163,184,0.16);
                     ">
                         <div style="position:absolute; left:50%; bottom:${px(16)}; transform:translateX(-50%); font-size:${px(12)}; font-weight:800; letter-spacing:0.1em; text-transform:uppercase; color:#475569;">
                             Bühne
