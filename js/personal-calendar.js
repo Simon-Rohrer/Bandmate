@@ -1064,7 +1064,7 @@ const PersonalCalendar = {
             detailsHTML = `
                 <div class="calendar-details-container">
                     <div class="calendar-detail-header" style="border-left-color: ${bandColor}">
-                        <div class="calendar-detail-icon-large">🌐</div>
+                        <div class="calendar-detail-icon-large">${this.getDetailIcon('globe')}</div>
                         <div class="calendar-detail-title-group">
                             <h2 class="calendar-detail-title">${this.escapeHtml(item.title || 'Externer Termin')}</h2>
                             <div class="calendar-detail-subtitle" style="color: ${bandColor}">${this.escapeHtml(item.sourceName || 'Synchronisierter Kalender')}</div>
@@ -1073,14 +1073,14 @@ const PersonalCalendar = {
                     
                     <div class="calendar-info-grid">
                         <div class="calendar-info-item">
-                            <div class="info-icon">📅</div>
+                            <div class="info-icon">${this.getDetailIcon('calendar')}</div>
                             <div class="info-content">
                                 <div class="info-label">Datum</div>
                                 <div class="info-value">${dateStr}</div>
                             </div>
                         </div>
                         <div class="calendar-info-item">
-                            <div class="info-icon">🕐</div>
+                            <div class="info-icon">${this.getDetailIcon('clock')}</div>
                             <div class="info-content">
                                 <div class="info-label">Uhrzeit</div>
                                 <div class="info-value">${timeStr}</div>
@@ -1088,7 +1088,7 @@ const PersonalCalendar = {
                         </div>
                         ${item.location ? `
                         <div class="calendar-info-item">
-                            <div class="info-icon">📍</div>
+                            <div class="info-icon">${this.getDetailIcon('location')}</div>
                             <div class="info-content">
                                 <div class="info-label">Ort</div>
                                 <div class="info-value">${this.escapeHtml(item.location)}</div>
@@ -1096,7 +1096,7 @@ const PersonalCalendar = {
                         </div>` : ''}
                         ${item.description ? `
                         <div class="calendar-info-item full-width" style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem;">
-                            <div class="info-icon">📝</div>
+                            <div class="info-icon">${this.getDetailIcon('note')}</div>
                             <div class="info-content">
                                 <div class="info-label">Beschreibung</div>
                                 <div class="info-value" style="white-space: pre-wrap; font-size: 0.9rem;">${this.escapeHtml(item.description)}</div>
@@ -1127,7 +1127,7 @@ const PersonalCalendar = {
 
                 membersHTML = `
                     <div class="calendar-detail-section">
-                        <div class="calendar-detail-label">👥 Band-Mitglieder:</div>
+                        <div class="calendar-detail-label">${this.getDetailIcon('users', 'calendar-detail-label-icon')}<span>Band-Mitglieder</span></div>
                         <div class="calendar-members-grid">
                             ${memberUsers.map(user => {
                     const displayName = UI.getUserDisplayName(user);
@@ -1153,7 +1153,7 @@ const PersonalCalendar = {
             if (songs && songs.length > 0) {
                 setlistHTML = `
                     <div class="calendar-detail-section">
-                        <div class="calendar-detail-label">🎵 Setlist:</div>
+                        <div class="calendar-detail-label">${this.getDetailIcon('music', 'calendar-detail-label-icon')}<span>Setlist</span></div>
                         <div class="calendar-setlist-list">
                             ${songs.map((song, idx) => `
                                 <div class="calendar-song-item">
@@ -1171,16 +1171,16 @@ const PersonalCalendar = {
             detailsHTML = `
                 <div class="calendar-details-container">
                     <div class="calendar-detail-header" style="border-left: 4px solid ${customColor} !important;">
-                        <div class="calendar-detail-icon-large" style="background: ${this.getAlphaColor(customColor, 0.1)}; color: ${customColor};">🎤</div>
+                        <div class="calendar-detail-icon-large" style="background: ${this.getAlphaColor(customColor, 0.1)}; color: ${customColor};">${this.getDetailIcon('microphone')}</div>
                         <div class="calendar-detail-title-group">
                             <h2 class="calendar-detail-title">${this.escapeHtml(item.title || 'Auftritt')}</h2>
-                            <div class="calendar-detail-subtitle" style="color: ${customColor}">🎸 ${this.escapeHtml(bandName)}</div>
+                            <div class="calendar-detail-subtitle" style="color: ${customColor}">${this.getDetailIcon('band', 'calendar-inline-icon')}${this.escapeHtml(bandName)}</div>
                         </div>
                     </div>
                     
                     <div class="calendar-info-grid">
                         <div class="calendar-info-item">
-                            <div class="info-icon">📅</div>
+                            <div class="info-icon">${this.getDetailIcon('calendar')}</div>
                             <div class="info-content">
                                 <div class="info-label">Datum</div>
                                 <div class="info-value">${dateStr}</div>
@@ -1188,7 +1188,7 @@ const PersonalCalendar = {
                         </div>
                         ${item.time ? `
                         <div class="calendar-info-item">
-                            <div class="info-icon">🕐</div>
+                            <div class="info-icon">${this.getDetailIcon('clock')}</div>
                             <div class="info-content">
                                 <div class="info-label">Uhrzeit</div>
                                 <div class="info-value">${this.escapeHtml(item.time)}</div>
@@ -1196,7 +1196,7 @@ const PersonalCalendar = {
                         </div>` : ''}
                         ${item.location ? `
                         <div class="calendar-info-item">
-                            <div class="info-icon">📍</div>
+                            <div class="info-icon">${this.getDetailIcon('location')}</div>
                             <div class="info-content">
                                 <div class="info-label">Ort</div>
                                 <div class="info-value">${this.escapeHtml(item.location)}</div>
@@ -1204,7 +1204,7 @@ const PersonalCalendar = {
                         </div>` : ''}
                         ${item.soundcheck ? `
                         <div class="calendar-info-item">
-                            <div class="info-icon">🎚️</div>
+                            <div class="info-icon">${this.getDetailIcon('sound')}</div>
                             <div class="info-content">
                                 <div class="info-label">Soundcheck</div>
                                 <div class="info-value">${this.escapeHtml(item.soundcheck)}</div>
@@ -1214,7 +1214,7 @@ const PersonalCalendar = {
 
                     ${item.notes ? `
                     <div class="calendar-detail-section">
-                        <div class="calendar-detail-label">📝 Notizen:</div>
+                        <div class="calendar-detail-label">${this.getDetailIcon('note', 'calendar-detail-label-icon')}<span>Notizen</span></div>
                         <div class="calendar-detail-notes">${this.escapeHtml(item.notes)}</div>
                     </div>` : ''}
 
@@ -1242,7 +1242,7 @@ const PersonalCalendar = {
 
                 membersHTML = `
                     <div class="calendar-detail-section">
-                        <div class="calendar-detail-label">👥 Band-Mitglieder:</div>
+                        <div class="calendar-detail-label">${this.getDetailIcon('users', 'calendar-detail-label-icon')}<span>Band-Mitglieder</span></div>
                         <div class="calendar-members-grid">
                             ${memberUsers.map(user => {
                     const displayName = UI.getUserDisplayName(user);
@@ -1307,7 +1307,7 @@ const PersonalCalendar = {
 
                 attendanceHTML = `
                     <div class="calendar-detail-section">
-                        <div class="calendar-detail-label">✅ Teilnahmen:</div>
+                        <div class="calendar-detail-label">${this.getDetailIcon('status', 'calendar-detail-label-icon')}<span>Teilnahmen</span></div>
                         <div class="calendar-attendance-details">
                             ${renderResponderList(acceptedIds, 'Zugesagt', 'stat-accepted')}
                             ${renderResponderList(declinedIds, 'Abgesagt', 'stat-declined')}
@@ -1335,16 +1335,16 @@ const PersonalCalendar = {
             detailsHTML = `
                 <div class="calendar-details-container">
                     <div class="calendar-detail-header" style="border-left-color: ${bandColor}">
-                        <div class="calendar-detail-icon-large">📅</div>
+                        <div class="calendar-detail-icon-large">${this.getDetailIcon('calendar')}</div>
                         <div class="calendar-detail-title-group">
                             <h2 class="calendar-detail-title">${this.escapeHtml(item.title || 'Probe')}</h2>
-                            <div class="calendar-detail-subtitle" style="color: ${bandColor}">🎸 ${this.escapeHtml(bandName)}</div>
+                            <div class="calendar-detail-subtitle" style="color: ${bandColor}">${this.getDetailIcon('band', 'calendar-inline-icon')}${this.escapeHtml(bandName)}</div>
                         </div>
                     </div>
                     
                     <div class="calendar-info-grid">
                         <div class="calendar-info-item">
-                            <div class="info-icon">📅</div>
+                            <div class="info-icon">${this.getDetailIcon('calendar')}</div>
                             <div class="info-content">
                                 <div class="info-label">Datum</div>
                                 <div class="info-value">${dateStr}</div>
@@ -1352,14 +1352,14 @@ const PersonalCalendar = {
                         </div>
                         ${item.confirmedTime ? `
                         <div class="calendar-info-item">
-                            <div class="info-icon">🕐</div>
+                            <div class="info-icon">${this.getDetailIcon('clock')}</div>
                             <div class="info-content">
                                 <div class="info-label">Uhrzeit</div>
                                 <div class="info-value">${this.escapeHtml(item.confirmedTime)}</div>
                             </div>
                         </div>` : ''}
                         <div class="calendar-info-item">
-                            <div class="info-icon">📍</div>
+                            <div class="info-icon">${this.getDetailIcon('location')}</div>
                             <div class="info-content">
                                 <div class="info-label">Ort</div>
                                 <div class="info-value">${locationValue}</div>
@@ -1370,7 +1370,7 @@ const PersonalCalendar = {
 
                     ${item.notes ? `
                     <div class="calendar-detail-section">
-                        <div class="calendar-detail-label">📝 Notizen:</div>
+                        <div class="calendar-detail-label">${this.getDetailIcon('note', 'calendar-detail-label-icon')}<span>Notizen</span></div>
                         <div class="calendar-detail-notes">${this.escapeHtml(item.notes)}</div>
                     </div>` : ''}
 
@@ -1410,7 +1410,7 @@ const PersonalCalendar = {
             detailsHTML = `
                 <div class="calendar-details-container">
                     <div class="calendar-detail-header" style="border-left: 4px solid ${customColor} !important;">
-                        <div class="calendar-detail-icon-large" style="background: ${this.getAlphaColor(customColor, 0.1)}; color: ${customColor};">⚠️</div>
+                        <div class="calendar-detail-icon-large" style="background: ${this.getAlphaColor(customColor, 0.1)}; color: ${customColor};">${this.getDetailIcon('warning')}</div>
                         <div class="calendar-detail-title-group">
                             <h2 class="calendar-detail-title">${this.escapeHtml(detailTitle)}</h2>
                             ${detailSubtitle ? `<div class="calendar-detail-subtitle" style="color: ${customColor}">${this.escapeHtml(detailSubtitle)}</div>` : ''}
@@ -1419,12 +1419,14 @@ const PersonalCalendar = {
 
                     <div class="calendar-info-grid">
                         <div class="calendar-info-item">
+                            <div class="info-icon">${this.getDetailIcon('calendar')}</div>
                             <div class="info-content">
                                 <div class="info-label">Zeitraum</div>
                                 <div class="info-value">${this.escapeHtml(durationLabel)}</div>
                             </div>
                         </div>
                         <div class="calendar-info-item">
+                            <div class="info-icon">${this.getDetailIcon('status')}</div>
                             <div class="info-content">
                                 <div class="info-label">Status</div>
                                 <div class="info-value">Nicht verfügbar</div>
@@ -1432,6 +1434,7 @@ const PersonalCalendar = {
                         </div>
                         ${timeLabel ? `
                         <div class="calendar-info-item">
+                            <div class="info-icon">${this.getDetailIcon('clock')}</div>
                             <div class="info-content">
                                 <div class="info-label">Uhrzeit</div>
                                 <div class="info-value">${this.escapeHtml(timeLabel)}</div>
@@ -1445,11 +1448,11 @@ const PersonalCalendar = {
 
         // Create modal
         const modalHTML = `
-            <div id="itemDetailsModal" class="modal active" style="z-index: 1000;">
-                <div class="modal-content" style="max-width: 600px;">
+                <div id="itemDetailsModal" class="modal active" style="z-index: 1000;">
+                    <div class="modal-content" style="max-width: 600px;">
                     <div class="modal-header">
                         <h2>
-                            ${itemType === 'event' ? 'Auftrittdetails' : itemType === 'rehearsal' ? 'Probendetails' : 'Abwesenheit'}
+                            ${itemType === 'event' ? 'Auftrittdetails' : itemType === 'rehearsal' ? 'Probendetails' : itemType === 'external' ? 'Termindetails' : 'Abwesenheit'}
                         </h2>
                         <button class="modal-close" onclick="PersonalCalendar.closeDetailsModal()">×</button>
                     </div>
@@ -1495,6 +1498,29 @@ const PersonalCalendar = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    getDetailIconSvg(iconName) {
+        const icons = {
+            globe: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18M4.9 7.5h14.2M4.9 16.5h14.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            microphone: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-4a3.5 3.5 0 1 0-7 0v4A3.5 3.5 0 0 0 12 15Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M6 11.5a6 6 0 0 0 12 0M12 17.5V21M8.5 21h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            calendar: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7.5 3v3M16.5 3v3M4 8.5h16M6.5 5h11A2.5 2.5 0 0 1 20 7.5v10A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10A2.5 2.5 0 0 1 6.5 5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            clock: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 7.5v4.8l3 1.7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            location: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 20s6-4.35 6-10a6 6 0 1 0-12 0c0 5.65 6 10 6 10Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.3" stroke="currentColor" stroke-width="1.8"/></svg>',
+            note: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 4.5h8l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 19V6A1.5 1.5 0 0 1 7.5 4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M15 4.5V9h4M9 12h6M9 15h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            sound: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5.5 14H3v-4h2.5L10 6.5v11L5.5 14Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 9.5a4 4 0 0 1 0 5M16.7 7a7 7 0 0 1 0 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            users: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M16.5 19a4.5 4.5 0 0 0-9 0M12 13a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM19 18a3.5 3.5 0 0 0-2.5-3.36M5 18a3.5 3.5 0 0 1 2.5-3.36" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            music: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14 5v10.5a2.5 2.5 0 1 1-1.8-2.4V7.2l7-1.7v8a2.5 2.5 0 1 1-1.8-2.4V4.5L14 5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            band: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M14.5 5.5v9.3a2.7 2.7 0 1 1-1.8-2.55V7.15l6-1.5v7.15a2.7 2.7 0 1 1-1.8-2.55V5.05l-2.4.45Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            warning: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4.5 20 19H4L12 4.5Z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 9v4.5M12 17h.01" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            status: '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M7 12.5 10 15.5 17 8.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/></svg>'
+        };
+
+        return icons[iconName] || icons.note;
+    },
+
+    getDetailIcon(iconName, extraClass = '') {
+        return `<span class="calendar-ui-icon${extraClass ? ` ${extraClass}` : ''}" aria-hidden="true">${this.getDetailIconSvg(iconName)}</span>`;
     },
 
     /**

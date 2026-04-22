@@ -16489,8 +16489,31 @@ html[data-theme="light"] .loader-container,
 }
 
 .calendar-detail-icon-large {
-    font-size: 2.5rem;
+    width: 64px;
+    height: 64px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
     filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+    flex-shrink: 0;
+}
+
+.calendar-detail-icon-large .calendar-ui-icon,
+.calendar-info-item .info-icon .calendar-ui-icon,
+.calendar-detail-label .calendar-ui-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+}
+
+.calendar-detail-icon-large .calendar-ui-icon svg {
+    width: 30px;
+    height: 30px;
+    stroke: currentColor;
 }
 
 .calendar-detail-title-group {
@@ -16509,6 +16532,10 @@ html[data-theme="light"] .loader-container,
     font-size: 0.95rem;
     font-weight: 600;
     margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
 }
 
 .calendar-info-grid {
@@ -16528,7 +16555,6 @@ html[data-theme="light"] .loader-container,
 }
 
 .calendar-info-item .info-icon {
-    font-size: 1.5rem;
     width: 40px;
     height: 40px;
     background: var(--color-bg);
@@ -16537,6 +16563,14 @@ html[data-theme="light"] .loader-container,
     align-items: center;
     justify-content: center;
     border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+}
+
+.calendar-info-item .info-icon .calendar-ui-icon svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
 }
 
 .calendar-info-item .info-content {
@@ -16577,6 +16611,17 @@ html[data-theme="light"] .loader-container,
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+.calendar-detail-label .calendar-ui-icon svg,
+.calendar-inline-icon svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+}
+
+.calendar-inline-icon {
+    opacity: 0.9;
 }
 
 .calendar-detail-notes {

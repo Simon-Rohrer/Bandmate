@@ -4593,183 +4593,14 @@ const App = {
         }
     },
 
-    setupEventListeners() {
-        // Song form submit handler: ensure only one handler is registered
-        const songForm = document.getElementById('songForm');
-        if (songForm) {
-            // Remove all previous submit event listeners by replacing the node
-            const newSongForm = songForm.cloneNode(true);
-            songForm.parentNode.replaceChild(newSongForm, songForm);
-            let songFormSubmitting = false;
-            newSongForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                if (songFormSubmitting) return;
-                songFormSubmitting = true;
-                try {
-                    await App.handleSaveSong();
-                } finally {
-                    songFormSubmitting = false;
-                }
-            });
-
-            const songTitleInput = newSongForm.querySelector('#songTitle');
-            const songAutofillResults = newSongForm.querySelector('#songAutofillResults');
-
-            if (songTitleInput) {
-                songTitleInput.addEventListener('input', () => {
-                    App.scheduleSongAutofillSearch();
-                    App.syncInferredSongLanguage();
-                });
-            }
-
-            const songLanguageInput = newSongForm.querySelector('#songLanguage');
-            if (songLanguageInput) {
-                songLanguageInput.addEventListener('input', () => {
-                    const currentValue = String(songLanguageInput.value || '').trim();
-                    if (!currentValue) {
-                        App.songLanguageAutoValue = '';
-                        return;
-                    }
-                    if (currentValue !== App.songLanguageAutoValue) {
-                        App.songLanguageAutoValue = '';
-                    }
-                });
-            }
-
-            if (songAutofillResults) {
-                songAutofillResults.addEventListener('click', (event) => {
-                    const option = event.target.closest('[data-song-autofill-index]');
-                    if (!option) return;
-                    App.applySongAutofillCandidate(option.dataset.songAutofillIndex);
-                });
-            }
-
-            if (!this.songAutofillOutsideClickBound) {
-                document.addEventListener('mousedown', (event) => {
-                    const autofillGroup = document.querySelector('#songModal.active .song-editor-autofill-group');
-                    if (!autofillGroup || autofillGroup.contains(event.target)) return;
-                    App.clearSongAutofillResults();
-                });
-                this.songAutofillOutsideClickBound = true;
-            }
+    setupAuthFormEventListeners() {
+        const authOverlay = document.getElementById('authOverlay');
+        if (!authOverlay || authOverlay.dataset.authBindingsInitialized === 'true') {
+            return;
         }
 
-        // Zeige Planungs-Buttons nur für Bands, bei denen der Nutzer Leiter oder Co-Leiter ist
-        this.updatePlanningCreationButtons().catch(error => {
-            Logger.error('Error updating planning creation buttons', error);
-        });
-        // Ensure 'Auftritte' and 'Planung' main navigation tabs are always visible (desktop & mobile)
-        document.querySelectorAll('.nav-item[data-view="events"], .nav-item[data-view="rehearsals"]').forEach(item => {
-            item.style.display = '';
-        });
-        // Also ensure mobile tabs are always visible
-        document.querySelectorAll('.nav-subitem[data-view="events"], .nav-subitem[data-view="rehearsals"], .nav-subitem[data-view="probeorte"], .nav-subitem[data-view="kalender"]').forEach(item => {
-            item.style.display = '';
-        });
-        // Landing Hero Interactivity
-        const heroArea = document.getElementById('heroArea');
-        if (heroArea) {
-            heroArea.addEventListener('mousemove', (e) => {
-                const rect = heroArea.getBoundingClientRect();
-                const x = ((e.clientX - rect.left) / rect.width) * 100;
-                const y = ((e.clientY - rect.top) / rect.height) * 100;
-                heroArea.style.setProperty('--mouse-x', `${x}%`);
-                heroArea.style.setProperty('--mouse-y', `${y}%`);
-            });
-        }
+        authOverlay.dataset.authBindingsInitialized = 'true';
 
-
-        // Donate button is configured dynamically based on admin settings
-        this.updateDonateButton().catch(err => {
-            console.warn('[setupEventListeners] Donate button could not be initialized:', err);
-        });
-        // Band löschen Button
-        // (Removed duplicate deleteBandBtn handler; handled below with Bands.currentBandId)
-        // Show/hide extra event fields in modal
-        const extrasCheckbox = document.getElementById('eventShowExtras');
-        const extrasFields = document.getElementById('eventExtrasFields');
-        const guestsCheckbox = document.getElementById('eventShowGuests');
-        const guestsField = document.getElementById('eventGuestsField');
-        if (extrasCheckbox && extrasFields) {
-            extrasCheckbox.addEventListener('change', function () {
-                extrasFields.style.display = this.checked ? '' : 'none';
-            });
-        }
-        if (guestsCheckbox && guestsField) {
-            guestsCheckbox.addEventListener('change', function () {
-                guestsField.style.display = this.checked ? '' : 'none';
-            });
-        }
-        // When opening the modal, reset extras and guest fields visibility
-        const createEventModal = document.getElementById('createEventModal');
-        if (createEventModal) {
-            createEventModal.addEventListener('show', function () {
-                if (extrasCheckbox && extrasFields) {
-                    extrasFields.style.display = extrasCheckbox.checked ? '' : 'none';
-                }
-                if (guestsCheckbox && guestsField) {
-                    guestsField.style.display = guestsCheckbox.checked ? '' : 'none';
-                }
-            });
-        }
-        // Account löschen Button
-        const deleteAccountBtn = document.getElementById('deleteAccountBtn');
-        if (deleteAccountBtn) {
-            deleteAccountBtn.addEventListener('click', () => {
-                UI.openModal('deleteAccountModal');
-            });
-        }
-
-        // Modal: Abbrechen
-        const cancelDeleteAccountBtn = document.getElementById('cancelDeleteAccountBtn');
-        if (cancelDeleteAccountBtn) {
-            cancelDeleteAccountBtn.addEventListener('click', () => {
-                UI.closeModal('deleteAccountModal');
-            });
-        }
-
-        // Modal: Bestätigen
-        const confirmDeleteAccountBtn = document.getElementById('confirmDeleteAccountBtn');
-        if (confirmDeleteAccountBtn) {
-            confirmDeleteAccountBtn.addEventListener('click', async () => {
-                await App.handleDeleteAccount();
-            });
-        }
-
-        // Profile image click handlers - open preview modal
-        const setupProfileImageClick = () => {
-            // Header profile image
-            const headerProfileImg = document.getElementById('headerProfileImage');
-            if (headerProfileImg) {
-                headerProfileImg.style.cursor = 'pointer';
-                headerProfileImg.addEventListener('click', () => {
-                    const user = Auth.getCurrentUser();
-                    if (user && user.profile_image_url) {
-                        App.openProfileImagePreview(user.profile_image_url);
-                    }
-                });
-            }
-
-            // Settings profile image
-            const observer = new MutationObserver(() => {
-                const settingsProfileImg = document.querySelector('#profileImageSettingsContainer img, #profileImageSettingsContainer span');
-                if (settingsProfileImg && !settingsProfileImg.dataset.clickHandlerAdded) {
-                    settingsProfileImg.style.cursor = 'pointer';
-                    settingsProfileImg.dataset.clickHandlerAdded = 'true';
-                    settingsProfileImg.addEventListener('click', () => {
-                        const user = Auth.getCurrentUser();
-                        const previewUrl = App.getProfileImageDisplayUrl(user);
-                        if (previewUrl) {
-                            App.openProfileImagePreview(previewUrl);
-                        }
-                    });
-                }
-            });
-            observer.observe(document.body, { childList: true, subtree: true });
-        };
-        setupProfileImageClick();
-
-        // Auth form tabs
         document.querySelectorAll('.auth-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const tabName = tab.dataset.tab;
@@ -4780,14 +4611,15 @@ const App = {
             });
         });
 
-        // Login form
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const rememberMe = document.getElementById('loginRememberMe')?.checked;
-            await this.handleLogin(undefined, undefined, rememberMe);
-        });
+        const loginForm = document.getElementById('loginForm');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const rememberMe = document.getElementById('loginRememberMe')?.checked;
+                await this.handleLogin(undefined, undefined, rememberMe);
+            });
+        }
 
-        // Forgot Password form
         const forgotForm = document.getElementById('forgotPasswordForm');
         if (forgotForm) {
             forgotForm.addEventListener('submit', async (e) => {
@@ -4804,12 +4636,9 @@ const App = {
                 }
 
                 try {
-                    // 1. Trigger Supabase Password Reset (which sends an email)
                     await Auth.requestPasswordReset(email);
-
                     UI.showToast('Reset-Link wurde an deine E-Mail gesendet!', 'success');
 
-                    // Switch back to login after success
                     setTimeout(() => {
                         UI.switchAuthTab('login');
                         if (emailInput) emailInput.value = '';
@@ -4818,7 +4647,6 @@ const App = {
                             submitBtn.textContent = 'Link anfordern';
                         }
                     }, 3000);
-
                 } catch (err) {
                     console.error('Password reset request failed:', err);
                     UI.showToast('Fehler: ' + (err.message || 'Anfrage fehlgeschlagen'), 'error');
@@ -5040,7 +4868,6 @@ const App = {
             });
         }
 
-        // Live Password Check
         const regPasswordInput = document.getElementById('registerPassword');
         if (regPasswordInput) {
             regPasswordInput.addEventListener('input', (e) => {
@@ -5056,11 +4883,11 @@ const App = {
 
                 if (password.length > 0 && password.length < 6) {
                     feedback.textContent = '⚠️ Passwort muss mindestens 6 Zeichen haben';
-                    feedback.style.color = '#fbbf24'; // amber-400
+                    feedback.style.color = '#fbbf24';
                     regPasswordInput.style.borderColor = '#fbbf24';
                 } else if (password.length >= 6) {
                     feedback.textContent = '✅ Passwort-Länge ok';
-                    feedback.style.color = '#4ade80'; // green-400
+                    feedback.style.color = '#4ade80';
                     regPasswordInput.style.borderColor = '#4ade80';
                 } else {
                     feedback.textContent = '';
@@ -5068,6 +4895,218 @@ const App = {
                 }
             });
         }
+
+        const registerPasswordInput = document.getElementById('registerPassword');
+        const registerPasswordHint = document.getElementById('registerPasswordHint');
+        if (registerPasswordInput && registerPasswordHint) {
+            registerPasswordInput.addEventListener('input', () => {
+                const password = registerPasswordInput.value;
+                if (password.length > 0 && password.length < 6) {
+                    registerPasswordHint.style.color = 'red';
+                    registerPasswordHint.textContent = 'Passwort muss mindestens 6 Zeichen haben';
+                } else if (password.length >= 6) {
+                    registerPasswordHint.style.color = 'green';
+                    registerPasswordHint.textContent = '✓ Passwort erfüllt die Anforderungen';
+                } else {
+                    registerPasswordHint.style.color = 'var(--color-text-secondary)';
+                    registerPasswordHint.textContent = 'Mindestens 6 Zeichen erforderlich';
+                }
+            });
+        }
+
+        const registerForm = document.getElementById('registerForm');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                const password = document.getElementById('registerPassword').value;
+                if (password.length < 6) {
+                    UI.showToast('Passwort muss mindestens 6 Zeichen lang sein', 'error');
+                    return;
+                }
+
+                await this.handleRegister();
+            });
+        }
+    },
+
+    setupEventListeners() {
+        // Song form submit handler: ensure only one handler is registered
+        const songForm = document.getElementById('songForm');
+        if (songForm) {
+            // Remove all previous submit event listeners by replacing the node
+            const newSongForm = songForm.cloneNode(true);
+            songForm.parentNode.replaceChild(newSongForm, songForm);
+            let songFormSubmitting = false;
+            newSongForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if (songFormSubmitting) return;
+                songFormSubmitting = true;
+                try {
+                    await App.handleSaveSong();
+                } finally {
+                    songFormSubmitting = false;
+                }
+            });
+
+            const songTitleInput = newSongForm.querySelector('#songTitle');
+            const songAutofillResults = newSongForm.querySelector('#songAutofillResults');
+
+            if (songTitleInput) {
+                songTitleInput.addEventListener('input', () => {
+                    App.scheduleSongAutofillSearch();
+                    App.syncInferredSongLanguage();
+                });
+            }
+
+            const songLanguageInput = newSongForm.querySelector('#songLanguage');
+            if (songLanguageInput) {
+                songLanguageInput.addEventListener('input', () => {
+                    const currentValue = String(songLanguageInput.value || '').trim();
+                    if (!currentValue) {
+                        App.songLanguageAutoValue = '';
+                        return;
+                    }
+                    if (currentValue !== App.songLanguageAutoValue) {
+                        App.songLanguageAutoValue = '';
+                    }
+                });
+            }
+
+            if (songAutofillResults) {
+                songAutofillResults.addEventListener('click', (event) => {
+                    const option = event.target.closest('[data-song-autofill-index]');
+                    if (!option) return;
+                    App.applySongAutofillCandidate(option.dataset.songAutofillIndex);
+                });
+            }
+
+            if (!this.songAutofillOutsideClickBound) {
+                document.addEventListener('mousedown', (event) => {
+                    const autofillGroup = document.querySelector('#songModal.active .song-editor-autofill-group');
+                    if (!autofillGroup || autofillGroup.contains(event.target)) return;
+                    App.clearSongAutofillResults();
+                });
+                this.songAutofillOutsideClickBound = true;
+            }
+        }
+
+        // Zeige Planungs-Buttons nur für Bands, bei denen der Nutzer Leiter oder Co-Leiter ist
+        this.updatePlanningCreationButtons().catch(error => {
+            Logger.error('Error updating planning creation buttons', error);
+        });
+        // Ensure 'Auftritte' and 'Planung' main navigation tabs are always visible (desktop & mobile)
+        document.querySelectorAll('.nav-item[data-view="events"], .nav-item[data-view="rehearsals"]').forEach(item => {
+            item.style.display = '';
+        });
+        // Also ensure mobile tabs are always visible
+        document.querySelectorAll('.nav-subitem[data-view="events"], .nav-subitem[data-view="rehearsals"], .nav-subitem[data-view="probeorte"], .nav-subitem[data-view="kalender"]').forEach(item => {
+            item.style.display = '';
+        });
+        // Landing Hero Interactivity
+        const heroArea = document.getElementById('heroArea');
+        if (heroArea) {
+            heroArea.addEventListener('mousemove', (e) => {
+                const rect = heroArea.getBoundingClientRect();
+                const x = ((e.clientX - rect.left) / rect.width) * 100;
+                const y = ((e.clientY - rect.top) / rect.height) * 100;
+                heroArea.style.setProperty('--mouse-x', `${x}%`);
+                heroArea.style.setProperty('--mouse-y', `${y}%`);
+            });
+        }
+
+
+        // Donate button is configured dynamically based on admin settings
+        this.updateDonateButton().catch(err => {
+            console.warn('[setupEventListeners] Donate button could not be initialized:', err);
+        });
+        // Band löschen Button
+        // (Removed duplicate deleteBandBtn handler; handled below with Bands.currentBandId)
+        // Show/hide extra event fields in modal
+        const extrasCheckbox = document.getElementById('eventShowExtras');
+        const extrasFields = document.getElementById('eventExtrasFields');
+        const guestsCheckbox = document.getElementById('eventShowGuests');
+        const guestsField = document.getElementById('eventGuestsField');
+        if (extrasCheckbox && extrasFields) {
+            extrasCheckbox.addEventListener('change', function () {
+                extrasFields.style.display = this.checked ? '' : 'none';
+            });
+        }
+        if (guestsCheckbox && guestsField) {
+            guestsCheckbox.addEventListener('change', function () {
+                guestsField.style.display = this.checked ? '' : 'none';
+            });
+        }
+        // When opening the modal, reset extras and guest fields visibility
+        const createEventModal = document.getElementById('createEventModal');
+        if (createEventModal) {
+            createEventModal.addEventListener('show', function () {
+                if (extrasCheckbox && extrasFields) {
+                    extrasFields.style.display = extrasCheckbox.checked ? '' : 'none';
+                }
+                if (guestsCheckbox && guestsField) {
+                    guestsField.style.display = guestsCheckbox.checked ? '' : 'none';
+                }
+            });
+        }
+        // Account löschen Button
+        const deleteAccountBtn = document.getElementById('deleteAccountBtn');
+        if (deleteAccountBtn) {
+            deleteAccountBtn.addEventListener('click', () => {
+                UI.openModal('deleteAccountModal');
+            });
+        }
+
+        // Modal: Abbrechen
+        const cancelDeleteAccountBtn = document.getElementById('cancelDeleteAccountBtn');
+        if (cancelDeleteAccountBtn) {
+            cancelDeleteAccountBtn.addEventListener('click', () => {
+                UI.closeModal('deleteAccountModal');
+            });
+        }
+
+        // Modal: Bestätigen
+        const confirmDeleteAccountBtn = document.getElementById('confirmDeleteAccountBtn');
+        if (confirmDeleteAccountBtn) {
+            confirmDeleteAccountBtn.addEventListener('click', async () => {
+                await App.handleDeleteAccount();
+            });
+        }
+
+        // Profile image click handlers - open preview modal
+        const setupProfileImageClick = () => {
+            // Header profile image
+            const headerProfileImg = document.getElementById('headerProfileImage');
+            if (headerProfileImg) {
+                headerProfileImg.style.cursor = 'pointer';
+                headerProfileImg.addEventListener('click', () => {
+                    const user = Auth.getCurrentUser();
+                    if (user && user.profile_image_url) {
+                        App.openProfileImagePreview(user.profile_image_url);
+                    }
+                });
+            }
+
+            // Settings profile image
+            const observer = new MutationObserver(() => {
+                const settingsProfileImg = document.querySelector('#profileImageSettingsContainer img, #profileImageSettingsContainer span');
+                if (settingsProfileImg && !settingsProfileImg.dataset.clickHandlerAdded) {
+                    settingsProfileImg.style.cursor = 'pointer';
+                    settingsProfileImg.dataset.clickHandlerAdded = 'true';
+                    settingsProfileImg.addEventListener('click', () => {
+                        const user = Auth.getCurrentUser();
+                        const previewUrl = App.getProfileImageDisplayUrl(user);
+                        if (previewUrl) {
+                            App.openProfileImagePreview(previewUrl);
+                        }
+                    });
+                }
+            });
+            observer.observe(document.body, { childList: true, subtree: true });
+        };
+        setupProfileImageClick();
+
+        this.setupAuthFormEventListeners();
 
         // Listen for password recovery event
         window.addEventListener('auth:password_recovery', () => {
@@ -5133,40 +5172,6 @@ const App = {
             if (modal) {
                 UI.openModal('resetPasswordModal');
             }
-        });
-
-        // Register form
-        const registerPasswordInput = document.getElementById('registerPassword');
-        const registerPasswordHint = document.getElementById('registerPasswordHint');
-
-        // Real-time password validation
-        if (registerPasswordInput && registerPasswordHint) {
-            registerPasswordInput.addEventListener('input', () => {
-                const password = registerPasswordInput.value;
-                if (password.length > 0 && password.length < 6) {
-                    registerPasswordHint.style.color = 'red';
-                    registerPasswordHint.textContent = 'Passwort muss mindestens 6 Zeichen haben';
-                } else if (password.length >= 6) {
-                    registerPasswordHint.style.color = 'green';
-                    registerPasswordHint.textContent = '✓ Passwort erfüllt die Anforderungen';
-                } else {
-                    registerPasswordHint.style.color = 'var(--color-text-secondary)';
-                    registerPasswordHint.textContent = 'Mindestens 6 Zeichen erforderlich';
-                }
-            });
-        }
-
-        document.getElementById('registerForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            // Validate password length before submitting
-            const password = document.getElementById('registerPassword').value;
-            if (password.length < 6) {
-                UI.showToast('Passwort muss mindestens 6 Zeichen lang sein', 'error');
-                return;
-            }
-
-            await this.handleRegister();
         });
 
         // Logout button
@@ -6580,35 +6585,46 @@ const App = {
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
         const rememberMe = arguments.length > 2 ? arguments[2] : false;
+        const loginForm = document.getElementById('loginForm');
+        const submitBtn = loginForm?.querySelector('button[type="submit"]');
+        const loginInputs = loginForm ? Array.from(loginForm.querySelectorAll('input')) : [];
+        const originalSubmitText = submitBtn?.dataset.originalText || submitBtn?.textContent || 'Anmelden';
         this.clearAuthStatusNotice();
 
-        // Show the global loading overlay with guitar emoji
-        const overlay = document.getElementById('globalLoadingOverlay');
-        if (typeof window.showGlobalLoadingOverlay === 'function') {
-            window.showGlobalLoadingOverlay();
-        } else if (overlay) {
-            overlay.style.display = 'flex';
-            overlay.style.opacity = '1';
+        if (submitBtn) {
+            submitBtn.dataset.originalText = originalSubmitText;
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Anmeldung läuft...';
+        }
+        loginInputs.forEach(input => {
+            input.disabled = true;
+        });
+
+        if (loginForm) {
+            loginForm.dataset.submitting = 'true';
         }
 
         try {
             await Auth.login(username, password, rememberMe);
-            if (overlay) {
-                overlay.style.opacity = '0';
-                setTimeout(() => overlay.style.display = 'none', 400);
-            }
             UI.toggleAuthOverlay(false); // Ensure modal-open is removed
             UI.showToast('Erfolgreich angemeldet!', 'success');
             await this.showApp();
         } catch (error) {
-            if (overlay) {
-                overlay.style.opacity = '0';
-                setTimeout(() => overlay.style.display = 'none', 400);
-            }
             if (error?.code === 'email_not_confirmed') {
                 this.showAuthStatusNotice('Dein Konto ist noch nicht aktiviert. Bitte bestätige zuerst die E-Mail aus deiner Registrierung und logge dich danach ein.', 'warning');
             }
             UI.showToast(error.message, 'error');
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = originalSubmitText;
+            }
+            loginInputs.forEach(input => {
+                input.disabled = false;
+            });
+            if (loginForm) {
+                delete loginForm.dataset.submitting;
+            }
         }
     },
 
@@ -14145,6 +14161,11 @@ const App = {
         this.clearAuthStatusNotice();
         this.clearPersistedNavigationState();
 
+        if (!lPage) {
+            window.location.href = SupabaseClient.buildProjectPageUrl('index.html');
+            return;
+        }
+
         if (lPage) {
             lPage.style.display = 'flex';
             lPage.classList.add('active');
@@ -14226,6 +14247,11 @@ const App = {
         // Hide landing page and show main app
         const landingPage = document.getElementById('landingPage');
         const mainApp = document.getElementById('mainApp');
+
+        if (!mainApp) {
+            window.location.href = SupabaseClient.buildProjectPageUrl('app.html');
+            return;
+        }
 
         if (landingPage) {
             landingPage.style.display = 'none';
@@ -19388,9 +19414,15 @@ window.App = App;
 
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    RichTextEditor.init();
-    App.init();
+    if (document.getElementById('mainApp')) {
+        if (typeof RichTextEditor !== 'undefined' && typeof RichTextEditor.init === 'function') {
+            RichTextEditor.init();
+        }
+        App.init();
+    }
 
     // Setup registration instrument selector if present (landing page)
-    App.setupInstrumentSelector('registerInstrumentSelector', 'registerInstrument');
+    if (document.getElementById('registerInstrumentSelector') && document.getElementById('registerInstrument')) {
+        App.setupInstrumentSelector('registerInstrumentSelector', 'registerInstrument');
+    }
 });
