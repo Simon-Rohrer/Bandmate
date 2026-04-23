@@ -1405,7 +1405,7 @@
 
 #settingsModal .external-calendar-row {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.45fr) auto;
+    grid-template-columns: minmax(180px, 220px) minmax(0, 1fr) minmax(0, 1.45fr) auto;
     gap: 0.75rem;
     align-items: center;
     padding: 0.75rem;
@@ -1417,9 +1417,38 @@
 #settingsModal .external-calendar-visibility {
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
+    gap: 0.7rem;
     align-self: stretch;
-    padding-inline: 0.15rem;
+    padding: 0.15rem 0.25rem;
+    min-width: 0;
+}
+
+#settingsModal .external-calendar-visibility .toggle-switch {
+    flex: 0 0 46px;
+}
+
+#settingsModal .external-calendar-visibility-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.14rem;
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+#settingsModal .external-calendar-visibility-title {
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text);
+}
+
+#settingsModal .external-calendar-visibility-note {
+    font-size: 0.74rem;
+    line-height: 1.3;
+    color: var(--settings-muted);
+    overflow-wrap: anywhere;
 }
 
 #settingsModal .external-calendar-field {
@@ -1459,6 +1488,14 @@
     color: var(--settings-muted);
     font-size: 0.84rem;
     line-height: 1.45;
+}
+
+#settingsModal .profile-password-hint.is-warning {
+    color: #f59e0b;
+}
+
+#settingsModal .profile-password-hint.is-success {
+    color: #22c55e;
 }
 
 #settingsModal .settings-form-actions {
@@ -2779,6 +2816,11 @@ html[data-theme="dark"] #settingsModal .multiselect-option:hover,
     #settingsModal .external-calendar-row {
         grid-template-columns: auto minmax(0, 1fr) auto;
         gap: 0.6rem;
+    }
+
+    #settingsModal .external-calendar-visibility {
+        grid-column: 1 / -1;
+        padding-inline: 0;
     }
 
     #settingsModal .external-calendar-field-url {

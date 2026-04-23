@@ -9,6 +9,15 @@ const Events = {
     dataContextCache: null,
     isLoading: false,
     availabilityRefreshTimer: null,
+    activeVotingEventId: null,
+
+    escapeHtmlAttr(value = '') {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    },
 
     requestAvailabilityRefresh() {
         if (this.availabilityRefreshTimer) {
@@ -57,6 +66,28 @@ const Events = {
         this.eventsCache = null;
         this.dataContextCache = null;
         if (typeof Statistics !== 'undefined') Statistics.invalidateCache();
+    },
+
+    setVotingTimeSuggestionButtonState(button, suggestedTime = '') {
+        if (!button) return;
+
+        const normalizedSuggestion = String(suggestedTime || '').trim();
+        const label = button.querySelector('.btn-suggest-time-label');
+        const removeButton = button.parentElement?.querySelector('.btn-remove-time-suggestion');
+
+        button.dataset.currentSuggestion = normalizedSuggestion;
+        button.classList.toggle('has-suggestion', Boolean(normalizedSuggestion));
+        button.title = normalizedSuggestion
+            ? `Zeitvorschlag bearbeiten: ${normalizedSuggestion}`
+            : 'Andere Zeit vorschlagen';
+
+        if (label) {
+            label.textContent = normalizedSuggestion || 'Zeit vorschlagen';
+        }
+
+        if (removeButton) {
+            removeButton.classList.toggle('is-hidden', !normalizedSuggestion);
+        }
     },
 
     getEventSortDate(event) {
@@ -1141,6 +1172,7 @@ const Events = {
         const event = await Storage.getEvent(eventId);
         if (!event) return;
 
+        this.activeVotingEventId = String(eventId);
         const votes = (await Storage.getEventVotesForMultipleEvents([eventId])) || [];
         const userVotes = votes.filter(v => String(v.userId) === String(user.id));
 
@@ -1151,10 +1183,11 @@ const Events = {
             const availability = currentVote ? currentVote.availability : 'none';
             const userSuggestion = (await Storage.getUserEventTimeSuggestionForDate(user.id, eventId, index));
             const allSuggestions = (await Storage.getEventTimeSuggestions(eventId, index)) || [];
+            const visibleSuggestions = allSuggestions.filter(s => String(s.userId) !== String(user.id));
 
-            const otherSuggestionsHtml = allSuggestions.length > 0 ? `
+            const otherSuggestionsHtml = visibleSuggestions.length > 0 ? `
                 <div class="modal-time-suggestions">
-                    ${(await Promise.all(allSuggestions.map(async s => {
+                    ${(await Promise.all(visibleSuggestions.map(async s => {
                 const suggUser = await Storage.getById('users', s.userId);
                 const suggName = UI.getUserDisplayName(suggUser);
                 return `<span class="time-suggestion-pill">${Bands.escapeHtml(s.suggestedTime)} · ${Bands.escapeHtml(suggName.split(' ')[0])}</span>`;
@@ -1166,16 +1199,11 @@ const Events = {
                 <div class="voting-row" data-date-index="${index}">
                     <div class="voting-row-main">
                         <div class="voting-date-info">
-                            <span class="date">${UI.formatDateOnly(dateString)}</span>
-                            <span class="time">${new Date(dateString).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                            <div class="voting-date-line">
+                                <span class="date">${UI.formatDateOnly(dateString)}</span>
+                                <span class="time">${new Date(dateString).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr</span>
+                            </div>
                         </div>
-                        <button type="button" class="btn-suggest-time-modal ${userSuggestion ? 'has-suggestion' : ''}" 
-                                title="${userSuggestion ? 'Zeitvorschlag bearbeiten: ' + userSuggestion.suggestedTime : 'Andere Zeit vorschlagen'}" 
-                                data-event-id="${eventId}" 
-                                data-date-index="${index}">
-                            <span class="btn-suggest-time-icon">🕐</span>
-                            <span class="btn-suggest-time-label">${userSuggestion ? Bands.escapeHtml(userSuggestion.suggestedTime) : 'Zeit vorschlagen'}</span>
-                        </button>
                     </div>
                     ${otherSuggestionsHtml}
                     <div class="voting-options" role="group" aria-label="Verfügbarkeit wählen">
@@ -1192,6 +1220,28 @@ const Events = {
                             <span class="vote-choice-label">Offen</span>
                         </button>
                     </div>
+                    <div class="voting-row-secondary ${availability === 'no' ? '' : 'is-hidden'}">
+                        <div class="voting-time-draft-actions">
+                            <button type="button" class="btn-suggest-time-modal ${userSuggestion ? 'has-suggestion' : ''}"
+                                    title="${userSuggestion ? 'Zeitvorschlag bearbeiten: ' + userSuggestion.suggestedTime : 'Andere Zeit vorschlagen'}"
+                                    data-event-id="${eventId}"
+                                    data-date-index="${index}"
+                                    data-current-suggestion="${this.escapeHtmlAttr(userSuggestion?.suggestedTime || '')}"
+                                    data-existing-suggestion="${this.escapeHtmlAttr(userSuggestion?.suggestedTime || '')}"
+                                    data-existing-suggestion-id="${this.escapeHtmlAttr(userSuggestion?.id || '')}">
+                                <span class="btn-suggest-time-icon" aria-hidden="true">${App.getRundownInlineIcon('clock')}</span>
+                                <span class="btn-suggest-time-label">${userSuggestion ? Bands.escapeHtml(userSuggestion.suggestedTime) : 'Zeit vorschlagen'}</span>
+                            </button>
+                            <button type="button"
+                                    class="btn-remove-time-suggestion ${userSuggestion ? '' : 'is-hidden'}"
+                                    title="Zeitvorschlag entfernen"
+                                    aria-label="Zeitvorschlag entfernen"
+                                    data-event-id="${eventId}"
+                                    data-date-index="${index}">
+                                <span class="btn-remove-time-suggestion-icon" aria-hidden="true">${App.getRundownInlineIcon('close')}</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             `;
         }));
@@ -1204,13 +1254,33 @@ const Events = {
                 const row = btn.closest('.voting-row');
                 row.querySelectorAll('.voting-option-btn').forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
+                const secondary = row.querySelector('.voting-row-secondary');
+                if (secondary) {
+                    secondary.classList.toggle('is-hidden', btn.dataset.value !== 'no');
+                }
             });
+        });
+
+        content.querySelectorAll('.voting-row').forEach(row => {
+            const secondary = row.querySelector('.voting-row-secondary');
+            const activeNoButton = row.querySelector('.voting-option-btn.no.active');
+            if (secondary) {
+                secondary.classList.toggle('is-hidden', !activeNoButton);
+            }
         });
 
         // Attach listeners to time suggest buttons in modal
         content.querySelectorAll('.btn-suggest-time-modal').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.openTimeSuggestionModal(btn.dataset.eventId, parseInt(btn.dataset.dateIndex));
+            });
+        });
+
+        content.querySelectorAll('.btn-remove-time-suggestion').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const suggestionButton = btn.parentElement?.querySelector('.btn-suggest-time-modal');
+                this.setVotingTimeSuggestionButtonState(suggestionButton, '');
+                UI.showToast('Zeitvorschlag entfernt. Gespeichert wird erst mit "Speichern".', 'info', 4000);
             });
         });
 
@@ -1233,7 +1303,9 @@ const Events = {
             UI.showLoading('Speichere Abstimmungen...');
             try {
                 await this.handleSaveVotes(eventId, newVotes);
+                await this.handleSaveTimeSuggestionDrafts(eventId);
                 UI.closeModal('eventVotingModal');
+                this.activeVotingEventId = null;
                 UI.showToast('Abstimmungen gespeichert', 'success');
                 await this.renderEvents(this.currentFilter, true);
             } catch (error) {
@@ -1280,10 +1352,56 @@ const Events = {
         }
     },
 
+    async handleSaveTimeSuggestionDrafts(eventId) {
+        const user = Auth.getCurrentUser();
+        const content = document.getElementById('eventVotingContent');
+        if (!user || !content) return;
+
+        const suggestionButtons = content.querySelectorAll('.btn-suggest-time-modal');
+
+        for (const button of suggestionButtons) {
+            const dateIndex = parseInt(button.dataset.dateIndex, 10);
+            const currentSuggestion = (button.dataset.currentSuggestion || '').trim();
+            const existingSuggestion = (button.dataset.existingSuggestion || '').trim();
+            const existingSuggestionId = (button.dataset.existingSuggestionId || '').trim();
+
+        if (currentSuggestion === existingSuggestion) {
+            continue;
+        }
+
+            if (existingSuggestionId) {
+                await Storage.deleteTimeSuggestion(existingSuggestionId);
+            }
+
+            if (currentSuggestion) {
+                const createdSuggestion = await Storage.createEventTimeSuggestion({
+                    eventId,
+                    userId: user.id,
+                    dateIndex,
+                    suggestedTime: currentSuggestion
+                });
+
+                button.dataset.existingSuggestionId = createdSuggestion?.id ? String(createdSuggestion.id) : '';
+            } else {
+                button.dataset.existingSuggestionId = '';
+            }
+
+            button.dataset.existingSuggestion = currentSuggestion;
+        }
+    },
+
     openTimeSuggestionModal(eventId, dateIndex) {
+        const suggestionButton = document.querySelector(
+            `#eventVotingContent .btn-suggest-time-modal[data-event-id="${String(eventId)}"][data-date-index="${String(dateIndex)}"]`
+        );
+
         document.getElementById('suggestTimeEventId').value = eventId;
         document.getElementById('suggestTimeEventDateIndex').value = dateIndex;
-        document.getElementById('eventSuggestedTimeInput').value = '';
+        document.getElementById('eventSuggestedTimeInput').value = suggestionButton?.dataset.currentSuggestion || '';
+        const deleteButton = document.getElementById('deleteEventTimeSuggestionBtn');
+        if (deleteButton) {
+            deleteButton.style.display = suggestionButton?.dataset.currentSuggestion ? 'inline-block' : 'none';
+        }
         UI.openModal('eventTimeSuggestionModal');
     },
 
@@ -2386,22 +2504,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const eventId = document.getElementById('suggestTimeEventId').value;
         const dateIndex = parseInt(document.getElementById('suggestTimeEventDateIndex').value);
         const suggestedTime = document.getElementById('eventSuggestedTimeInput').value;
-        const user = Auth.getCurrentUser();
+        const suggestionButton = document.querySelector(
+            `#eventVotingContent .btn-suggest-time-modal[data-event-id="${String(eventId)}"][data-date-index="${String(dateIndex)}"]`
+        );
 
-        if (!suggestedTime) return;
+        if (!suggestedTime || !suggestionButton) return;
 
-        try {
-            await Storage.createEventTimeSuggestion({
-                eventId,
-                userId: user.id,
-                dateIndex,
-                suggestedTime
-            });
-            UI.showToast('Vorschlag gespeichert', 'success');
-            UI.closeModal('eventTimeSuggestionModal');
-            await Events.renderEvents(Events.currentFilter, true);
-        } catch (error) {
-            UI.showToast('Fehler', 'error');
+        Events.setVotingTimeSuggestionButtonState(suggestionButton, suggestedTime);
+
+        const deleteButton = document.getElementById('deleteEventTimeSuggestionBtn');
+        if (deleteButton) {
+            deleteButton.style.display = 'inline-block';
         }
+
+        UI.closeModal('eventTimeSuggestionModal');
+        UI.showToast('Zeitvorschlag übernommen. Gespeichert wird erst mit "Speichern".', 'info', 5000);
+    });
+
+    document.getElementById('deleteEventTimeSuggestionBtn')?.addEventListener('click', () => {
+        const eventId = document.getElementById('suggestTimeEventId').value;
+        const dateIndex = parseInt(document.getElementById('suggestTimeEventDateIndex').value);
+        const suggestionButton = document.querySelector(
+            `#eventVotingContent .btn-suggest-time-modal[data-event-id="${String(eventId)}"][data-date-index="${String(dateIndex)}"]`
+        );
+
+        if (!suggestionButton) return;
+
+        Events.setVotingTimeSuggestionButtonState(suggestionButton, '');
+
+        document.getElementById('eventSuggestedTimeInput').value = '';
+        const deleteButton = document.getElementById('deleteEventTimeSuggestionBtn');
+        if (deleteButton) {
+            deleteButton.style.display = 'none';
+        }
+
+        UI.closeModal('eventTimeSuggestionModal');
+        UI.showToast('Zeitvorschlag entfernt. Gespeichert wird erst mit "Speichern".', 'info', 5000);
     });
 });

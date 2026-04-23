@@ -1197,6 +1197,7 @@ const App = {
 
         updateImage('loaderBrandLogo', logoOnlySrc);
         updateImage('landingBrandLogo', logoOnlySrc);
+        updateImage('landingFooterBrandLogo', logoShortSrc);
         updateImage('sidebarLogoExpanded', logoShortSrc);
         updateImage('sidebarLogoCollapsed', logoOnlySrc);
 
@@ -4836,12 +4837,18 @@ const App = {
 
         if (registerFirstNameInput) {
             registerFirstNameInput.addEventListener('input', () => {
+                if (regUserInput) {
+                    regUserInput.dataset.userEdited = 'false';
+                }
                 scheduleAutoUsernameSuggestion();
             });
         }
 
         if (registerLastNameInput) {
             registerLastNameInput.addEventListener('input', () => {
+                if (regUserInput) {
+                    regUserInput.dataset.userEdited = 'false';
+                }
                 scheduleAutoUsernameSuggestion();
             });
         }
@@ -4857,9 +4864,9 @@ const App = {
                 const lastAutoUsername = regUserInput.dataset.lastAutoUsername || '';
 
                 if (!currentValue) {
-                    regUserInput.dataset.userEdited = 'false';
+                    regUserInput.dataset.userEdited = 'true';
                     setUsernameFeedback('', 'idle');
-                    scheduleAutoUsernameSuggestion();
+                    if (registerSubmitBtn) registerSubmitBtn.disabled = false;
                     return;
                 }
 
@@ -4868,51 +4875,54 @@ const App = {
             });
         }
 
-        const regPasswordInput = document.getElementById('registerPassword');
-        if (regPasswordInput) {
-            regPasswordInput.addEventListener('input', (e) => {
-                const password = e.target.value;
-                let feedback = document.getElementById('passwordFeedback');
-                if (!feedback) {
-                    feedback = document.createElement('div');
-                    feedback.id = 'passwordFeedback';
-                    feedback.style.fontSize = '0.85rem';
-                    feedback.style.marginTop = '0.25rem';
-                    regPasswordInput.parentNode.appendChild(feedback);
-                }
-
-                if (password.length > 0 && password.length < 6) {
-                    feedback.textContent = '⚠️ Passwort muss mindestens 6 Zeichen haben';
-                    feedback.style.color = '#fbbf24';
-                    regPasswordInput.style.borderColor = '#fbbf24';
-                } else if (password.length >= 6) {
-                    feedback.textContent = '✅ Passwort-Länge ok';
-                    feedback.style.color = '#4ade80';
-                    regPasswordInput.style.borderColor = '#4ade80';
-                } else {
-                    feedback.textContent = '';
-                    regPasswordInput.style.borderColor = '';
-                }
-            });
-        }
-
         const registerPasswordInput = document.getElementById('registerPassword');
+        const registerPasswordConfirmInput = document.getElementById('registerPasswordConfirm');
         const registerPasswordHint = document.getElementById('registerPasswordHint');
-        if (registerPasswordInput && registerPasswordHint) {
-            registerPasswordInput.addEventListener('input', () => {
+        const registerPasswordConfirmHint = document.getElementById('registerPasswordConfirmHint');
+        const updateRegisterPasswordHints = () => {
+            if (registerPasswordInput && registerPasswordHint) {
                 const password = registerPasswordInput.value;
-                if (password.length > 0 && password.length < 6) {
-                    registerPasswordHint.style.color = 'red';
-                    registerPasswordHint.textContent = 'Passwort muss mindestens 6 Zeichen haben';
-                } else if (password.length >= 6) {
-                    registerPasswordHint.style.color = 'green';
-                    registerPasswordHint.textContent = '✓ Passwort erfüllt die Anforderungen';
-                } else {
-                    registerPasswordHint.style.color = 'var(--color-text-secondary)';
+                registerPasswordHint.classList.remove('is-warning', 'is-success');
+
+                if (!password) {
                     registerPasswordHint.textContent = 'Mindestens 6 Zeichen erforderlich';
+                } else if (password.length < 6) {
+                    registerPasswordHint.textContent = 'Passwort muss mindestens 6 Zeichen haben';
+                    registerPasswordHint.classList.add('is-warning');
+                } else {
+                    registerPasswordHint.textContent = '✓ Länge ok';
+                    registerPasswordHint.classList.add('is-success');
                 }
-            });
+            }
+
+            if (registerPasswordConfirmInput && registerPasswordConfirmHint && registerPasswordInput) {
+                const password = registerPasswordInput.value;
+                const passwordConfirm = registerPasswordConfirmInput.value;
+                registerPasswordConfirmHint.classList.remove('is-warning', 'is-success');
+
+                if (!password && !passwordConfirm) {
+                    registerPasswordConfirmHint.textContent = 'Passwörter müssen übereinstimmen';
+                } else if (!passwordConfirm) {
+                    registerPasswordConfirmHint.textContent = 'Bitte bestätige dein Passwort';
+                } else if (password === passwordConfirm) {
+                    registerPasswordConfirmHint.textContent = '✓ Passwörter stimmen überein';
+                    registerPasswordConfirmHint.classList.add('is-success');
+                } else {
+                    registerPasswordConfirmHint.textContent = 'Passwörter stimmen nicht überein';
+                    registerPasswordConfirmHint.classList.add('is-warning');
+                }
+            }
+        };
+
+        if (registerPasswordInput) {
+            registerPasswordInput.addEventListener('input', updateRegisterPasswordHints);
         }
+
+        if (registerPasswordConfirmInput) {
+            registerPasswordConfirmInput.addEventListener('input', updateRegisterPasswordHints);
+        }
+
+        updateRegisterPasswordHints();
 
         const registerForm = document.getElementById('registerForm');
         if (registerForm) {
@@ -14509,6 +14519,8 @@ const App = {
         const profilePassword = effectiveRoot.querySelector('#profilePassword');
         const profilePasswordConfirm = effectiveRoot.querySelector('#profilePasswordConfirm');
         const profilePasswordConfirmGroup = effectiveRoot.querySelector('#profilePasswordConfirmGroup');
+        const profilePasswordHint = effectiveRoot.querySelector('#profilePasswordHint');
+        const profilePasswordConfirmHint = effectiveRoot.querySelector('#profilePasswordConfirmHint');
         const profileDisplayNamePreview = effectiveRoot.querySelector('#profileDisplayNamePreview');
 
         const updateSettingsProfileNamePreview = () => {
@@ -14573,6 +14585,10 @@ const App = {
                             ${isVisibleForLeads ? 'checked' : ''}
                         >
                         <span class="toggle-slider"></span>
+                    </span>
+                    <span class="external-calendar-visibility-copy">
+                        <span class="external-calendar-visibility-title">Für Leiter sichtbar</span>
+                        <span class="external-calendar-visibility-note">Zeigt bei der Planung nur blockierte Zeiten</span>
                     </span>
                 </label>
                 <div class="external-calendar-field">
@@ -14667,20 +14683,63 @@ const App = {
 
         // Continue with existing logic...
 
+        const updateProfilePasswordHint = () => {
+            if (!profilePassword) return;
+
+            const password = profilePassword.value || '';
+            if (profilePasswordHint) {
+                profilePasswordHint.classList.remove('is-warning', 'is-success');
+
+                if (!password) {
+                    profilePasswordHint.textContent = 'Mindestens 6 Zeichen erforderlich';
+                } else if (password.length < 6) {
+                    profilePasswordHint.textContent = 'Passwort muss mindestens 6 Zeichen haben';
+                    profilePasswordHint.classList.add('is-warning');
+                } else {
+                    profilePasswordHint.textContent = '✓ Länge ok';
+                    profilePasswordHint.classList.add('is-success');
+                }
+            }
+
+            if (profilePasswordConfirmHint && profilePasswordConfirm) {
+                const passwordConfirm = profilePasswordConfirm.value || '';
+                profilePasswordConfirmHint.classList.remove('is-warning', 'is-success');
+
+                if (!password && !passwordConfirm) {
+                    profilePasswordConfirmHint.textContent = 'Passwörter müssen übereinstimmen';
+                } else if (!passwordConfirm) {
+                    profilePasswordConfirmHint.textContent = 'Bitte bestätige dein Passwort';
+                } else if (password === passwordConfirm) {
+                    profilePasswordConfirmHint.textContent = '✓ Passwörter stimmen überein';
+                    profilePasswordConfirmHint.classList.add('is-success');
+                } else {
+                    profilePasswordConfirmHint.textContent = 'Passwörter stimmen nicht überein';
+                    profilePasswordConfirmHint.classList.add('is-warning');
+                }
+            }
+        };
+
         // Password confirmation field toggle
         if (profilePassword && profilePasswordConfirmGroup && !profilePassword.dataset.confirmToggleAttached) {
             profilePassword.addEventListener('input', () => {
                 if (profilePassword.value.trim()) {
-                    profilePasswordConfirmGroup.style.display = 'block';
                     if (profilePasswordConfirm) profilePasswordConfirm.required = true;
                 } else {
-                    profilePasswordConfirmGroup.style.display = 'none';
                     if (profilePasswordConfirm) profilePasswordConfirm.required = false;
                     if (profilePasswordConfirm) profilePasswordConfirm.value = '';
                 }
+
+                updateProfilePasswordHint();
             });
             profilePassword.dataset.confirmToggleAttached = 'true';
         }
+
+        if (profilePasswordConfirm && !profilePasswordConfirm.dataset.matchHintAttached) {
+            profilePasswordConfirm.addEventListener('input', updateProfilePasswordHint);
+            profilePasswordConfirm.dataset.matchHintAttached = 'true';
+        }
+
+        updateProfilePasswordHint();
 
         // Default to profile tab
         this.switchSettingsTab('profile');
@@ -14753,6 +14812,10 @@ const App = {
 
                     // Validate password confirmation
                     if (password && password.trim() !== '') {
+                        if (password.length < 6) {
+                            UI.showToast('Passwort muss mindestens 6 Zeichen haben', 'error');
+                            return;
+                        }
                         if (password !== passwordConfirm) {
                             UI.showToast('Passwörter stimmen nicht überein', 'error');
                             return;
@@ -14889,10 +14952,9 @@ const App = {
                     // Clear password field (scoped to settings view)
                     const pwdEl = effectiveRoot.querySelector('#profilePassword');
                     const pwdConfirmEl = effectiveRoot.querySelector('#profilePasswordConfirm');
-                    const pwdConfirmGroupEl = effectiveRoot.querySelector('#profilePasswordConfirmGroup');
                     if (pwdEl) pwdEl.value = '';
                     if (pwdConfirmEl) pwdConfirmEl.value = '';
-                    if (pwdConfirmGroupEl) pwdConfirmGroupEl.style.display = 'none';
+                    updateProfilePasswordHint();
 
                     // Reload form with updated values (scoped)
                     const usernameEl = effectiveRoot.querySelector('#profileUsername');

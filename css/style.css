@@ -32232,7 +32232,7 @@ html[data-theme="light"] #landingPage .auth-white-card,
 
 .modal-voting-shell .voting-row-main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr);
     align-items: center;
     justify-content: initial;
     gap: 0.75rem;
@@ -32241,10 +32241,22 @@ html[data-theme="light"] #landingPage .auth-white-card,
 .modal-voting-shell .voting-date-info {
     display: flex;
     flex-direction: column;
-    gap: 0.14rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
     min-width: 0;
-    align-items: flex-start;
-    text-align: left;
+    width: 100%;
+    text-align: center;
+}
+
+.modal-voting-shell .voting-date-line {
+    display: inline-flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: center;
+    gap: 0.7rem;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .modal-voting-shell .voting-date-info .date {
@@ -32255,22 +32267,51 @@ html[data-theme="light"] #landingPage .auth-white-card,
 }
 
 .modal-voting-shell .voting-date-info .time {
-    font-size: 0.84rem;
-    color: var(--text-secondary);
+    display: inline-flex;
+    align-items: center;
+    padding: 0.24rem 0.58rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent-secondary) 18%, var(--border));
+    background: color-mix(in srgb, var(--accent-soft) 72%, transparent);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 650;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.modal-voting-shell .voting-row-secondary {
+    display: flex;
+    justify-content: center;
+}
+
+.modal-voting-shell .voting-row-secondary.is-hidden {
+    display: none;
+}
+
+.modal-voting-shell .voting-time-draft-actions {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    min-height: 36px;
 }
 
 .modal-voting-shell .btn-suggest-time-modal {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 0.4rem;
     min-height: 36px;
-    padding: 0.42rem 0.68rem;
+    min-width: 168px;
+    padding: 0.46rem 0.95rem;
     border-radius: 999px;
     border: 1px solid var(--border);
     background: var(--surface);
     color: var(--text-secondary);
     opacity: 1;
-    justify-self: end;
+    justify-self: start;
+    text-align: center;
 }
 
 .modal-voting-shell .btn-suggest-time-modal:hover {
@@ -32285,17 +32326,66 @@ html[data-theme="light"] #landingPage .auth-white-card,
     color: var(--accent-secondary);
     background: var(--accent-soft);
     border-color: color-mix(in srgb, var(--accent-secondary) 24%, var(--border));
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-secondary) 18%, transparent);
 }
 
 .modal-voting-shell .btn-suggest-time-icon {
-    font-size: 0.92rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.95rem;
+    height: 0.95rem;
     line-height: 1;
+}
+
+.modal-voting-shell .btn-suggest-time-icon .rundown-inline-icon {
+    width: 100%;
+    height: 100%;
 }
 
 .modal-voting-shell .btn-suggest-time-label {
     font-size: 0.76rem;
     font-weight: 600;
     white-space: nowrap;
+    text-align: center;
+}
+
+.modal-voting-shell .btn-remove-time-suggestion {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-error) 28%, var(--border));
+    background: color-mix(in srgb, var(--color-error) 10%, var(--surface));
+    color: var(--color-error);
+    transition: background-color var(--transition-base), border-color var(--transition-base), color var(--transition-base);
+}
+
+.modal-voting-shell .btn-remove-time-suggestion:hover {
+    background: color-mix(in srgb, var(--color-error) 16%, var(--surface));
+    border-color: color-mix(in srgb, var(--color-error) 40%, var(--border));
+    color: color-mix(in srgb, var(--color-error) 90%, white);
+}
+
+.modal-voting-shell .btn-remove-time-suggestion.is-hidden {
+    display: none;
+}
+
+.modal-voting-shell .btn-remove-time-suggestion-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 0.9rem;
+    height: 0.9rem;
+}
+
+.modal-voting-shell .btn-remove-time-suggestion-icon .rundown-inline-icon {
+    width: 100%;
+    height: 100%;
 }
 
 .modal-voting-shell .modal-time-suggestions {
@@ -32839,6 +32929,11 @@ html[data-theme="dark"] .modal-voting-shell .voting-option-btn.active.no,
     padding: 0.9rem 1.05rem 1.05rem;
     border-top: 1px solid var(--border);
     background: color-mix(in srgb, var(--surface) 84%, transparent);
+}
+
+#timeSuggestionModal .time-suggestion-modal-actions .cancel,
+#eventTimeSuggestionModal .time-suggestion-modal-actions .cancel {
+    margin-right: auto;
 }
 
 #timeSuggestionModal .time-suggestion-modal-actions .btn,

@@ -735,12 +735,16 @@ const PDFGenerator = {
             ? safeTitle
             : `Ablauf ${safeTitle}`;
         const isRiderPage = /rider/i.test(safeTitle) || /rider/i.test(String(subtitle || ''));
+        const displayTitle = isRiderPage
+            ? titleText
+            : (titleText.replace(/^Ablauf\s*/i, '').trim() || 'Ablauf');
         const logoUrl = isRiderPage ? this.getRiderBrandLogoUrl() : this.getRundownBrandLogoUrl();
         const styles = {
             page: `font-family:'Inter', Arial, sans-serif; width:794px; min-height:1123px; box-sizing:border-box; margin:0 auto; padding:${isRiderPage ? '24px 28px 18px' : '28px 32px 22px'}; background:#ffffff; color:#0f172a; display:flex; flex-direction:column;`,
             top: `display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:${isRiderPage ? '8px' : '10px'};`,
-            titleGroup: "display:flex; flex-direction:column; gap:6px; min-width:0; flex:1;",
-            title: `margin:0; font-size:${isRiderPage ? '22px' : '24px'}; line-height:1.14; font-weight:800; letter-spacing:-0.02em; color:#0f172a;`,
+            titleGroup: `display:flex; flex-direction:column; gap:${isRiderPage ? '6px' : '4px'}; min-width:0; flex:1;`,
+            eyebrow: "display:inline-flex; align-items:center; width:max-content; padding:5px 11px; border-radius:999px; background:#edf4ff; color:#2954a3; font-size:11px; line-height:1; font-weight:900; letter-spacing:0.18em; text-transform:uppercase;",
+            title: `margin:0; font-size:${isRiderPage ? '22px' : '29px'}; line-height:${isRiderPage ? '1.14' : '1.04'}; font-weight:800; letter-spacing:-0.03em; color:#0f172a;`,
             subtitle: "margin:0; font-size:12px; line-height:1.45; color:#64748b; font-weight:500;",
             logo: `width:${isRiderPage ? '138px' : '118px'}; max-width:${isRiderPage ? '138px' : '118px'}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;`,
             detailWrap: "display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;",
@@ -756,7 +760,8 @@ const PDFGenerator = {
             <div style="${styles.page}">
                 <div style="${styles.top}">
                     <div style="${styles.titleGroup}">
-                        <h1 style="${styles.title}">${this.escapeHtml(titleText)}</h1>
+                        ${!isRiderPage ? `<div style="${styles.eyebrow}">Ablauf</div>` : ''}
+                        <h1 style="${styles.title}">${this.escapeHtml(displayTitle)}</h1>
                         ${subtitle ? `<p style="${styles.subtitle}">${this.escapeHtml(subtitle)}</p>` : ''}
                     </div>
                     <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="${styles.logo}">
@@ -789,7 +794,8 @@ const PDFGenerator = {
         const scale = this.normalizeRundownFontScale(fontScale);
         const px = (size, minimum = 0) => this.scaleRundownSize(size, scale, minimum);
 
-        const detailCards = [];
+        const primaryDetailCards = [];
+        const secondaryDetailCards = [];
         const buildDetailLines = (entries = []) => entries
             .filter((entry) => entry && entry.value)
             .map((entry) => `
@@ -800,28 +806,38 @@ const PDFGenerator = {
             `)
             .join('');
 
-        const pushDetailCard = (markup = '', wide = false) => {
+        const createDetailCard = (markup = '', { wide = false, minHeight = null } = {}) => {
             if (!markup) return;
-            detailCards.push(`
-                <div style="flex:${wide ? '1 1 100%' : '1 1 210px'}; min-width:${wide ? '100%' : '210px'}; border:1px solid #dbe3ef; border-radius:${px(16)}; background:#ffffff; padding:${px(11)} ${px(13)};">
+            return `
+                <div style="border:1px solid #dbe3ef; border-radius:${px(16)}; background:#ffffff; padding:${px(11)} ${px(13)};${minHeight ? ` min-height:${minHeight};` : ''}${wide ? ' width:100%;' : ''}">
                     ${markup}
                 </div>
-            `);
+            `;
         };
 
         const locationMetaMarkup = buildDetailLines([
             { label: 'Ort', value: eventMeta.location },
             { label: 'Soundcheck', value: eventMeta.soundcheckLocation }
         ]);
-        pushDetailCard(locationMetaMarkup);
+        const locationCard = createDetailCard(locationMetaMarkup, {
+            minHeight: px(102)
+        });
+        if (locationCard) {
+            primaryDetailCards.push(locationCard);
+        }
 
         if (Array.isArray(eventMeta.lineup) && eventMeta.lineup.length > 0) {
-            pushDetailCard(`
+            const lineupCard = createDetailCard(`
                 <div style="font-size:${px(10)}; font-weight:800; letter-spacing:0.08em; text-transform:uppercase; color:#64748b;">Besetzung</div>
                 <ul style="margin:${px(8)} 0 0; padding-left:${px(16)}; display:flex; flex-direction:column; gap:${px(4)}; color:#0f172a; font-size:${px(12.5)}; line-height:1.45;">
                     ${eventMeta.lineup.map((entry) => `<li>${this.escapeHtml(entry)}</li>`).join('')}
                 </ul>
-            `);
+            `, {
+                minHeight: px(102)
+            });
+            if (lineupCard) {
+                primaryDetailCards.push(lineupCard);
+            }
         }
 
         const extendedInfoBlocks = [
@@ -844,7 +860,27 @@ const PDFGenerator = {
         ].filter(Boolean).join(`
             <div style="height:${px(1)}; background:#eef2f7; margin:${px(8)} 0;"></div>
         `);
-        pushDetailCard(extendedInfoBlocks, true);
+        const extendedInfoCard = createDetailCard(extendedInfoBlocks, { wide: true });
+        if (extendedInfoCard) {
+            secondaryDetailCards.push(extendedInfoCard);
+        }
+
+        const detailsMarkup = [
+            primaryDetailCards.length > 0
+                ? `
+                    <div style="display:grid; grid-template-columns:${primaryDetailCards.length > 1 ? 'repeat(2, minmax(0, 1fr))' : 'minmax(0, 1fr)'}; gap:${px(10)}; align-items:stretch;">
+                        ${primaryDetailCards.join('')}
+                    </div>
+                `
+                : '',
+            secondaryDetailCards.length > 0
+                ? `
+                    <div style="display:grid; grid-template-columns:minmax(0, 1fr); gap:${px(10)};${primaryDetailCards.length > 0 ? ` margin-top:${px(10)};` : ''}">
+                        ${secondaryDetailCards.join('')}
+                    </div>
+                `
+                : ''
+        ].filter(Boolean).join('');
 
         const buildPagesFromChunks = (chunks, renderChunk, options = {}) => {
             const safeChunks = chunks.length > 0 ? chunks : [[]];
@@ -855,14 +891,14 @@ const PDFGenerator = {
                 modeLabel,
                 pageNumber: index + 1,
                 totalPages,
-                detailsHtml: index === 0 && options.includeDetails ? detailCards.join('') : '',
+                detailsHtml: index === 0 && options.includeDetails ? detailsMarkup : '',
                 bodyHtml: renderChunk(chunk, index),
                 headerMeta: []
             }));
         };
 
         if (mode === 'full-details') {
-            const firstLimit = detailCards.length > 0 ? 19.5 : 22;
+            const firstLimit = detailsMarkup ? 19.5 : 22;
             const chunks = this.chunkByUnits(
                 safeItems,
                 (item) => this.estimateRundownTimelineUnits(item, true, scale),

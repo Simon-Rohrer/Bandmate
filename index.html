@@ -156,8 +156,7 @@
                 <footer class="landing-footer">
                     <div class="landing-footer-brand">
                         <div class="landing-footer-brandline">
-                            <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="landing-footer-logo logo-light">
-                            <img src="images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="landing-footer-logo logo-dark">
+                            <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="landing-footer-logo" id="landingFooterBrandLogo">
                         </div>
                     </div>
                     <div class="landing-footer-links">
@@ -283,10 +282,12 @@
                         <div class="form-group">
                             <label for="registerPassword">Passwort</label>
                             <input type="password" id="registerPassword" placeholder="••••••••" required>
+                            <small id="registerPasswordHint" class="auth-field-hint">Mindestens 6 Zeichen erforderlich</small>
                         </div>
                         <div class="form-group">
                             <label for="registerPasswordConfirm">Bestätigen</label>
                             <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required>
+                            <small id="registerPasswordConfirmHint" class="auth-field-hint">Passwörter müssen übereinstimmen</small>
                         </div>
                     </div>
 
@@ -315,11 +316,18 @@
             const logoOnlySrc = resolvedTheme === 'dark'
                 ? 'images/branding/bandmate-logo-only-dark.svg'
                 : 'images/branding/bandmate-logo-only.svg';
+            const logoShortSrc = resolvedTheme === 'dark'
+                ? 'images/branding/bandmate-logo-short-dark.svg'
+                : 'images/branding/bandmate-logo-short.svg';
 
-            ['loaderBrandLogo', 'landingBrandLogo'].forEach((id) => {
+            [
+                ['loaderBrandLogo', logoOnlySrc],
+                ['landingBrandLogo', logoOnlySrc],
+                ['landingFooterBrandLogo', logoShortSrc]
+            ].forEach(([id, src]) => {
                 const el = document.getElementById(id);
                 if (el) {
-                    el.setAttribute('src', logoOnlySrc);
+                    el.setAttribute('src', src);
                 }
             });
 

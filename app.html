@@ -1829,12 +1829,14 @@
                                                 <label for="profilePassword">Neues Passwort</label>
                                                 <input type="password" id="profilePassword" class="profile-form-input"
                                                     placeholder="••••••••" autocomplete="new-password">
+                                                <small id="profilePasswordHint" class="settings-inline-note profile-password-hint">Mindestens 6 Zeichen erforderlich</small>
                                             </div>
                                             <div class="form-group" id="profilePasswordConfirmGroup">
                                                 <label for="profilePasswordConfirm">Bestätigen</label>
                                                 <input type="password" id="profilePasswordConfirm"
                                                     class="profile-form-input" placeholder="••••••••"
                                                     autocomplete="new-password">
+                                                <small id="profilePasswordConfirmHint" class="settings-inline-note profile-password-hint">Passwörter müssen übereinstimmen</small>
                                             </div>
                                         </div>
                                         <small class="settings-inline-note">Leer lassen, wenn du dein Passwort nicht ändern möchtest.</small>
@@ -2939,7 +2941,7 @@
                 <button type="button" class="btn cancel">Abbrechen</button>
                 <button type="button" id="deleteTimeSuggestionBtn" class="btn btn-secondary btn-destructive-soft"
                     style="display: none;">Vorschlag löschen</button>
-                <button type="button" id="saveTimeSuggestionBtn" class="btn btn-primary">Speichern</button>
+                <button type="button" id="saveTimeSuggestionBtn" class="btn btn-primary">Übernehmen</button>
             </div>
         </div>
     </div>
@@ -3696,7 +3698,7 @@
             <div class="modal-header voting-modal-header">
                 <div class="voting-modal-copy">
                     <span class="voting-modal-kicker">Abstimmung</span>
-                    <h2>Jetzt abstimmen</h2>
+                    <h2>Probe abstimmen</h2>
                     <p>Markiere pro Termin kurz, ob du teilnehmen kannst.</p>
                 </div>
                 <button class="modal-close">&times;</button>
@@ -3765,7 +3767,7 @@
                 <button type="button" class="btn cancel">Abbrechen</button>
                 <button type="button" id="deleteEventTimeSuggestionBtn" class="btn btn-secondary btn-destructive-soft"
                     style="display: none;">Vorschlag löschen</button>
-                <button type="button" id="saveEventTimeSuggestionBtn" class="btn btn-primary">Speichern</button>
+                <button type="button" id="saveEventTimeSuggestionBtn" class="btn btn-primary">Übernehmen</button>
             </div>
         </div>
     </div>

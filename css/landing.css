@@ -705,14 +705,6 @@ a {
     width: auto;
 }
 
-#landingPage .landing-footer-logo.logo-light {
-    display: none;
-}
-
-#landingPage .landing-footer-logo.logo-dark {
-    display: block;
-}
-
 #landingPage .landing-footer-links {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, auto));
@@ -1081,6 +1073,22 @@ a {
     line-height: 1.45;
 }
 
+#landingPage .auth-white-card .auth-field-hint {
+    display: block;
+    margin-top: 0.45rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+#landingPage .auth-white-card .auth-field-hint.is-warning {
+    color: #f59e0b;
+}
+
+#landingPage .auth-white-card .auth-field-hint.is-success {
+    color: #22c55e;
+}
+
 .custom-multiselect,
 .instrument-selector {
     min-width: 0;
@@ -1251,15 +1259,6 @@ html[data-theme="light"] #landingPage .landing-hero-features span:not(.dot),
     background: rgba(255, 255, 255, 0.9);
 }
 
-html[data-theme="light"] #landingPage .landing-footer-logo.logo-light,
-:root:not(.theme-dark) #landingPage .landing-footer-logo.logo-light {
-    display: block;
-}
-
-html[data-theme="light"] #landingPage .landing-footer-logo.logo-dark,
-:root:not(.theme-dark) #landingPage .landing-footer-logo.logo-dark {
-    display: none;
-}
 
 html[data-theme="light"] #landingPage .landing-auth-overlay,
 :root:not(.theme-dark) #landingPage .landing-auth-overlay {
