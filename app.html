@@ -1310,51 +1310,64 @@
                             <div class="converter-workspace">
                                 <div class="converter-top-grid">
                                     <div id="converterUploadStep" class="converter-step converter-upload-panel action-card converter-surface-card">
-                                        <div class="converter-upload-shell">
-                                            <div class="converter-upload-copy">
-                                                <div class="converter-card-head">
-                                                    <div>
+                                        <div class="converter-upload-shell" style="display: flex; flex-direction: column; gap: 1rem; width: 100%;">
+                                            <div class="converter-upload-copy" style="margin-bottom: 0;">
+                                                <div class="converter-card-head" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                                                    <div style="text-align: left; flex: 1;">
                                                         <span class="converter-card-eyebrow">Import</span>
-                                                        <div class="converter-card-title-row">
-                                                            <h3 class="converter-card-title">PDF importieren</h3>
+                                                        <div class="converter-card-title-row" style="display: flex; align-items: center; gap: 1rem; margin-top: 0.25rem;">
+                                                            <h3 class="converter-card-title" style="margin: 0;">PDF zu ChordPro</h3>
                                                             <button type="button" class="btn btn-secondary btn-sm converter-help-button" onclick="UI.openModal('chordproHelpModal')">
                                                                 Was ist ChordPro?
                                                             </button>
                                                         </div>
-                                                        <p class="converter-card-subtitle">PDF wählen und direkt als ChordPro bearbeiten.</p>
+                                                        <p class="converter-card-subtitle" style="margin-top: 0.25rem; color: var(--text-secondary);">Lege eine PDF-Datei ab, um sie in ein bearbeitbares ChordPro-Format umzuwandeln.</p>
                                                     </div>
                                                 </div>
-                                                <div class="converter-info-note">
-                                                    <span class="converter-info-icon">♪</span>
-                                                    <p>Ideal für <strong>OnSong</strong> oder <strong>Songbook Pro</strong>.</p>
-                                                </div>
                                             </div>
-                                            <div class="converter-upload-dropzone-stack">
-                                                <div class="upload-dropzone" id="converterDropzone">
-                                                    <div class="dropzone-inner">
-                                                        <div class="dropzone-icon-wrapper">
-                                                            <span class="dropzone-icon">📄</span>
+                                            
+                                            <div style="display: flex; gap: 1.5rem; align-items: stretch; justify-content: flex-start; flex-wrap: wrap;">
+                                                <!-- Left: Dropzone -->
+                                                <div class="converter-upload-dropzone-stack" style="flex: 1; min-width: 250px;">
+                                                    <div class="upload-dropzone" id="converterDropzone" style="height: 100%; min-height: 220px;">
+                                                        <div class="dropzone-inner" style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%;">
+                                                            <div class="dropzone-icon-wrapper">
+                                                                <span class="dropzone-icon">📄</span>
+                                                            </div>
+                                                            <h3 class="dropzone-title">PDF hier ablegen</h3>
+                                                            <p class="dropzone-subtitle">oder klicken zum Auswählen</p>
+                                                            <button class="btn btn-secondary btn-sm converter-upload-trigger" style="pointer-events: none; margin-top: 1rem;">Datei suchen</button>
+                                                            <input type="file" id="converterFileInput" accept=".pdf" style="display: none;">
                                                         </div>
-                                                        <h3 class="dropzone-title">PDF hier ablegen</h3>
-                                                        <p class="dropzone-subtitle">oder auswählen</p>
-                                                        <button class="btn btn-secondary btn-sm converter-upload-trigger" style="pointer-events: none;">Datei wählen</button>
-                                                        <input type="file" id="converterFileInput" accept=".pdf" style="display: none;">
+                                                    </div>
+                                                </div>
+                                                
+                                                <!-- Right: Actions -->
+                                                <div class="converter-upload-side" style="flex: 1; min-width: 250px; display: flex; flex-direction: column; justify-content: center; gap: 1.25rem; border: 1px solid color-mix(in srgb, var(--border) 60%, transparent); padding: 1.75rem; border-radius: var(--radius-md); background: color-mix(in srgb, var(--surface-secondary) 30%, transparent);">
+                                                    <div style="text-align: center;">
+                                                        <div id="converterFileStatus" class="converter-file-status" style="margin: 0; font-weight: 500; font-size: 0.95rem; color: var(--text-primary); margin-bottom: 0.75rem;">
+                                                            Noch keine PDF ausgewählt.
+                                                        </div>
+                                                        <button id="startConversionAreaBtn" class="btn btn-primary" disabled style="width: 100%; justify-content: center;">
+                                                            🚀 Konvertierung starten
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    <div style="display: flex; align-items: center; gap: 1rem;">
+                                                        <div style="flex: 1; height: 1px; background: color-mix(in srgb, var(--border) 60%, transparent);"></div>
+                                                        <span style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">Oder</span>
+                                                        <div style="flex: 1; height: 1px; background: color-mix(in srgb, var(--border) 60%, transparent);"></div>
+                                                    </div>
+                                                    
+                                                    <div style="text-align: center;">
+                                                        <p style="margin: 0 0 0.75rem 0; font-size: 0.85rem; color: var(--text-secondary);">Schreibe einen Song komplett von Hand:</p>
+                                                        <button id="createNewChordProBtn" class="btn btn-secondary" style="width: 100%; justify-content: center;">
+                                                            📝 Leere ChordPro anlegen
+                                                        </button>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="converter-upload-side">
-                                                <div id="converterFileStatus" class="converter-file-status">
-                                                    Noch keine PDF ausgewählt.
-                                                </div>
-                                                <div class="converter-upload-actions">
-                                                    <button id="startConversionAreaBtn" class="btn btn-primary btn-lg" disabled>
-                                                        🚀 PDF konvertieren
-                                                    </button>
-                                                    <button id="createNewChordProBtn" class="btn btn-secondary">
-                                                        📝 ChordPro Datei neu anlegen
-                                                    </button>
-                                                </div>
-                                            </div>
+                                            
                                         </div>
                                     </div>
 
@@ -1427,18 +1440,20 @@
 
                                         <div class="converter-sidebar-section">
                                             <h4>💾 Zu Song hinzufügen</h4>
-                                            <div class="converter-form-stack">
-                                                <div class="form-group">
+                                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-start; margin-top: 0.5rem;">
+                                                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
                                                     <select id="converterBandSelect" class="form-select">
                                                         <option value="">Band wählen...</option>
                                                     </select>
                                                 </div>
-                                                <div class="form-group">
+                                                <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 0;">
                                                     <select id="converterSongSelect" class="form-select" disabled>
                                                         <option value="">Song wählen...</option>
                                                     </select>
                                                 </div>
-                                                <button id="converterSaveToSongBtn" class="btn btn-success converter-primary-side-action" disabled>
+                                            </div>
+                                            <div style="margin-top: 1rem; display: flex; justify-content: flex-start;">
+                                                <button id="converterSaveToSongBtn" class="btn btn-success" disabled style="width: auto; padding: 0.5rem 1.5rem;">
                                                     💾 Speichern
                                                 </button>
                                             </div>
@@ -4445,8 +4460,9 @@
                     </section>
                 </div>
             </div>
-            <div class="modal-actions">
-                <button type="button" class="btn btn-primary" onclick="UI.closeModal('calendarSetupHelpModal')">Verstanden</button>
+            <div class="modal-actions" style="justify-content: space-between;">
+                <button type="button" class="btn btn-secondary" onclick="UI.closeModal('calendarSetupHelpModal')">Schließen</button>
+                <button type="button" class="btn btn-primary" onclick="UI.closeModal('calendarSetupHelpModal'); window.App && window.App.navigateTo('settings'); setTimeout(() => { document.querySelector('.settings-tab-btn[data-tab=\'profile\']')?.click(); setTimeout(() => { const extCal = document.getElementById('externalCalendarsList'); if(extCal) { extCal.scrollIntoView({behavior: 'smooth', block: 'center'}); } }, 150); }, 100);">Jetzt einrichten</button>
             </div>
         </div>
     </div>

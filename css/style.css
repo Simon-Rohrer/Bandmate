@@ -17377,8 +17377,9 @@ html[data-theme="light"] .loader-container,
     left: 0;
     right: 0;
     bottom: 0;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(10px);
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -17386,59 +17387,80 @@ html[data-theme="light"] .loader-container,
 }
 
 .premium-loader {
-    width: 380px;
-    padding: var(--spacing-3xl);
+    width: 340px;
+    max-width: calc(100vw - 2rem);
+    padding: 2.5rem;
     text-align: center;
-}
-
-.loading-status {
-    color: white;
-    font-weight: 600;
-    margin: var(--spacing-lg) 0;
-    font-size: 1.1rem;
-    letter-spacing: 0.02em;
-}
-
-.progress-wrap {
-    margin-top: var(--spacing-xl);
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: var(--spacing-sm);
+    gap: 0.5rem;
+}
+
+.loading-status {
+    color: rgba(255, 255, 255, 0.9);
+    font-weight: 600;
+    margin: 1rem 0 0.5rem;
+    font-size: 1rem;
+    letter-spacing: 0.01em;
+    line-height: 1.5;
+}
+
+.progress-wrap {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
 }
 
 .progress-track {
     width: 100%;
-    height: 8px;
+    height: 5px;
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    border-radius: 99px;
     overflow: hidden;
 }
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, #6366f1, #a855f7);
+    background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+    background-size: 200% 100%;
     width: 0%;
-    transition: width 0.3s ease-out;
-    box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+    transition: width 0.4s ease-out;
+    border-radius: 99px;
+    animation: shimmer 2s linear infinite;
+}
+
+@keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
 }
 
 .progress-label {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.8rem;
     font-weight: 700;
     font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
 }
 
 .loading-spinner {
-    width: 50px;
-    height: 50px;
-    border: 3px solid rgba(255, 255, 255, 0.1);
-    border-top-color: #6366f1;
+    width: 44px;
+    height: 44px;
+    border: 2.5px solid rgba(255, 255, 255, 0.08);
+    border-top-color: #a855f7;
+    border-right-color: #6366f1;
     border-radius: 50%;
-    animation: spin 1s linear infinite;
+    animation: spin 0.8s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
     margin: 0 auto;
-    filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.5));
 }
 
 @keyframes spin {
@@ -38055,7 +38077,9 @@ html[data-theme="light"] #landingPage .landing-hero-features span:not(.dot),
 
 .bandrider-field-textarea {
     resize: vertical;
-    min-height: 60px;
+    min-height: 38px;
+    line-height: 1.4;
+    overflow-y: auto;
 }
 
 .bandrider-field-input:focus,

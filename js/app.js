@@ -2860,22 +2860,22 @@ const App = {
                         `
                 : ''}
                 </div>
-                <div class="bandrider-member-inputs">
-                    <div class="bandrider-input-group">
-                        <label>Instrument / Gesang</label>
-                        <input type="text" class="rider-member-instrument" value="${this.escapeHtml(member.instrument)}" placeholder="z. B. Gesang & Gitarre">
+                <div class="bandrider-member-fields">
+                    <div class="bandrider-field-group">
+                        <label class="bandrider-field-label">Instrument / Gesang</label>
+                        <textarea class="rider-member-instrument bandrider-field-textarea" rows="1" placeholder="z. B. Gesang & Gitarre">${this.escapeHtml(member.instrument)}</textarea>
                     </div>
-                    <div class="bandrider-input-group">
-                        <label>XLR / Audio-Eingänge</label>
-                        <input type="text" class="rider-member-mic" value="${this.escapeHtml(member.mic)}" placeholder="z. B. SM58 (funk) o. 2x DI">
+                    <div class="bandrider-field-group">
+                        <label class="bandrider-field-label">XLR / Audio-Eingänge</label>
+                        <textarea class="rider-member-mic bandrider-field-textarea" rows="1" placeholder="z. B. SM58 (funk) o. 2x DI">${this.escapeHtml(member.mic)}</textarea>
                     </div>
-                    <div class="bandrider-input-group">
-                        <label>Monitoring</label>
-                        <input type="text" class="rider-member-monitor" value="${this.escapeHtml(member.monitor)}" placeholder="z. B. In-Ear (Stereo) oder Wedge">
+                    <div class="bandrider-field-group">
+                        <label class="bandrider-field-label">Monitoring</label>
+                        <textarea class="rider-member-monitor bandrider-field-textarea" rows="1" placeholder="z. B. In-Ear (Stereo) oder Wedge">${this.escapeHtml(member.monitor)}</textarea>
                     </div>
-                    <div class="bandrider-input-group">
-                        <label>Zusatz-Infos</label>
-                        <textarea class="rider-member-extra" rows="2" placeholder="z. B. Eigene Backline, Strom oder Funkstrecke">${this.escapeHtml(member.extra)}</textarea>
+                    <div class="bandrider-field-group">
+                        <label class="bandrider-field-label">Zusatz-Infos</label>
+                        <textarea class="rider-member-extra bandrider-field-textarea" rows="2" placeholder="z. B. Eigene Backline, Strom oder Funkstrecke">${this.escapeHtml(member.extra)}</textarea>
                     </div>
                     <div class="bandrider-member-stage-settings ${showStageControls ? '' : 'is-hidden'}">
                         <label class="bandrider-toggle-row bandrider-toggle-row-compact">
@@ -13650,12 +13650,10 @@ const App = {
 
         const ownSongCount = songs.filter((song) => song.isOwner).length;
         const sharedSongCount = songs.filter((song) => !song.isOwner && song.visibility === 'public').length;
-        const intro = "Persönlicher Songpool mit PDF- und ChordPro-Import.";
-        const status = showPublicSongs
-            ? (sharedSongCount > 0 ? `${ownSongCount} eigene + ${sharedSongCount} öffentliche Songs.` : `${ownSongCount} eigene Songs. Öffentliche Songs erscheinen automatisch.`)
-            : `${ownSongCount} eigene Songs. Nutze den Schalter für öffentliche Songs.`;
-        const adminNote = isAdmin ? ' Als Admin kannst du sichtbare Songs weiterhin bearbeiten und löschen.' : '';
-        const description = `${intro} ${status}${adminNote}`;
+        const countText = showPublicSongs && sharedSongCount > 0 
+            ? `${ownSongCount} eigene, ${sharedSongCount} öffentliche` 
+            : `${ownSongCount} Songs`;
+        const description = `Dein zentraler Songpool mit PDF- und ChordPro-Import. (${countText})`;
 
         const getSortClass = (field) => {
             if (this.songpoolSongSort.field !== field) return '';

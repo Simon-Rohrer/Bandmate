@@ -1376,20 +1376,25 @@ const PDFGenerator = {
             `;
         };
 
+        const sortedMembers = [...safeMembers].sort((a, b) => {
+            const rowA = Number(a.stageRow) || 1;
+            const rowB = Number(b.stageRow) || 1;
+            if (rowA !== rowB) return rowB - rowA; // Höhere Reihe (hinten) zuerst
+            const orderA = Number(a.stageOrder) || 999;
+            const orderB = Number(b.stageOrder) || 999;
+            return orderA - orderB; // Links nach rechts innerhalb der Reihe
+        });
+
         const estimateRiderMemberUnits = (member) => {
             const infoCount = [member?.mic, member?.monitor, member?.extra]
                 .map((value) => String(value || '').trim())
                 .filter(Boolean)
                 .length;
-            const baseUnits = resolvedOrientation === 'l' ? 1.05 : 1.15;
-            return baseUnits + (infoCount * 0.32);
+            const baseUnits = resolvedOrientation === 'l' ? 0.95 : 1.1;
+            return baseUnits + (infoCount * 0.38);
         };
 
-        const riderColumns = 2;
-        const riderRows = [];
-        for (let index = 0; index < safeMembers.length; index += riderColumns) {
-            riderRows.push(safeMembers.slice(index, index + riderColumns));
-        }
+        const riderRows = sortedMembers.map(m => [m]); // Einspaltig: Jedes Mitglied ist eine eigene Reihe
 
         const renderRiderMember = (member) => {
             const technicalBlocks = [
@@ -1406,16 +1411,16 @@ const PDFGenerator = {
                 `
                 : '';
 
-                return `
-            <div style="border:1px solid #dbe3ef; border-radius:${px(15)}; background:#ffffff; padding:${px(11)} ${px(12)}; margin-bottom:${px(8)}; page-break-inside:avoid;">
-                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:${px(10)}; margin-bottom:${px(8)}; border-bottom:1px solid #f1f5f9; padding-bottom:${px(7)};">
+            return `
+            <div style="border:1px solid #dbe3ef; border-radius:${px(15)}; background:#ffffff; padding:${px(11)} ${px(14)}; margin-bottom:${px(8)}; page-break-inside:avoid; width:100%; box-sizing:border-box;">
+                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:${px(10)}; margin-bottom:${px(10)}; border-bottom:1px solid #f1f5f9; padding-bottom:${px(8)};">
                     <div style="display:flex; align-items:center; gap:${px(12)}; min-width:0;">
-                    <div style="width:${px(34)}; height:${px(34)}; border-radius:50%; background:#6366f1; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${px(13)};">
+                    <div style="width:${px(36)}; height:${px(36)}; border-radius:50%; background:#6366f1; color:#ffffff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:${px(14)};">
                         ${this.escapeHtml((member.name || '?').charAt(0).toUpperCase())}
                     </div>
                     <div style="min-width:0; flex:1;">
-                        <div style="font-size:${px(14)}; font-weight:800; color:#0f172a; line-height:1.18;">${this.escapeHtml(member.name || 'Mitglied')}</div>
-                        <div style="font-size:${px(10.5)}; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.05em;">${this.escapeHtml(member.instrument || 'Instrument')}</div>
+                        <div style="font-size:${px(15)}; font-weight:800; color:#0f172a; line-height:1.2;">${this.escapeHtml(member.name || 'Mitglied')}</div>
+                        <div style="font-size:${px(11)}; font-weight:700; color:#6366f1; text-transform:uppercase; letter-spacing:0.06em;">${this.escapeHtml(member.instrument || 'Instrument')}</div>
                     </div>
                     </div>
                     ${stageBadge}
@@ -1431,9 +1436,9 @@ const PDFGenerator = {
 
         const rowChunks = this.chunkByUnits(
             riderRows,
-            (row) => Math.max(...row.map((member) => estimateRiderMemberUnits(member)), 1),
-            resolvedOrientation === 'l' ? 5.8 : 6.6,
-            resolvedOrientation === 'l' ? 6.1 : 6.9
+            (row) => estimateRiderMemberUnits(row[0]),
+            resolvedOrientation === 'l' ? 5.8 : 19.5, // Viel mehr Platz bei einspaltig im Portrait
+            resolvedOrientation === 'l' ? 6.1 : 20.5
         );
 
         const totalPages = rowChunks.length + (showPositions ? 1 : 0);
@@ -1447,7 +1452,7 @@ const PDFGenerator = {
                 detailsHtml: '',
                 bodyHtml: chunk.length
                     ? `
-                        <div style="display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:${px(10)} ${px(12)}; align-items:start;">
+                        <div style="display:flex; flex-direction:column; gap:${px(10)}; align-items:stretch; width:100%;">
                             ${chunk.flat().map((member) => renderRiderMember(member)).join('')}
                         </div>
                     `

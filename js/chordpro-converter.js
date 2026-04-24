@@ -92,6 +92,45 @@ const ChordProConverter = {
         this.setupResizeHandle();
         this.loadBands();
         this.reset();
+        this.loadDefaultTemplate();
+    },
+
+    loadDefaultTemplate() {
+        const editor = document.getElementById('chordproResultArea');
+        if (!editor || editor.value.trim()) return; // Don't overwrite existing content
+
+        const template = `{title: Titel des Songs}
+{artist: Künstler / Band}
+{key: Em}
+{time: 4/4}
+{copyright: }
+
+{c: Intro}
+
+
+{c: Verse 1}
+
+
+{c: Chorus}
+
+
+{c: Verse 2}
+
+
+{c: Chorus}
+
+
+{c: Bridge}
+
+
+{c: Outro}
+`;
+        editor.value = template;
+        this.convertedChordPro = template;
+        this.hasConverted = true;
+        this.updateEditorDivider(template);
+        this.renderPreview(template);
+        this.syncActionState();
     },
 
     scrollToEditor() {
@@ -636,6 +675,44 @@ const ChordProConverter = {
             newFileBtn.onclick = () => {
                 console.log('📝 [ChordProConverter] Creating new ChordPro file (manual)');
                 this.reset();
+
+                const template = `{title: Titel des Songs}
+{artist: Künstler / Band}
+{key: Em}
+{time: 4/4}
+{copyright: }
+
+{c: Intro}
+
+
+{c: Verse 1}
+
+
+{c: Chorus}
+
+
+{c: Verse 2}
+
+
+{c: Chorus}
+
+
+{c: Bridge}
+
+
+{c: Outro}
+`;
+                const editor = document.getElementById('chordproResultArea');
+                if (editor) {
+                    editor.value = template;
+                    this.convertedChordPro = template;
+                    this.hasConverted = true;
+                    this.updateEditorDivider(template);
+                    this.renderPreview(template);
+                    this.syncActionState();
+                    this.updateDisclaimer('converted');
+                }
+
                 this.scrollToEditor();
             };
         }

@@ -2454,81 +2454,88 @@ const Storage = {
         if (!songId) throw new Error('Kein Song zum Speichern ausgewählt.');
         if (!cleanChordPro) throw new Error('Es ist noch kein ChordPro-Inhalt vorhanden.');
 
-        const candidateFields = [
-            'chordpro',
-            'chord_pro',
-            'chordPro',
-            'chordpro_text',
-            'chordProText',
-            'lyrics',
-            'content',
-            'songText',
-            'text'
-        ];
-
-        const updateField = async (field, value) => {
-            const payload = {};
-            payload[field] = value;
-            return await sb
-                .from('songs')
-                .update(payload)
-                .eq('id', songId)
-                .select('*')
-                .maybeSingle();
-        };
-
-        const preferredField = this.getSongChordProSaveFieldPreference();
-        const preferredFields = preferredField
-            ? [this.songChordProSaveField]
-            : [];
-
-        const fieldsToTry = [
-            ...preferredFields,
-            ...candidateFields.filter(field => field !== this.songChordProSaveField)
-        ];
-
-        for (const field of fieldsToTry) {
-            const { data, error } = await updateField(field, cleanChordPro);
-            if (!error) {
-                this.setSongChordProSaveFieldPreference(field);
-                return { field, usedInfoFallback: false, song: data || null };
-            }
-
-            const isSchemaCacheMiss = error.code === 'PGRST204' ||
-                error.code === '42703' ||
-                (error.message && error.message.includes(`'${field}' column`));
-
-            if (isSchemaCacheMiss) {
-                if (this.songChordProSaveField === field) {
-                    this.setSongChordProSaveFieldPreference(null);
-                }
-                continue;
-            }
-
-            if (this._isNetworkError(error)) {
-                throw new Error('Netzwerkproblem beim Speichern des ChordPro-Inhalts.');
-            }
-
-            throw new Error(error.message || 'ChordPro konnte nicht gespeichert werden.');
-        }
-
+        // --- Option B: Upload as real .cho file to Supabase Storage ---
         const existingSong = await this.getById('songs', songId);
-        if (!existingSong) {
-            throw new Error('Der ausgewählte Song wurde nicht gefunden.');
-        }
+        if (!existingSong) throw new Error('Der ausgewählte Song wurde nicht gefunden.');
 
-        const mergedInfo = this.composeSongInfoWithChordPro(this.getSongPlainInfo(existingSong), cleanChordPro);
-        const { data, error } = await updateField('info', mergedInfo);
+        // Build a clean filename from the song title
+        const safeTitle = (existingSong.title || 'song')
+            .toLowerCase()
+            .replace(/[^a-z0-9äöüß\s\-]/gi, '')
+            .replace(/\s+/g, '-')
+            .substring(0, 60);
+        const fileName = `cp-${safeTitle}-${songId.substring(0, 8)}.cho`;
+        const storagePath = fileName;
 
-        if (error) {
-            if (this._isNetworkError(error)) {
-                throw new Error('Netzwerkproblem beim Speichern des ChordPro-Inhalts.');
+        // Remove old file if it exists
+        if (existingSong.chordpro_url) {
+            const oldPath = this.getChordProStoragePath(existingSong.chordpro_url);
+            if (oldPath) {
+                await sb.storage.from('song-pdfs').remove([oldPath]).catch(() => {});
             }
-            throw new Error(error.message || 'ChordPro konnte nicht gespeichert werden.');
         }
 
-        this.setSongChordProSaveFieldPreference('info');
-        return { field: 'info', usedInfoFallback: true, song: data || null };
+        // Upload the .cho file
+        const blob = new Blob([cleanChordPro], { type: 'text/plain' });
+        const { data: uploadData, error: uploadError } = await sb.storage
+            .from('song-pdfs')
+            .upload(storagePath, blob, {
+                contentType: 'text/plain',
+                upsert: true
+            });
+
+        if (uploadError) {
+            throw new Error('ChordPro-Datei konnte nicht hochgeladen werden: ' + (uploadError.message || ''));
+        }
+
+        // Get the public URL
+        const { data: urlData } = sb.storage.from('song-pdfs').getPublicUrl(storagePath);
+        const publicUrl = urlData?.publicUrl || null;
+
+        if (!publicUrl) {
+            throw new Error('Öffentliche URL der ChordPro-Datei konnte nicht ermittelt werden.');
+        }
+
+        // Save the URL to the songs table
+        const { data: updatedSong, error: updateError } = await sb
+            .from('songs')
+            .update({ chordpro_url: publicUrl })
+            .eq('id', songId)
+            .select('*')
+            .maybeSingle();
+
+        if (updateError) {
+            // If chordpro_url column doesn't exist yet, fall back to info field
+            if (updateError.code === 'PGRST204' || updateError.code === '42703' ||
+                (updateError.message && updateError.message.includes('chordpro_url'))) {
+                const mergedInfo = this.composeSongInfoWithChordPro(this.getSongPlainInfo(existingSong), cleanChordPro);
+                const { data: infoData, error: infoError } = await sb
+                    .from('songs')
+                    .update({ info: mergedInfo })
+                    .eq('id', songId)
+                    .select('*')
+                    .maybeSingle();
+                if (infoError) throw new Error(infoError.message || 'ChordPro konnte nicht gespeichert werden.');
+                return { field: 'info', usedInfoFallback: true, song: infoData || null };
+            }
+            throw new Error(updateError.message || 'ChordPro-URL konnte nicht gespeichert werden.');
+        }
+
+        return { field: 'chordpro_url', usedInfoFallback: false, song: updatedSong || null, fileUrl: publicUrl };
+    },
+
+    getChordProStoragePath(chordProUrl = '') {
+        const rawUrl = String(chordProUrl || '').trim();
+        if (!rawUrl) return null;
+        try {
+            const parsedUrl = new URL(rawUrl, window.location.origin);
+            const match = parsedUrl.pathname.match(/\/storage\/v1\/object\/public\/song-pdfs\/(.+)$/);
+            if (!match || !match[1]) return null;
+            return decodeURIComponent(match[1]);
+        } catch (error) {
+            console.warn('[Storage] Could not parse chordpro path:', error);
+            return null;
+        }
     },
 
     async deleteSong(songId) {
