@@ -37,4 +37,3 @@ npm-debug.log*
 .env.local
 # Files
 *.md
-js/config.js

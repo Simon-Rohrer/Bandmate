@@ -745,11 +745,10 @@ const Events = {
         const fallbackStart = event.date ? String(event.date).slice(11, 16) : '';
         const timeline = App.getEventRundownTimeline(rundown, fallbackStart);
         return `
-            <div class="event-rundown-display">
-                <div class="event-rundown-display-head">
+            <div class="event-rundown-display" style="margin-top: 2rem; border-top: 1px solid var(--color-border); padding-top: 1.5rem;">
+                <div class="event-rundown-display-head" style="align-items: flex-end;">
                     <div>
-                        <span class="event-rundown-display-kicker">Ablauf</span>
-                        <h4>Abendplan</h4>
+                        <span class="event-rundown-display-kicker" style="font-size: 1.5rem; letter-spacing: 0.05em; color: var(--color-text); margin-bottom: 0.25rem; display: block;">Ablauf</span>
                     </div>
                     <div class="event-rundown-display-meta">
                         <button type="button" class="btn btn-primary btn-sm download-rundown-pdf" data-event-id="${event.id}">

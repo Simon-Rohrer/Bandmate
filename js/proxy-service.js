@@ -5,6 +5,11 @@
 const ProxyService = {
     // List of available proxies
     proxies: {
+        codeTabs: {
+            name: 'codetabs.com',
+            getUrl: (url) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+            isRaw: true
+        },
         corsProxyIo: {
             name: 'corsproxy.io',
             getUrl: (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
@@ -30,9 +35,10 @@ const ProxyService = {
     async fetch(url) {
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-        // Strategy: Use corsproxy.io for local (since it works)
-        // Use allorigins/raw as fallback or for production
-        let proxySelection = isLocal ? [this.proxies.corsProxyIo, this.proxies.allOriginsRaw] : [this.proxies.allOriginsRaw, this.proxies.corsProxyIo];
+        // Strategy: Use codetabs first, then corsproxy.io, then allOrigins
+        let proxySelection = isLocal 
+            ? [this.proxies.corsProxyIo, this.proxies.codeTabs, this.proxies.allOriginsRaw] 
+            : [this.proxies.codeTabs, this.proxies.corsProxyIo, this.proxies.allOriginsRaw];
 
         let lastError = null;
 

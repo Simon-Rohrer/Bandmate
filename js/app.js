@@ -18607,13 +18607,15 @@ const App = {
                         }
 
                         nextEventContent.innerHTML = `
-                        <article class="next-event-item">
-                            <div class="next-event-meta-line">
-                                <span class="next-event-type">${nextItemTypeLabel}</span>
-                                ${associatedBand ? `<span class="next-event-meta-separator" aria-hidden="true">·</span><span class="next-event-band-name">${Bands.escapeHtml(associatedBand)}</span>` : ''}
+                        <div style="position: absolute; top: -2.5rem; right: 0; display: flex; align-items: center; z-index: 10;">
+                            <span class="next-event-type" style="color: #ffffff; font-size: 1.5rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;">${nextItemTypeLabel}</span>
+                        </div>
+                        <article class="next-event-item" style="margin-top: 1rem;">
+                            <div style="display: flex; flex-direction: column; gap: 0.25rem;">
+                                <div class="next-event-title">${Bands.escapeHtml(nextItem.title || nextItem.name || 'Ohne Titel')}</div>
+                                ${associatedBand ? `<div style="color: var(--text-secondary); font-size: 1.05rem; font-weight: 500;">${Bands.escapeHtml(associatedBand)}</div>` : ''}
                             </div>
-                            <div class="next-event-title">${Bands.escapeHtml(nextItem.title || nextItem.name || 'Ohne Titel')}</div>
-                            <div class="next-event-detail-list">
+                            <div class="next-event-detail-list" style="margin-top: 0.5rem;">
                                 <div class="next-event-detail-item">
                                     <span class="next-event-info-label">Datum</span>
                                     <strong>${dateStr}</strong>
