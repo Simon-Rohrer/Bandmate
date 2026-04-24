@@ -693,10 +693,54 @@ const Rehearsals = {
         return rehearsal.confirmedDate;
     },
 
-    getRehearsalSortDate(rehearsal) {
+    getDisplayDateForRehearsal(rehearsal) {
         const confirmedDateValue = this.getConfirmedDateValue(rehearsal);
-        if (rehearsal?.status === 'confirmed' && confirmedDateValue) {
-            return new Date(confirmedDateValue);
+        if (!confirmedDateValue) return null;
+
+        const displayDate = new Date(confirmedDateValue);
+        if (Number.isNaN(displayDate.getTime())) return null;
+
+        if (typeof confirmedDateValue === 'string') {
+            const timeMatch = confirmedDateValue.match(/T(\d{2}):(\d{2})/);
+            if (timeMatch) {
+                displayDate.setHours(Number(timeMatch[1]), Number(timeMatch[2]), 0, 0);
+            }
+        }
+
+        return displayDate;
+    },
+
+    formatDisplayDateForRehearsal(rehearsal) {
+        const displayDate = this.getDisplayDateForRehearsal(rehearsal);
+        if (!displayDate) return '';
+
+        return displayDate.toLocaleDateString('de-DE', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    },
+
+    formatDisplayDateShortForRehearsal(rehearsal) {
+        const displayDate = this.getDisplayDateForRehearsal(rehearsal);
+        if (!displayDate) return '';
+
+        return displayDate.toLocaleDateString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    },
+
+    getRehearsalSortDate(rehearsal) {
+        const displayDate = this.getDisplayDateForRehearsal(rehearsal);
+        if (rehearsal?.status === 'confirmed' && displayDate) {
+            return displayDate;
         }
 
         if (Array.isArray(rehearsal?.proposedDates) && rehearsal.proposedDates.length > 0) {
@@ -970,6 +1014,7 @@ const Rehearsals = {
 
     _renderRehearsalDetailsGrid(rehearsal, { creator = null, creatorName = 'Unbekannt', locationName = 'Nicht angegeben', linkedEvent = null } = {}) {
         const confirmedDateValue = this.getConfirmedDateValue(rehearsal);
+        const confirmedDateLabel = this.formatDisplayDateForRehearsal(rehearsal);
         const creatorAvatarContent = creator && creator.profile_image_url
             ? `<img src="${creator.profile_image_url}" class="creator-avatar-img" alt="${Bands.escapeHtml(creatorName)}">`
             : UI.getUserInitials(creatorName);
@@ -991,7 +1036,7 @@ const Rehearsals = {
             detailRows.push(`
                 <div class="detail-item detail-item-compact">
                     <div class="detail-label">Datum & Zeit</div>
-                    <div class="detail-value">${UI.formatDate(confirmedDateValue)}</div>
+                    <div class="detail-value">${Bands.escapeHtml(confirmedDateLabel || UI.formatDate(confirmedDateValue))}</div>
                 </div>
             `);
         }
@@ -1093,9 +1138,10 @@ const Rehearsals = {
             ? rehearsal.proposedDates[0]
             : null;
         const confirmedDateValue = this.getConfirmedDateValue(rehearsal);
+        const confirmedDateShortLabel = this.formatDisplayDateShortForRehearsal(rehearsal);
         const headerChips = [];
         if (rehearsal.status === 'confirmed' && confirmedDateValue) {
-            headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${UI.formatDateShort(confirmedDateValue)}</span>`);
+            headerChips.push(`<span class="schedule-card-chip schedule-card-chip-primary">${Bands.escapeHtml(confirmedDateShortLabel || UI.formatDateShort(confirmedDateValue))}</span>`);
         } else if (Array.isArray(rehearsal.proposedDates) && rehearsal.proposedDates.length > 0) {
             if (rehearsal.proposedDates.length > 1) {
                 headerChips.push(`<span class="schedule-card-chip">${rehearsal.proposedDates.length} Termine</span>`);
@@ -2405,7 +2451,11 @@ const Rehearsals = {
 
             // Check personal conflicts if not forcing confirmation
             if (!forceConfirm && typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
-                const personalConflicts = PersonalCalendar.getPersonalConflicts(editedStartTime, editedEndTime);
+                const personalConflicts = PersonalCalendar.getPersonalConflicts(
+                    editedStartTime,
+                    editedEndTime,
+                    { excludeRehearsalId: rehearsalId }
+                );
                 if (personalConflicts.length > 0) {
                     let dateLabel = UI.formatDate(editedStartTime);
                     const start = new Date(editedStartTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -3020,7 +3070,11 @@ const Rehearsals = {
 
                 // Personal conflicts (for the current user)
                 if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
-                    const personalConflicts = PersonalCalendar.getPersonalConflicts(date.startTime, date.endTime);
+                    const personalConflicts = PersonalCalendar.getPersonalConflicts(
+                        date.startTime,
+                        date.endTime,
+                        { excludeRehearsalId: rehearsalId }
+                    );
                     if (personalConflicts.length > 0) {
                         let dateLabel = UI.formatDate(date.startTime);
                         const start = new Date(date.startTime).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
@@ -3177,9 +3231,14 @@ const Rehearsals = {
         this.bindTimeRangeValidation(fixedStartInput, fixedEndInput);
         this.clearFixedDateAvailability();
 
+        const currentRehearsalId = String(document.getElementById('editRehearsalId')?.value || '').trim();
         const getPersonalConflicts = (startIso, endIso) => {
             if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
-                return PersonalCalendar.getPersonalConflicts(startIso, endIso);
+                return PersonalCalendar.getPersonalConflicts(
+                    startIso,
+                    endIso,
+                    currentRehearsalId ? { excludeRehearsalId: currentRehearsalId } : undefined
+                );
             }
             return [];
         };

@@ -113,11 +113,6 @@ const Auth = {
         }
         this.initialized = true;
 
-        // Set the single valid registration code
-        const validCode = 'c2j5Dps!';
-        localStorage.setItem('registrationCodes', JSON.stringify([validCode]));
-        this.validRegistrationCodes = [validCode];
-
         const cachedUser = this.getCachedCurrentUser();
         if (cachedUser) {
             this.currentUser = cachedUser;
@@ -163,6 +158,16 @@ const Auth = {
                     // Only trigger if URL actually contains recovery token
                     if (window.location.hash && window.location.hash.includes('type=recovery')) {
                         console.log('Password recovery mode detected via URL (auth.js)');
+
+                        const currentPath = window.location.pathname || '';
+                        const isResetPasswordPage = /reset-password\.html$/i.test(currentPath);
+
+                        if (!isResetPasswordPage) {
+                            const resetPasswordUrl = SupabaseClient.buildProjectPageUrl('reset-password.html');
+                            const targetUrl = `${resetPasswordUrl}${window.location.hash || ''}`;
+                            window.location.replace(targetUrl);
+                            return;
+                        }
 
                         // Clear hash IMMEDIATELY and AGGRESSIVELY
                         try {
@@ -228,18 +233,7 @@ const Auth = {
 
     },
 
-    async register(registrationCode, firstName, lastName, email, username, password, instrument = "") {
-        // Validate registration code first
-        if (!registrationCode) {
-            throw new Error('Registrierungscode ist erforderlich');
-        }
-
-        // Check if code is valid (exact match)
-        const validCodes = JSON.parse(localStorage.getItem('registrationCodes') || '[]');
-        if (!validCodes.includes(registrationCode)) {
-            throw new Error('Ungültiger Registrierungscode');
-        }
-
+    async register(firstName, lastName, email, username, password, instrument = "") {
         // Validate inputs
         if (!firstName?.trim() || !lastName?.trim() || !email?.trim() || !username?.trim() || !password) {
             throw new Error('Alle Felder sind erforderlich');

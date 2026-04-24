@@ -3440,6 +3440,8 @@
 
                 <div class="modal-actions">
                     <button type="button" class="btn cancel">Abbrechen</button>
+                    <button type="button" class="btn btn-danger" id="deleteEventBtn"
+                        style="display:none; margin-right: auto;">Löschen</button>
                     <button type="submit" id="saveEventBtn" class="btn btn-primary">Auftritt
                         speichern</button>
                 </div>
@@ -3484,10 +3486,9 @@
                                     <button type="button" class="btn btn-sm btn-danger" id="deleteSongPdfBtn">Löschen</button>
                                 </div>
                             </div>
-                            <div class="song-editor-upload-hint">
-                                <strong>Automatische Vorbelegung</strong>
-                                <p>Beim Repertoire und im Songpool lesen wir zuerst Dateiname, erkannte Tonart und wenn vorhanden Metadaten aus PDF oder ChordPro aus. So sparst du dir die wichtigsten Felder oft von Hand.</p>
-                            </div>
+                        </div>
+                        <div class="song-editor-upload-hint">
+                            <p><strong>Automatische Vorbelegung:</strong> Dateiname, Tonart und vorhandene Metadaten aus PDF oder ChordPro werden wenn möglich direkt übernommen.</p>
                         </div>
                     </section>
 

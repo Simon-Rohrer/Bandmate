@@ -38,194 +38,136 @@ const PDFGenerator = {
      * @param {string} data.filename - Desired filename
      */
     async generateSetlistPDF({ title, subtitle, metaInfo = [], songs = [], showNotes = false, filename = 'setlist.pdf', previewOnly = false }) {
-        try {
-            // Build HTML content
-            const element = document.createElement('div');
+        const pages = this.buildSetlistPDFPages({
+            title,
+            subtitle,
+            metaInfo,
+            songs,
+            showNotes
+        });
 
-            // Layout Configuration
-            // box-sizing: border-box ensures padding is included in width
-            const styles = {
-                container: "font-family: 'Inter', Arial, sans-serif; padding: 20px; background: white; color: #111827; width: 1100px; margin: 0 auto; box-sizing: border-box;",
-                headerAccent: "height: 6px; background: #8B5CF6; border-radius: 3px; margin-bottom: 25px;",
-                header: "display: flex; flex-direction: column; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #E5E7EB; padding-bottom: 15px;", // Reduced margin/padding
-                h1: "margin: 0; font-size: 28px; font-weight: 700; color: #111827; letter-spacing: -0.025em; text-align: center;",
-                metaRow: "display: flex; gap: 20px; margin-top: 12px; color: #6B7280; font-size: 14px; flex-wrap: wrap; justify-content: center;",
-                subHeader: "margin-bottom: 15px; display: flex; justify-content: space-between; align-items: flex-end;",
-                h2: "margin: 0; font-size: 16px; font-weight: 600; color: #111827; text-transform: uppercase; letter-spacing: 0.05em;",
-                table: "width: 100%; border-collapse: collapse; margin-top: 5px; font-size: 13px; table-layout: fixed;",
-                th: "padding: 12px 10px; text-align: left; font-weight: 600; color: #4B5563; border-bottom: 2px solid #E5E7EB; background-color: #F9FAFB;",
-                td: "padding: 10px; color: #111827; border-bottom: 1px solid #F3F4F6;",
-                footer: "margin-top: 50px; padding-top: 20px; border-top: 1px solid #E5E7EB; color: #9CA3AF; font-size: 11px; display: flex; justify-content: space-between; align-items: center;"
-            };
+        return this.renderMarkupToPDF({
+            pages,
+            filename,
+            previewOnly,
+            orientation: 'p',
+            canvasWidth: pages[0]?.canvasWidth || 794
+        });
+    },
 
-            // Generate Meta/Subtitle HTML
-            let metaHtml = '';
-            if (subtitle) {
-                metaHtml += `<div style="margin-top: 8px; color: #6B7280; font-size: 14px; font-weight: 500;">${this.escapeHtml(subtitle)}</div>`;
-            }
-            if (metaInfo && metaInfo.length > 0) {
-                metaHtml += `<div style="${styles.metaRow}">`;
-                metaInfo.forEach(info => {
-                    metaHtml += `<span>${info}</span>`; // info is assumed to be safe or pre-formatted HTML (like 🎸 <b>Name</b>) OR plain text. 
-                    // For safety, caller should escape if raw user input, but usually we pass formatted HTML icons here.
-                    // We'll trust the caller to pass HTML for icons/bolding, or layout might break if we escape everything.
-                });
-                metaHtml += `</div>`;
-            }
+    buildSetlistPDFPages({
+        title = 'Setlist',
+        subtitle = '',
+        metaInfo = [],
+        songs = [],
+        showNotes = false,
+        fontScale = 1
+    } = {}) {
+        const safeSongs = Array.isArray(songs) ? songs.filter(Boolean) : [];
+        const scale = this.normalizeRundownFontScale(fontScale);
+        const px = (size, minimum = 0) => this.scaleRundownSize(size, scale, minimum);
+        const safeTitle = String(title || 'Setlist').trim() || 'Setlist';
+        const safeSubtitle = String(subtitle || '').trim();
+        const generatedAt = new Date().toLocaleDateString('de-DE');
+        const stripHtml = (value = '') => String(value || '')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const normalizedMetaInfo = (Array.isArray(metaInfo) ? metaInfo : [])
+            .map((entry) => stripHtml(entry))
+            .filter(Boolean);
+        const normalizedSongs = safeSongs.map((song) => ({
+            ...song,
+            infoDisplay: song.infoDisplay
+                || (typeof Storage !== 'undefined' && typeof Storage.getSongInfoPreview === 'function'
+                    ? Storage.getSongInfoPreview(song)
+                    : (song.info || '-')),
+            notes: showNotes ? (song.notes || '') : ''
+        }));
 
-            // Generate Songs Rows
-            const songsRows = songs.map((song, idx) => `
-                <tr style="border-bottom: 1px solid #F3F4F6; ${idx % 2 === 0 ? '' : 'background-color: #FAFAFA;'}">
-                    <td style="padding: 10px; color: #9CA3AF; font-weight: 500; width: 35px;">${idx + 1}</td>
-                    <td style="padding: 10px; font-weight: 600; color: #111827; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(song.title)}</td>
-                    <td style="padding: 10px; color: #4B5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${this.escapeHtml(song.artist || '-')}</td>
-                    <td style="padding: 10px; text-align: center; font-weight: 500; width: 50px;">${song.bpm || '-'}</td>
-                    <td style="padding: 10px; text-align: center; font-weight: 500; color: #8B5CF6; width: 50px;">${song.key || '-'}</td>
-                    <td style="padding: 10px; color: #4B5563; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100px;">${this.escapeHtml(song.leadVocal || '-')}</td>
-                </tr>
-            `).join('');
+        const detailCards = [
+            `
+                <div style="flex:1 1 180px; min-width:180px; background:#f8fafc; border-radius:16px; padding:12px 14px;">
+                    <div style="font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:#64748b;">Ansicht</div>
+                    <div style="margin-top:7px; font-size:13px; line-height:1.5; color:#0f172a;">Songliste</div>
+                </div>
+            `,
+            `
+                <div style="flex:1 1 140px; min-width:140px; background:#f8fafc; border-radius:16px; padding:12px 14px;">
+                    <div style="font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:#64748b;">Songs</div>
+                    <div style="margin-top:7px; font-size:13px; line-height:1.5; color:#0f172a;">${this.escapeHtml(String(normalizedSongs.length))}</div>
+                </div>
+            `
+        ];
 
-            // Additional Info Section (Notes only, CCLI is in table)
-            let additionalInfoHTML = '';
-            if (showNotes && songs.some(s => s.notes)) {
-                additionalInfoHTML = `
-                    <div style="margin-top: 40px; border-radius: 12px; border: 1px solid #E5E7EB; overflow: hidden;">
-                        <div style="background: #F9FAFB; padding: 12px 20px; border-bottom: 1px solid #E5E7EB;">
-                            <h3 style="margin: 0; font-size: 14px; font-weight: 600; color: #111827;">Zusätzliche Informationen</h3>
-                        </div>
-                        <div style="padding: 10px 20px;">
-                            ${songs.filter(s => s.notes).map((song, idx) => `
-                                <div style="padding: 12px 0; ${idx !== 0 ? 'border-top: 1px dashed #E5E7EB;' : ''}">
-                                    <div style="font-weight: 600; font-size: 13px; margin-bottom: 4px; color: #111827;">${this.escapeHtml(song.title)}</div>
-                                    <div style="font-size: 12px; color: #6B7280;">
-                                        <span><b>Notiz:</b> ${this.escapeHtml(song.notes)}</span>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
+        if (safeSubtitle) {
+            detailCards.push(`
+                <div style="flex:1 1 100%; min-width:100%; background:#f8fafc; border-radius:16px; padding:12px 14px;">
+                    <div style="font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:#64748b;">Kontext</div>
+                    <div style="margin-top:7px; font-size:13px; line-height:1.55; color:#0f172a;">${this.escapeHtml(safeSubtitle)}</div>
+                </div>
+            `);
+        } else if (normalizedMetaInfo.length > 0) {
+            detailCards.push(`
+                <div style="flex:1 1 100%; min-width:100%; background:#f8fafc; border-radius:16px; padding:12px 14px;">
+                    <div style="font-size:10px; font-weight:800; letter-spacing:0.12em; text-transform:uppercase; color:#64748b;">Meta</div>
+                    <div style="margin-top:7px; display:flex; flex-wrap:wrap; gap:8px;">
+                        ${normalizedMetaInfo.map((entry) => `
+                            <span style="display:inline-flex; align-items:center; min-height:22px; padding:0 9px; border-radius:999px; background:#ffffff; color:#334155; font-size:10.5px; font-weight:700; letter-spacing:0.03em;">
+                                ${this.escapeHtml(entry)}
+                            </span>
+                        `).join('')}
                     </div>
-                `;
-            }
+                </div>
+            `);
+        }
 
-            // Construct Full HTML
-            element.innerHTML = `
-                <div style="${styles.container}">
-                    <!-- Header Accent -->
-                    <div style="${styles.headerAccent}"></div>
+        const detailsMarkup = detailCards.join('');
+        const songChunks = this.chunkByUnits(
+            normalizedSongs,
+            (song) => this.estimateRundownSongUnits(song, 'songs-full', scale),
+            detailsMarkup ? 17.5 : 21.5,
+            23
+        );
 
-                    <div style="${styles.header}">
-                        <h1 style="${styles.h1}">${this.escapeHtml(title)}</h1>
-                        ${metaHtml}
-                    </div>
+        const safeChunks = songChunks.length > 0 ? songChunks : [[]];
+        const totalPages = safeChunks.length;
 
-                    <div style="${styles.subHeader}">
-                        <h2 style="${styles.h2}">Songliste</h2>
-                        <span style="color: #9CA3AF; font-size: 13px;">${songs.length} Songs</span>
-                    </div>
-
-                    <table style="${styles.table}">
-                        <thead>
-                            <tr style="${styles.th}">
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 40px; color: #4B5563;">#</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 300px; color: #4B5563;">Titel</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 200px; color: #4B5563;">Interpret</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 180px; color: #4B5563;">Genre</th>
-                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 60px; color: #4B5563;">BPM</th>
-                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 60px; color: #4B5563;">Time</th>
-                                <th style="padding: 12px 5px; text-align: center; font-weight: 600; width: 60px; color: #4B5563;">Key</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 100px; color: #4B5563;">Sprache</th>
-                                <th style="padding: 12px 5px; text-align: left; font-weight: 600; width: 100px; color: #4B5563;">CCLI</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${songs.map((song, idx) => `
-                <tr style="border-bottom: 1px solid #F3F4F6; ${idx % 2 === 0 ? '' : 'background-color: #FAFAFA;'}">
-                    <td style="padding: 8px 5px; color: #9CA3AF; font-weight: 500; vertical-align: top;">${idx + 1}</td>
-                    <td style="padding: 8px 5px; font-weight: 600; color: #111827; vertical-align: top;">${this.escapeHtml(song.title)}</td>
-                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${this.escapeHtml(song.artist || '-')}</td>
-                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${this.escapeHtml(song.genre || '-')}</td>
-                    <td style="padding: 8px 5px; text-align: center; font-weight: 500; vertical-align: top;">${song.bpm || '-'}</td>
-                    <td style="padding: 8px 5px; text-align: center; font-weight: 500; vertical-align: top;">${song.timeSignature || '-'}</td>
-                    <td style="padding: 8px 5px; text-align: center; font-weight: 500; color: #8B5CF6; vertical-align: top;">${song.key || '-'}</td>
-                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top;">${this.escapeHtml(song.language || '-')}</td>
-                    <td style="padding: 8px 5px; color: #4B5563; vertical-align: top; font-family: monospace;">${this.escapeHtml(song.ccli || '-')}</td>
-                </tr>
-            `).join('')}
-                        </tbody>
-                    </table>
-
-                    ${additionalInfoHTML}
-
-                    <div style="${styles.footer}">
-                        <div>Erstellt mit <b>Bandmate</b></div>
-                        <div>Stand: ${new Date().toLocaleString('de-DE')}</div>
-                    </div>
+        return safeChunks.map((chunk, index) => {
+            const bodyHtml = `
+                <div style="display:flex; flex-direction:column; gap:${px(10)};">
+                    ${this.renderRundownSongCards(chunk, {
+                        cardStyle: 'padding:0;',
+                        orderStyle: `display:inline-flex; align-items:flex-start; justify-content:flex-start; color:#64748b; font-size:${px(12.5)}; font-weight:700; line-height:1.2;`,
+                        titleStyle: `font-size:${px(18)}; line-height:1.24; font-weight:800; color:#0f172a;`,
+                        metaStyle: `font-size:${px(11.5)}; line-height:1.35; color:#475569;`,
+                        noteStyle: `font-size:${px(12.5)}; line-height:1.45; color:#334155;`,
+                        chipStyle: '',
+                        suppressEmptyState: false,
+                        fontScale: scale,
+                        showColumnHeaders: true
+                    })}
                 </div>
             `;
 
-            // Style Element for Rendering
-            element.style.backgroundColor = 'white';
-            element.style.padding = '0';
-            element.style.margin = '0';
-            element.style.color = 'black';
-            element.style.position = 'absolute'; // Prevent it from messing with layout while rendering
-            element.style.left = '-9999px';
-            element.style.top = '0';
-            element.style.width = '1100px'; // Wider for Landscape
-
-            // Append to body temporarily
-            document.body.appendChild(element);
-
-            // Wait for rendering (ensure fonts load etc)
-            await new Promise(resolve => setTimeout(resolve, 200));
-
-            // Generate canvas
-            const canvas = await html2canvas(element, {
-                scale: 2,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: '#ffffff',
-                logging: false,
-                width: 1100, // Matching width
-                windowWidth: 1100
-            });
-
-            // Create PDF
-            // l = landscape, mm = millimeters, a4 = format
-            const pdf = new window.jsPDF('l', 'mm', 'a4');
-            const imgData = canvas.toDataURL('image/png');
-            const imgWidth = 297; // A4 width in mm (landscape)
-            const pageHeight = 210; // A4 height in mm (landscape)
-            const imgHeight = canvas.height * imgWidth / canvas.width;
-            let heightLeft = imgHeight;
-            let position = 0;
-
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-
-            while (heightLeft > 0) {
-                position = heightLeft - imgHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-                heightLeft -= pageHeight;
-            }
-
-            // Cleanup
-            document.body.removeChild(element);
-
-            if (previewOnly) {
-                const blob = pdf.output('blob');
-                const blobUrl = URL.createObjectURL(blob);
-                return { pdf, blobUrl, filename };
-            }
-
-            pdf.save(filename);
-            return true;
-
-        } catch (error) {
-            console.error('PDFGenerator Error:', error);
-            throw error;
-        }
+            return {
+                markup: this.buildRundownPDFPageMarkup({
+                    title: safeTitle,
+                    subtitle: safeSubtitle,
+                    pageNumber: index + 1,
+                    totalPages,
+                    eyebrowLabel: 'Setlist',
+                    detailsHtml: index === 0 ? detailsMarkup : '',
+                    bodyHtml,
+                    footerMeta: `Stand: ${generatedAt}`
+                }),
+                orientation: 'p',
+                canvasWidth: 794,
+                previewWidth: 794,
+                previewHeight: 1123
+            };
+        });
     },
 
     sanitizeFilename(name = '', fallback = 'export.pdf') {
@@ -258,11 +200,7 @@ const PDFGenerator = {
     },
 
     getRiderBrandLogoUrl() {
-        try {
-            return new URL('/images/branding/bandmate-wordmark-short.svg', window.location.origin).href;
-        } catch (error) {
-            return '/images/branding/bandmate-wordmark-short.svg';
-        }
+        return this.getRundownBrandLogoUrl(); // Nutze das kompakte Icon auch für den Rider
     },
 
     renderRundownSongMetaChips(song = {}, chipStyle = '') {
@@ -311,7 +249,7 @@ const PDFGenerator = {
             const filtered = parts.filter(Boolean).map((entry) => this.escapeHtml(String(entry)));
             return filtered.length > 0 ? filtered.join(' &middot; ') : fallback;
         };
-        const compactSongColumns = `${px(22)} minmax(0, 2.2fr) minmax(0, 1.3fr) minmax(0, 0.9fr) minmax(0, 0.7fr) minmax(0, 0.82fr) minmax(0, 0.9fr) minmax(0, 0.62fr) minmax(0, 0.98fr) minmax(0, 1.08fr)`;
+        const compactSongColumns = `${px(22)} minmax(0, 2.05fr) minmax(0, 1.25fr) minmax(0, 0.62fr) minmax(0, 0.66fr) minmax(0, 0.72fr) minmax(0, 0.82fr) minmax(0, 0.9fr) minmax(0, 0.62fr) minmax(0, 0.92fr) minmax(0, 1.04fr)`;
 
         if (!Array.isArray(songs) || songs.length === 0) {
             if (suppressEmptyState) return '';
@@ -347,7 +285,8 @@ const PDFGenerator = {
                     { label: '#', wrap: false },
                     { label: 'Titel', wrap: false },
                     { label: 'Interpret / Genre', wrap: true },
-                    { label: 'BPM / Time', wrap: true },
+                    { label: 'BPM', wrap: false },
+                    { label: 'Time', wrap: false },
                     { label: 'Tonart', wrap: false },
                     { label: 'Lead', wrap: false },
                     { label: 'Sprache', wrap: false },
@@ -372,7 +311,10 @@ const PDFGenerator = {
                     ${joinParts([song.artist, song.genre])}
                 </div>
                 <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${joinParts([song.bpm || '', song.timeSignature])}
+                    ${joinParts([song.bpm])}
+                </div>
+                <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    ${joinParts([song.timeSignature])}
                 </div>
                 <div style="${metaStyle}; font-size:${px(11)}; line-height:1.3; color:#334155; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
                     ${joinParts([song.key])}
@@ -423,6 +365,14 @@ const PDFGenerator = {
 
         return items.map((item, index) => {
             const songList = Array.isArray(item.selectedSongs) ? item.selectedSongs : [];
+            const typeLabel = String(item.typeLabel || item.type || 'Programmpunkt').trim() || 'Programmpunkt';
+            const itemTitle = String(item.title || '').trim();
+            const normalizeLabel = (value) => String(value || '')
+                .trim()
+                .toLowerCase()
+                .replace(/\s+/g, ' ');
+            const fallbackTitle = itemTitle || typeLabel;
+            const showStandaloneTitle = normalizeLabel(itemTitle) !== normalizeLabel(typeLabel);
             const timeLabel = item.startLabel === '—' && item.endLabel === '—'
                 ? 'Zeit offen'
                 : `${item.startLabel} - ${item.endLabel}`;
@@ -456,10 +406,10 @@ const PDFGenerator = {
                         <div style="min-width:0; flex:1;">
                             <div style="display:flex; flex-wrap:wrap; align-items:center; gap:${px(8)}; margin-bottom:${px(8)};">
                                 <span style="${chipStyle}; background:#e8f0ff; color:#274690;">${index + 1}.</span>
-                                <span style="${chipStyle}">${this.escapeHtml(item.typeLabel || item.type || 'Programmpunkt')}</span>
+                                <span style="${chipStyle}">${this.escapeHtml(typeLabel)}</span>
                             </div>
-                            <div style="${titleStyle}; font-size:${px(detailed ? 18 : 16.5)};">${this.escapeHtml(item.title || 'Programmpunkt')}</div>
-                            ${item.notes && detailed ? `<div style="${noteStyle}; margin-top:${px(7)}; font-size:${px(12.5)};">${this.escapeHtml(item.notes)}</div>` : ''}
+                            ${showStandaloneTitle ? `<div style="${titleStyle}; font-size:${px(detailed ? 18 : 16.5)};">${this.escapeHtml(fallbackTitle)}</div>` : ''}
+                            ${item.notes && detailed ? `<div style="${noteStyle}; margin-top:${px(showStandaloneTitle ? 7 : 2)}; font-size:${px(12.5)};">${this.escapeHtml(item.notes)}</div>` : ''}
                         </div>
                         <div style="min-width:${px(168)}; text-align:right;">
                             <div style="display:flex; align-items:center; justify-content:flex-end; gap:${px(8)}; flex-wrap:wrap;">
@@ -728,7 +678,8 @@ const PDFGenerator = {
         detailsHtml = '',
         bodyHtml = '',
         headerMeta = [],
-        footerMeta = ''
+        footerMeta = '',
+        eyebrowLabel = null
     } = {}) {
         const safeTitle = String(title || 'Ablauf').trim() || 'Ablauf';
         const titleText = (safeTitle.toLowerCase().includes('rider') || safeTitle.toLowerCase().startsWith('ablauf'))
@@ -738,15 +689,21 @@ const PDFGenerator = {
         const displayTitle = isRiderPage
             ? titleText
             : (titleText.replace(/^Ablauf\s*/i, '').trim() || 'Ablauf');
+        const resolvedEyebrow = eyebrowLabel == null
+            ? 'Ablauf'
+            : String(eyebrowLabel || '').trim();
         const logoUrl = isRiderPage ? this.getRiderBrandLogoUrl() : this.getRundownBrandLogoUrl();
+        const logoBoxWidth = isRiderPage ? '94px' : '92px';
+        const logoBoxHeight = isRiderPage ? '42px' : '40px';
         const styles = {
             page: `font-family:'Inter', Arial, sans-serif; width:794px; min-height:1123px; box-sizing:border-box; margin:0 auto; padding:${isRiderPage ? '24px 28px 18px' : '28px 32px 22px'}; background:#ffffff; color:#0f172a; display:flex; flex-direction:column;`,
-            top: `display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:${isRiderPage ? '8px' : '10px'};`,
+            top: `display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:start; gap:14px; margin-bottom:${isRiderPage ? '8px' : '10px'};`,
             titleGroup: `display:flex; flex-direction:column; gap:${isRiderPage ? '6px' : '4px'}; min-width:0; flex:1;`,
             eyebrow: "display:inline-flex; align-items:center; width:max-content; padding:5px 11px; border-radius:999px; background:#edf4ff; color:#2954a3; font-size:11px; line-height:1; font-weight:900; letter-spacing:0.18em; text-transform:uppercase;",
             title: `margin:0; font-size:${isRiderPage ? '22px' : '29px'}; line-height:${isRiderPage ? '1.14' : '1.04'}; font-weight:800; letter-spacing:-0.03em; color:#0f172a;`,
             subtitle: "margin:0; font-size:12px; line-height:1.45; color:#64748b; font-weight:500;",
-            logo: `width:${isRiderPage ? '138px' : '118px'}; max-width:${isRiderPage ? '138px' : '118px'}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;`,
+            logoWrap: `width:${logoBoxWidth}; height:${logoBoxHeight}; display:flex; align-items:flex-start; justify-content:flex-end; overflow:hidden;`,
+            logo: `display:block; width:100%; max-width:100%; max-height:${logoBoxHeight}; height:auto; object-fit:contain; object-position:right top; flex-shrink:0;`,
             detailWrap: "display:flex; flex-wrap:wrap; gap:10px; margin-bottom:14px;",
             detailCard: "flex:1 1 220px; min-width:220px; background:#f8fafc; border-radius:16px; padding:12px 14px;",
             detailCardWide: "flex:1 1 100%; min-width:100%;",
@@ -760,11 +717,13 @@ const PDFGenerator = {
             <div style="${styles.page}">
                 <div style="${styles.top}">
                     <div style="${styles.titleGroup}">
-                        ${!isRiderPage ? `<div style="${styles.eyebrow}">Ablauf</div>` : ''}
+                        ${!isRiderPage && resolvedEyebrow ? `<div style="${styles.eyebrow}">${this.escapeHtml(resolvedEyebrow)}</div>` : ''}
                         <h1 style="${styles.title}">${this.escapeHtml(displayTitle)}</h1>
                         ${subtitle ? `<p style="${styles.subtitle}">${this.escapeHtml(subtitle)}</p>` : ''}
                     </div>
-                    <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="${styles.logo}">
+                    <div style="${styles.logoWrap}">
+                        <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="${styles.logo}">
+                    </div>
                 </div>
                 ${detailsHtml ? `<div style="${styles.detailWrap}">${detailsHtml}</div>` : ''}
                 <div style="${styles.body}">
@@ -1158,6 +1117,8 @@ const PDFGenerator = {
         const scale = this.normalizeRundownFontScale(fontScale);
         const px = (size, minimum = 0) => this.scaleRundownSize(size, scale, minimum);
         const logoUrl = this.getRiderBrandLogoUrl();
+        const logoBoxWidth = 94;
+        const logoBoxHeight = 42;
         const activeMembers = members
             .map((member, index) => ({ member, index }))
             .filter(({ member }) => member && member.showOnStage)
@@ -1220,9 +1181,9 @@ const PDFGenerator = {
             if (!trimmedValue) return '';
 
             return `
-                <div style="margin-top:${px(2)}; display:flex; flex-direction:column; gap:${px(6)}; text-align:left;">
-                    <div style="font-size:${px(9.5)}; line-height:1.05; font-weight:800; color:#475569;">${this.escapeHtml(label)}</div>
-                    <div style="padding-left:${px(8)}; font-size:${px(10.8)}; line-height:1.14; color:#334155; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
+                <div style="margin-top:${px(6)}; display:flex; flex-direction:column; gap:${px(4)}; text-align:left;">
+                    <div style="font-size:${px(10)}; line-height:1; font-weight:900; color:#0f172a; text-transform:uppercase; letter-spacing:0.02em;">${this.escapeHtml(label)}</div>
+                    <div style="padding-left:${px(2)}; font-size:${px(11)}; line-height:1.25; color:#334155; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
                 </div>
             `;
         };
@@ -1293,7 +1254,7 @@ const PDFGenerator = {
 
         return `
             <div style="font-family:'Inter', Arial, sans-serif; width:1123px; min-height:794px; box-sizing:border-box; margin:0 auto; padding:18px 24px 16px; background:#ffffff; color:#0f172a; display:flex; flex-direction:column;">
-                <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:${px(16)}; margin-bottom:${px(10)};">
+                <div style="display:grid; grid-template-columns:minmax(0, 1fr) auto; align-items:flex-start; gap:${px(14)}; margin-bottom:${px(10)};">
                     <div style="min-width:0; flex:1;">
                         <h1 style="margin:0; font-size:${px(24)}; line-height:1.08; font-weight:800; letter-spacing:-0.02em; color:#0f172a;">${this.escapeHtml(pageTitle)}</h1>
                         <div style="margin-top:${px(4)}; font-size:${px(12)}; line-height:1.4; color:#64748b;">${this.escapeHtml(bandName)}</div>
@@ -1301,7 +1262,9 @@ const PDFGenerator = {
                             Bühnenplan von oben. Reihe 1 steht vorne an der Bühnenkante zur FOH-Seite, höhere Reihen stehen weiter hinten.
                         </div>
                     </div>
-                    <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="width:${px(150)}; max-width:${px(150)}; height:auto; display:block; object-fit:contain; object-position:right top; flex-shrink:0;">
+                    <div style="width:${logoBoxWidth}px; height:${logoBoxHeight}px; display:flex; align-items:flex-start; justify-content:flex-end; overflow:hidden; flex-shrink:0;">
+                        <img src="${this.escapeHtml(logoUrl)}" alt="Bandmate" style="display:block; width:100%; max-width:100%; max-height:${logoBoxHeight}px; height:auto; object-fit:contain; object-position:right top;">
+                    </div>
                 </div>
 
                 <div style="display:flex; flex-direction:column; align-items:center; gap:${px(14)}; padding-top:${px(2)}; flex:1;">
@@ -1369,9 +1332,9 @@ const PDFGenerator = {
             if (!trimmedValue) return '';
 
             return `
-                <div style="display:flex; flex-direction:column; gap:${px(3)}; padding:${px(9)} ${px(10)}; border-radius:${px(12)}; border:1px solid #e2e8f0; background:#f8fafc;">
-                    <div style="font-size:${px(9)}; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#64748b;">${this.escapeHtml(label)}</div>
-                    <div style="font-size:${px(11)}; color:#0f172a; line-height:1.45; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
+                <div style="display:flex; flex-direction:column; gap:${px(5)}; padding:${px(10)} ${px(12)}; border-radius:${px(12)}; border:1px solid #e2e8f0; background:#f8fafc;">
+                    <div style="font-size:${px(9.5)}; font-weight:900; text-transform:uppercase; letter-spacing:0.08em; color:#0f172a;">${this.escapeHtml(label)}</div>
+                    <div style="font-size:${px(11.5)}; color:#334155; line-height:1.5; white-space:pre-line;">${this.escapeHtml(trimmedValue)}</div>
                 </div>
             `;
         };

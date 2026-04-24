@@ -3,6 +3,19 @@
 const UI = {
     LOADING_TIMEOUT_MS: 25000,
 
+    resetModalScroll(modal) {
+        if (!modal) return;
+
+        modal.scrollTop = 0;
+        modal.scrollLeft = 0;
+
+        modal.querySelectorAll('.modal-body, .modal-content, .modal-scroll, .scheduler-form-scroll, .song-editor-scroll, form').forEach((element) => {
+            if (!element) return;
+            element.scrollTop = 0;
+            element.scrollLeft = 0;
+        });
+    },
+
     resetAuthOverlayScroll(targetTab = null) {
         const overlay = document.getElementById('authOverlay');
         if (!overlay) return;
@@ -60,12 +73,9 @@ const UI = {
         const modal = document.getElementById(modalId);
         if (modal) {
             modal.classList.add('active');
-            
+
             // Reset scroll position to top – all scrollable containers
-            modal.scrollTop = 0;
-            modal.querySelectorAll('.modal-body, .modal-content, .modal-scroll, .scheduler-form-scroll').forEach(el => {
-                el.scrollTop = 0;
-            });
+            this.resetModalScroll(modal);
 
             document.body.classList.add('modal-open');
             document.documentElement.classList.add('modal-open'); // Robust lock
@@ -311,6 +321,7 @@ const UI = {
                 modal._confirmActionOnClose();
             }
 
+            this.resetModalScroll(modal);
             modal.classList.remove('active');
             if (typeof App !== 'undefined' && typeof App.handleModalClosed === 'function') {
                 try {

@@ -542,12 +542,14 @@ const PersonalCalendar = {
      * @param {string|Date} end End timestamp
      * @returns {Array} List of conflict objects
      */
-    getPersonalConflicts(start, end) {
+    getPersonalConflicts(start, end, options = {}) {
         if (!start || !end) return [];
         
         const startTime = new Date(start).getTime();
         const endTime = new Date(end).getTime();
         const conflicts = [];
+        const excludeEventId = String(options?.excludeEventId || '').trim();
+        const excludeRehearsalId = String(options?.excludeRehearsalId || '').trim();
 
         // 1. Check external events
         this.externalEvents.forEach(ext => {
@@ -581,6 +583,7 @@ const PersonalCalendar = {
 
         // 3. Check internal events (confirmed only)
         this.events.forEach(evt => {
+            if (excludeEventId && String(evt.id || evt.eventId || '') === excludeEventId) return;
             if (evt.status !== 'confirmed' && evt.status !== undefined) return;
             const evtStart = new Date(evt.date).getTime();
             // Default 4 hour duration if not specified
@@ -588,6 +591,7 @@ const PersonalCalendar = {
             if (Math.max(startTime, evtStart) < Math.min(endTime, evtEnd)) {
                 conflicts.push({
                     type: 'event',
+                    id: evt.id || evt.eventId || null,
                     title: evt.title || 'Auftritt',
                     source: 'Persönlicher Auftritt',
                     start: evt.date,
@@ -598,11 +602,13 @@ const PersonalCalendar = {
 
         // 4. Check confirmed rehearsals
         this.rehearsals.forEach(reh => {
+            if (excludeRehearsalId && String(reh.id || reh.rehearsalId || '') === excludeRehearsalId) return;
             const rehStart = new Date(reh.confirmedDate).getTime();
             const rehEnd = reh.endTime ? new Date(reh.endTime).getTime() : rehStart + (2.5 * 60 * 60 * 1000);
             if (Math.max(startTime, rehStart) < Math.min(endTime, rehEnd)) {
                 conflicts.push({
                     type: 'rehearsal',
+                    id: reh.id || reh.rehearsalId || null,
                     title: reh.title || 'Probe',
                     source: 'Persönliche Probe',
                     start: reh.confirmedDate,

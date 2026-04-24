@@ -55,6 +55,7 @@ const Events = {
     clearCache() {
         this.eventsCache = null;
         this.dataContextCache = null;
+        this.currentEventSongLookup = null;
         this.currentFilter = '';
         this.currentEventId = null;
         this.expandedEventId = null;
@@ -320,6 +321,9 @@ const Events = {
             // Set Cache
             this.eventsCache = events;
             this.dataContextCache = dataContext;
+            this.currentEventSongLookup = new Map(
+                ((songsBatch || []).filter(Boolean)).map((song) => [String(song.id), song])
+            );
 
             // Apply filter
             if (filterBandId) {
@@ -696,7 +700,7 @@ const Events = {
                                     <th>Lead</th>
                                     <th>Sprache</th>
                                     <th>Tracks</th>
-                                    <th style="text-align: center;">PDF</th>
+                                    <th style="text-align: center;">Dateien</th>
                                     <th>Infos</th>
                                     <th>CCLI</th>
                                 </tr>
@@ -714,8 +718,8 @@ const Events = {
                                         <td data-label="Lead">${Bands.escapeHtml(song.leadVocal || '-')}</td>
                                         <td data-label="Sprache">${Bands.escapeHtml(song.language || '-')}</td>
                                         <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                                        <td style="text-align: center;" data-label="PDF">
-                                            ${song.pdf_url ? `<button type="button" class="btn-icon" title="PDF öffnen" onclick="App.openPdfPreview('${song.pdf_url}', '${Bands.escapeHtml(song.title)}')">📄</button>` : '-'}
+                                        <td style="text-align: center;" data-label="Dateien">
+                                            ${App.renderSongDocumentPreviewButtons(song)}
                                         </td>
                                         <td data-label="Infos">${Bands.escapeHtml(Storage.getSongInfoPreview(song) || '-')}</td>
                                         <td style="font-family: monospace;" data-label="CCLI">${song.ccli || '-'}</td>
@@ -828,7 +832,7 @@ const Events = {
                                                                 <th>Lead</th>
                                                                 <th>Sprache</th>
                                                                 <th>Tracks</th>
-                                                                <th style="text-align: center;">PDF</th>
+                                                                <th style="text-align: center;">Dateien</th>
                                                                 <th>Infos</th>
                                                                 <th>CCLI</th>
                                                             </tr>
@@ -846,8 +850,8 @@ const Events = {
                                                                     <td data-label="Lead">${Bands.escapeHtml(song.leadVocal || '-')}</td>
                                                                     <td data-label="Sprache">${Bands.escapeHtml(song.language || '-')}</td>
                                                                     <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                                                                    <td style="text-align: center;" data-label="PDF">
-                                                                        ${song.pdf_url ? `<button type="button" class="btn btn-secondary btn-sm event-rundown-inline-pdf" title="PDF öffnen" onclick="App.openPdfPreview('${song.pdf_url}', '${Bands.escapeHtml(song.title)}')">PDF</button>` : '-'}
+                                                                    <td style="text-align: center;" data-label="Dateien">
+                                                                        ${App.renderSongDocumentPreviewButtons(song)}
                                                                     </td>
                                                                     <td data-label="Infos">${Bands.escapeHtml(Storage.getSongInfoPreview(song) || '-')}</td>
                                                                     <td style="font-family: monospace;" data-label="CCLI">${song.ccli || '-'}</td>
@@ -1088,6 +1092,11 @@ const Events = {
                 await App.openStoredEventRundownPdfExport(eventId);
             };
         });
+
+        if (typeof App !== 'undefined' && typeof App.attachSongDocumentPreviewHandlers === 'function') {
+            const eventsView = document.getElementById('eventsView') || document;
+            App.attachSongDocumentPreviewHandlers(eventsView, this.currentEventSongLookup || new Map());
+        }
 
         // Standard actions
         document.querySelectorAll('.edit-event').forEach(btn => {
@@ -1495,6 +1504,42 @@ const Events = {
         return proposals;
     },
 
+    buildConflictCheckRanges(scheduleMode = 'fixed', fixedDate = '', proposals = []) {
+        const dateValues = (scheduleMode === 'fixed'
+            ? (fixedDate ? [fixedDate] : [])
+            : (Array.isArray(proposals) ? proposals.map((proposal) => proposal.start) : [])
+        ).filter(Boolean);
+
+        return dateValues.map((dateStr) => {
+            const start = new Date(dateStr);
+            const end = new Date(start.getTime() + 4 * 60 * 60 * 1000);
+            return {
+                start: start.toISOString(),
+                end: end.toISOString()
+            };
+        });
+    },
+
+    hasEventScheduleChanged(existingEvent, scheduleMode = 'fixed', fixedDate = '', proposals = []) {
+        if (!existingEvent) return true;
+
+        const existingScheduleMode = this.resolveScheduleModeFromEvent(existingEvent);
+        const existingRanges = this.buildConflictCheckRanges(
+            existingScheduleMode,
+            existingEvent.date || '',
+            existingEvent.proposedDates || []
+        );
+        const nextRanges = this.buildConflictCheckRanges(scheduleMode, fixedDate, proposals);
+
+        if (existingRanges.length !== nextRanges.length) return true;
+
+        const serializeRange = (range) => `${range.start}|${range.end}`;
+        const existingKeys = existingRanges.map(serializeRange).sort();
+        const nextKeys = nextRanges.map(serializeRange).sort();
+
+        return existingKeys.some((key, index) => key !== nextKeys[index]);
+    },
+
     resetDateProposalRows() {
         const container = document.getElementById('eventDateProposals');
         if (!container) return;
@@ -1777,6 +1822,7 @@ const Events = {
 
     async handleSaveEvent() {
         const eventId = document.getElementById('editEventId').value;
+        const currentEventId = String(eventId || '').trim();
         const bandId = document.getElementById('eventBand').value;
         const title = document.getElementById('eventTitle').value;
         const scheduleMode = this.getScheduleMode();
@@ -1806,6 +1852,10 @@ const Events = {
             UI.showToast('Bitte gib mindestens einen Terminvorschlag mit Uhrzeit an.', 'warning');
             return;
         }
+
+        const existingEvent = currentEventId ? await Storage.getEvent(currentEventId) : null;
+        const shouldRunScheduleConflictChecks = !currentEventId
+            || this.hasEventScheduleChanged(existingEvent, scheduleMode, fixedDate, proposals);
 
         const user = Auth.getCurrentUser();
         const eventData = {
@@ -1881,13 +1931,12 @@ const Events = {
             }
         };
 
-        const datesToCheck = (scheduleMode === 'fixed'
-            ? (fixedDate ? [fixedDate] : [])
-            : proposals.map(proposal => proposal.start)).map(dateStr => {
-                const start = new Date(dateStr);
-                const end = new Date(start.getTime() + 4 * 60 * 60 * 1000); // 4 hours duration for events
-                return { start: start.toISOString(), end: end.toISOString() };
-            });
+        if (!shouldRunScheduleConflictChecks) {
+            await persistEvent();
+            return;
+        }
+
+        const datesToCheck = this.buildConflictCheckRanges(scheduleMode, fixedDate, proposals);
         const absenceConflicts = await this.collectSelectedMemberAbsenceConflicts(datesToCheck);
 
         if (absenceConflicts.length > 0) {
@@ -1906,9 +1955,10 @@ const Events = {
 
         // Check personal conflicts
         if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
+            const personalConflictOptions = currentEventId ? { excludeEventId: currentEventId } : undefined;
             let allPersonalConflicts = [];
             for (const date of datesToCheck) {
-                allPersonalConflicts.push(...PersonalCalendar.getPersonalConflicts(date.start, date.end));
+                allPersonalConflicts.push(...PersonalCalendar.getPersonalConflicts(date.start, date.end, personalConflictOptions));
             }
 
             if (allPersonalConflicts.length > 0) {
@@ -2025,6 +2075,10 @@ const Events = {
         // Reset button text to 'Speichern' or 'Bestätigen'
         const saveBtn = document.getElementById('saveEventBtn');
         if (saveBtn) saveBtn.textContent = confirmDate ? 'Bestätigen' : 'Speichern';
+        const deleteBtn = document.getElementById('deleteEventBtn');
+        if (deleteBtn) {
+            deleteBtn.style.display = 'block';
+        }
 
         await this.loadBandMembers(event.bandId, event.members);
 
@@ -2408,9 +2462,14 @@ const Events = {
         }
 
         // Helper: get personal conflicts (returns [] if not available)
+        const currentEventId = String(document.getElementById('editEventId')?.value || '').trim();
         const getPersonalConflicts = (start, end) => {
             if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.getPersonalConflicts === 'function') {
-                return PersonalCalendar.getPersonalConflicts(start, end);
+                return PersonalCalendar.getPersonalConflicts(
+                    start,
+                    end,
+                    currentEventId ? { excludeEventId: currentEventId } : undefined
+                );
             }
             return [];
         };

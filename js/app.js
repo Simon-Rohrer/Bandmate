@@ -626,6 +626,29 @@ const App = {
         }
     },
 
+    hasPasswordRecoveryHash() {
+        const hash = window.location.hash || '';
+        return /(?:^|[&#])type=recovery(?:&|$)/i.test(hash);
+    },
+
+    isResetPasswordPage() {
+        const pathname = window.location.pathname || '';
+        return /reset-password\.html$/i.test(pathname);
+    },
+
+    redirectPasswordRecoveryToResetPage() {
+        if (!this.hasPasswordRecoveryHash() || this.isResetPasswordPage()) {
+            return false;
+        }
+
+        const baseUrl = SupabaseClient.buildProjectPageUrl('reset-password.html');
+        const targetUrl = `${baseUrl}${window.location.hash || ''}`;
+
+        console.log('[App] Password recovery link detected before app boot. Redirecting to reset-password page.');
+        window.location.replace(targetUrl);
+        return true;
+    },
+
     markSettingsAsDirty() {
         const settingsModal = document.getElementById('settingsModal');
         if (settingsModal && settingsModal.classList.contains('active')) {
@@ -1940,7 +1963,14 @@ const App = {
 
     cleanupPDFPreview() {
         const frame = document.getElementById('pdfPreviewFrame');
+        const titleEl = document.getElementById('pdfPreviewTitle');
+        const downloadBtn = document.getElementById('pdfPreviewDownload');
         if (frame) frame.src = '';
+        if (titleEl) titleEl.textContent = 'PDF Vorschau';
+        if (downloadBtn) {
+            downloadBtn.removeAttribute('href');
+            downloadBtn.removeAttribute('download');
+        }
 
         if (this.currentPDFData && this.currentPDFData.blobUrl) {
             URL.revokeObjectURL(this.currentPDFData.blobUrl);
@@ -3639,6 +3669,8 @@ const App = {
 
     showPDFPreview(pdfData) {
         const iframe = document.getElementById('pdfPreviewFrame');
+        const titleEl = document.getElementById('pdfPreviewTitle');
+        const downloadBtn = document.getElementById('pdfPreviewDownload');
         if (!iframe) return;
 
         this.cleanupPDFPreview(); // Ensure previous is cleaned up
@@ -3647,6 +3679,15 @@ const App = {
         // Add PDF view parameters for better fitting (Fit to page)
         const viewParams = '#view=Fit';
         iframe.src = pdfData.blobUrl + viewParams;
+
+        if (titleEl) {
+            titleEl.textContent = String(pdfData?.title || 'PDF Vorschau');
+        }
+
+        if (downloadBtn && pdfData?.blobUrl) {
+            downloadBtn.href = pdfData.blobUrl;
+            downloadBtn.setAttribute('download', pdfData.filename || 'export.pdf');
+        }
 
         UI.openModal('pdfPreviewModal');
     },
@@ -4412,6 +4453,11 @@ const App = {
         const startTime = performance.now();
         this.isInitializing = true;
         console.log('[App.init] Boot sequence started...');
+
+        if (this.redirectPasswordRecoveryToResetPage()) {
+            this.isInitializing = false;
+            return;
+        }
 
         // Implement unsaved changes check
         window.isProfileDirty = false;
@@ -5468,6 +5514,10 @@ const App = {
             document.getElementById('eventModalTitle').textContent = 'Neuen Auftritt erstellen';
             document.getElementById('saveEventBtn').textContent = 'Auftritt erstellen';
             document.getElementById('editEventId').value = '';
+            const deleteEventBtn = document.getElementById('deleteEventBtn');
+            if (deleteEventBtn) {
+                deleteEventBtn.style.display = 'none';
+            }
             UI.clearForm('createEventForm');
             if (typeof Events !== 'undefined') {
                 Events.currentEventId = null;
@@ -5554,6 +5604,17 @@ const App = {
 
                 await this.handleCreateEvent();
             };
+        }
+
+        const deleteEventBtn = document.getElementById('deleteEventBtn');
+        if (deleteEventBtn && !deleteEventBtn.dataset.bound) {
+            deleteEventBtn.dataset.bound = 'true';
+            deleteEventBtn.addEventListener('click', async () => {
+                const eventId = document.getElementById('editEventId')?.value || '';
+                if (!eventId || typeof Events === 'undefined' || typeof Events.deleteEvent !== 'function') return;
+                await Events.deleteEvent(eventId);
+                UI.closeModal('createEventModal');
+            });
         }
 
         // Event band change
@@ -6716,7 +6777,6 @@ const App = {
 
     // Handle registration
     async handleRegister() {
-        const registrationCode = document.getElementById('registerCode').value.trim();
         const firstName = document.getElementById('registerFirstName').value.trim();
         const lastName = document.getElementById('registerLastName').value.trim();
         const email = document.getElementById('registerEmail').value.trim();
@@ -6742,7 +6802,7 @@ const App = {
         try {
             const instrument = document.getElementById('registerInstrument').value;
             const sb = SupabaseClient.getClient();
-            await Auth.register(registrationCode, firstName, lastName, email, username, password, instrument);
+            await Auth.register(firstName, lastName, email, username, password, instrument);
 
             const { data: { session } } = await sb.auth.getSession();
             if (session) {
@@ -7306,6 +7366,43 @@ const App = {
         }
 
         return null;
+    },
+
+    getDashboardEventDisplayDate(event) {
+        if (typeof Events !== 'undefined' && typeof Events.getDisplayDateForEvent === 'function') {
+            const displayDate = Events.getDisplayDateForEvent(event);
+            if (displayDate && !Number.isNaN(displayDate.getTime())) {
+                return displayDate;
+            }
+        }
+
+        if (!event?.date) return null;
+        const fallbackDate = new Date(event.date);
+        return Number.isNaN(fallbackDate.getTime()) ? null : fallbackDate;
+    },
+
+    getDashboardRehearsalDisplayDate(rehearsal) {
+        if (typeof Rehearsals !== 'undefined' && typeof Rehearsals.getDisplayDateForRehearsal === 'function') {
+            const displayDate = Rehearsals.getDisplayDateForRehearsal(rehearsal);
+            if (displayDate && !Number.isNaN(displayDate.getTime())) {
+                return displayDate;
+            }
+        }
+
+        const rawValue = this.getConfirmedRehearsalDate(rehearsal);
+        if (!rawValue) return null;
+
+        const fallbackDate = new Date(rawValue);
+        if (Number.isNaN(fallbackDate.getTime())) return null;
+
+        if (typeof rawValue === 'string') {
+            const timeMatch = rawValue.match(/T(\d{2}):(\d{2})/);
+            if (timeMatch) {
+                fallbackDate.setHours(Number(timeMatch[1]), Number(timeMatch[2]), 0, 0);
+            }
+        }
+
+        return fallbackDate;
     },
 
     // Open news detail modal
@@ -8163,7 +8260,7 @@ const App = {
                             <th>Lead</th>
                             <th>Sprache</th>
                             <th>Tracks</th>
-                            <th style="text-align: center;">PDF</th>
+                            <th style="text-align: center;">Dateien</th>
                             <th>Infos</th>
                             <th>CCLI</th>
                         </tr>
@@ -8191,12 +8288,8 @@ const App = {
                                 <td data-label="Lead">${song.leadVocal || '-'}</td>
                                 <td data-label="Sprache">${song.language || '-'}</td>
                                 <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                                <td style="text-align: center;" data-label="PDF">
-                                    ${song.pdf_url ? `
-                                        <button type="button" class="btn btn-secondary btn-sm event-rundown-inline-pdf event-rundown-song-pdf" title="PDF öffnen">
-                                            PDF
-                                        </button>
-                                    ` : '-'}
+                                <td style="text-align: center;" data-label="Dateien">
+                                    ${this.renderSongDocumentPreviewButtons(song)}
                                 </td>
                                 <td data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
                                 <td data-label="CCLI">${song.ccli || '-'}</td>
@@ -8297,6 +8390,8 @@ const App = {
             </div>
         `;
 
+        this.attachSongDocumentPreviewHandlers(container, availableSongMap);
+
         container.querySelectorAll('.event-rundown-title-input').forEach((input) => {
             input.addEventListener('input', (event) => {
                 const itemId = event.target.closest('.event-rundown-item')?.dataset?.rundownId;
@@ -8381,18 +8476,6 @@ const App = {
                 const songId = button.closest('[data-rundown-song-id]')?.dataset?.rundownSongId;
                 const itemId = button.closest('.event-rundown-item')?.dataset?.rundownId;
                 this.removeSongFromDraftEventSongBlock(itemId, songId);
-            });
-        });
-
-        container.querySelectorAll('.event-rundown-song-pdf').forEach((button) => {
-            button.addEventListener('click', (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                const songId = button.closest('[data-rundown-song-id]')?.dataset?.rundownSongId;
-                const song = availableSongMap.get(String(songId));
-                if (song?.pdf_url) {
-                    this.openPdfPreview(song.pdf_url, song.title);
-                }
             });
         });
 
@@ -9011,7 +9094,9 @@ const App = {
                 return;
             }
 
-            const filename = `Setlist_${title.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.pdf`;
+            const filename = typeof PDFGenerator !== 'undefined' && typeof PDFGenerator.sanitizeFilename === 'function'
+                ? PDFGenerator.sanitizeFilename(`${title}.pdf`, 'setlist.pdf')
+                : `${String(title || 'Setlist').trim() || 'Setlist'}.pdf`;
 
             const pdfData = await PDFGenerator.generateSetlistPDF({
                 title: title,
@@ -9022,7 +9107,11 @@ const App = {
             });
 
             if (preview && pdfData && pdfData.blobUrl) {
-                this.showPDFPreview(pdfData);
+                this.showPDFPreview({
+                    ...pdfData,
+                    filename,
+                    title: `${title} - PDF`
+                });
             } else if (!preview) {
                 UI.showToast('PDF heruntergeladen!', 'success');
             }
@@ -9907,7 +9996,7 @@ const App = {
 
                 if (draft.sourceType === 'pdf' && draft.file) {
                     const sb = SupabaseClient.getClient();
-                    const fileName = `${String(user.id || 'user').trim()}/song-pdf-${Date.now()}-${progressOffset + index}.pdf`;
+                    const fileName = `song-pdf-${Date.now()}-${progressOffset + index}.pdf`;
                     const { error: uploadError } = await sb.storage
                         .from('song-pdfs')
                         .upload(fileName, draft.file, {
@@ -10597,11 +10686,14 @@ const App = {
             for (let pageNumber = 1; pageNumber <= maxPages; pageNumber++) {
                 const page = await pdf.getPage(pageNumber);
                 const textContent = await page.getTextContent({ includeMarkedContent: true });
-                const sortedItems = (textContent.items || []).slice().sort((left, right) => {
-                    const yDiff = left.transform[5] - right.transform[5];
-                    if (Math.abs(yDiff) < 5) return left.transform[4] - right.transform[4];
-                    return -yDiff;
-                });
+                const sortedItems = (textContent.items || [])
+                    .filter(item => item && item.transform && Array.isArray(item.transform))
+                    .slice()
+                    .sort((left, right) => {
+                        const yDiff = left.transform[5] - right.transform[5];
+                        if (Math.abs(yDiff) < 5) return left.transform[4] - right.transform[4];
+                        return -yDiff;
+                    });
 
                 let lastY = null;
                 sortedItems.forEach((item) => {
@@ -11704,7 +11796,7 @@ const App = {
                     const sb = SupabaseClient.getClient();
 
                     const fileExt = 'pdf';
-                    const fileName = `${String(user.id || 'user').trim()}/song-pdf-${Date.now()}.${fileExt}`;
+                    const fileName = `song-pdf-${Date.now()}.${fileExt}`;
 
                     const { error: uploadError } = await sb.storage
                         .from('song-pdfs')
@@ -12050,7 +12142,7 @@ const App = {
                             <th>Lead</th>
                             <th>Sprache</th>
                             <th>Tracks</th>
-                            <th style="text-align: center;">PDF</th>
+                            <th style="text-align: center;">Dateien</th>
                             <th>Infos</th>
                             <th>CCLI</th>
                         </tr>
@@ -12077,8 +12169,8 @@ const App = {
                                 <td data-label="Lead">${song.leadVocal || '-'}</td>
                                 <td data-label="Sprache">${song.language || '-'}</td>
                                 <td data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                                <td style="text-align: center;" data-label="PDF">
-                                    ${song.pdf_url ? `<button type="button" class="btn-icon" title="PDF öffnen" onclick="App.openPdfPreview('${song.pdf_url}', '${this.escapeHtml(song.title)}')">${this.getRundownInlineIcon('pdf')}</button>` : '-'}
+                                <td style="text-align: center;" data-label="Dateien">
+                                    ${this.renderSongDocumentPreviewButtons(song)}
                                 </td>
                                 <td data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
                                 <td style="font-family: monospace;" data-label="CCLI">${song.ccli || '-'}</td>
@@ -12092,6 +12184,7 @@ const App = {
         }
 
         container.innerHTML = html;
+        this.attachSongDocumentPreviewHandlers(container, new Map((songs || []).map((song) => [String(song.id), song])));
         await this.renderEventRundownEditor();
 
         // Store event songs for quick access
@@ -14289,7 +14382,7 @@ const App = {
                     <th>Lead</th>
                     <th>Sprache</th>
                     <th>Tracks</th>
-                    <th style="text-align: center;">PDF</th>
+                    <th style="text-align: center;">Dateien</th>
                     <th>Infos</th>
                     <th>CCLI</th>
                 </tr>
@@ -14316,8 +14409,8 @@ const App = {
                         <td data-label="Lead">${draftSong.leadVocal || '-'}</td>
                         <td data-label="Sprache">${draftSong.language || '-'}</td>
                         <td data-label="Tracks">${draftSong.tracks === 'yes' ? 'Ja' : (draftSong.tracks === 'no' ? 'Nein' : '-')}</td>
-                        <td style="text-align: center;" data-label="PDF">
-                            ${draftSong.pdf_url ? `<button type="button" class="btn-icon" title="PDF öffnen" onclick="App.openPdfPreview('${draftSong.pdf_url}', '${this.escapeHtml(draftSong.title)}')">${this.getRundownInlineIcon('pdf')}</button>` : '-'}
+                        <td style="text-align: center;" data-label="Dateien">
+                            ${this.renderSongDocumentPreviewButtons(draftSong)}
                         </td>
                         <td data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(draftSong))}</td>
                         <td style="font-family: monospace;" data-label="CCLI">${draftSong.ccli || '-'}</td>
@@ -14329,6 +14422,10 @@ const App = {
             </div>
         </div>
 `;
+        this.attachSongDocumentPreviewHandlers(
+            container,
+            new Map(songs.map((song) => [String(song.id), this.getDraftEventSong(song)]))
+        );
         await this.renderEventRundownEditor();
 
         // --- Drag and Drop Logic for Draft Songs ---
@@ -18524,7 +18621,10 @@ const App = {
             const isVisibleFixedDate = (dateValue) => !!dateValue && !Storage.isPastCalendarDay(dateValue, now);
 
             // Upcoming Events Count
-            const upcomingEvents = events.filter(e => isVisibleFixedDate(e.date));
+            const upcomingEvents = events.filter(e => {
+                const displayDate = this.getDashboardEventDisplayDate(e);
+                return !!displayDate && !Storage.isPastCalendarDay(displayDate, now);
+            });
             const upcomingEventsEl = document.getElementById('upcomingEvents');
             if (upcomingEventsEl) upcomingEventsEl.textContent = upcomingEvents.length;
             const upcomingEventsCaptionEl = document.getElementById('upcomingEventsCaption');
@@ -18575,13 +18675,13 @@ const App = {
             if (nextEventContent) {
                 try {
                     const allItems = [
-                        ...(upcomingEvents.map(e => ({ ...e, type: 'Gig', date: new Date(e.date) }))),
+                        ...(upcomingEvents.map(e => ({ ...e, type: 'Gig', date: this.getDashboardEventDisplayDate(e) }))),
                         ...(confirmedRehearsals.map(r => ({
                             ...r,
                             type: 'Probe',
-                            date: new Date(getConfirmedRehearsalDateValue(r))
+                            date: this.getDashboardRehearsalDisplayDate(r)
                         })))
-                    ];
+                    ].filter(item => item.date && !Number.isNaN(item.date.getTime()));
                     allItems.sort((a, b) => a.date - b.date);
                     const nextItem = allItems.find(item => item.date >= now)
                         || allItems.find(item => !Storage.isPastCalendarDay(item.date, now));
@@ -18790,15 +18890,19 @@ const App = {
         const locationMap = new Map(allLocations.map(l => [l.id, l]));
 
         const upcomingEvents = events
-            .filter(e => new Date(e.date) >= now)
+            .map(e => ({
+                source: e,
+                displayDate: this.getDashboardEventDisplayDate(e)
+            }))
+            .filter(({ displayDate }) => displayDate && displayDate >= now)
             .map(e => ({
                 type: 'event',
-                date: new Date(e.date).toISOString(),
-                title: e.title,
-                bandId: e.bandId,
-                band: e.band, // Pass through joined band data
-                location: e.location || null,
-                id: e.id
+                date: e.displayDate,
+                title: e.source.title,
+                bandId: e.source.bandId,
+                band: e.source.band,
+                location: e.source.location || null,
+                id: e.source.id
             }));
 
         const upcomingRehearsals = rehearsals
@@ -18809,17 +18913,17 @@ const App = {
             .filter(({ rehearsal, dateIso }) => rehearsal.status === 'confirmed' && dateIso)
             .map(({ rehearsal, dateIso }) => ({
                 type: 'rehearsal',
-                date: dateIso,
+                date: this.getDashboardRehearsalDisplayDate(rehearsal),
                 title: rehearsal.title,
                 bandId: rehearsal.bandId,
                 band: rehearsal.band, // Pass through joined band data
                 locationId: rehearsal.locationId || null,
                 id: rehearsal.id
             }))
-            .filter(item => item.date && new Date(item.date) >= now);
+            .filter(item => item.date && item.date >= now);
 
         const combined = [...upcomingEvents, ...upcomingRehearsals]
-            .sort((a, b) => new Date(a.date) - new Date(b.date))
+            .sort((a, b) => a.date - b.date)
             .slice(0, 3);
 
         if (combined.length === 0) {

@@ -881,6 +881,22 @@ a {
     margin-bottom: 1rem;
 }
 
+#landingPage .auth-form-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    width: max-content;
+    min-height: 26px;
+    padding: 0 0.72rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--accent-secondary) 26%, var(--landing-auth-border));
+    background: color-mix(in srgb, var(--accent-secondary) 10%, transparent);
+    color: var(--accent-secondary);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
 #landingPage .auth-form-header h3 {
     margin: 0;
     font-size: 1.15rem;
@@ -893,6 +909,67 @@ a {
     color: var(--landing-auth-muted);
     font-size: 0.92rem;
     line-height: 1.55;
+}
+
+#landingPage .auth-forgot-form {
+    display: none !important;
+}
+
+#landingPage .auth-forgot-form.active {
+    display: block !important;
+}
+
+#landingPage .auth-forgot-header {
+    margin-bottom: 1.1rem;
+}
+
+#landingPage .auth-forgot-callout {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 0.9rem;
+    align-items: start;
+    margin-bottom: 1rem;
+    padding: 1rem 1.05rem;
+    border-radius: 18px;
+    border: 1px solid color-mix(in srgb, var(--accent-secondary) 18%, var(--landing-auth-border));
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--accent-secondary) 8%, transparent), transparent 72%),
+        color-mix(in srgb, var(--landing-auth-surface-strong) 96%, transparent);
+}
+
+#landingPage .auth-forgot-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.35rem;
+    height: 2.35rem;
+    border-radius: 0.9rem;
+    background: color-mix(in srgb, var(--accent-secondary) 16%, transparent);
+    color: var(--accent-secondary);
+}
+
+#landingPage .auth-forgot-icon svg {
+    width: 1.2rem;
+    height: 1.2rem;
+}
+
+#landingPage .auth-forgot-callout-copy {
+    display: grid;
+    gap: 0.22rem;
+    min-width: 0;
+}
+
+#landingPage .auth-forgot-callout-copy strong {
+    font-size: 0.95rem;
+    line-height: 1.3;
+    color: var(--landing-auth-text);
+}
+
+#landingPage .auth-forgot-callout-copy p {
+    margin: 0;
+    color: var(--landing-auth-muted);
+    font-size: 0.88rem;
+    line-height: 1.5;
 }
 
 #landingPage .auth-grid {
@@ -1026,6 +1103,55 @@ a {
 #landingPage .auth-status-notice[data-type="warning"] {
     border-color: rgba(245, 158, 11, 0.28);
     background: rgba(245, 158, 11, 0.12);
+}
+
+#landingPage.landing-reset-page .landing-header {
+    padding-bottom: 0;
+}
+
+#landingPage .landing-logo-link {
+    text-decoration: none;
+}
+
+#landingPage.landing-reset-page .landing-reset-main {
+    min-height: calc(100vh - 152px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 0 3rem;
+}
+
+#landingPage.landing-reset-page .reset-password-card {
+    width: min(100%, 520px);
+}
+
+#landingPage.landing-reset-page .reset-password-card-head {
+    padding-bottom: 0.35rem;
+}
+
+#landingPage.landing-reset-page .reset-password-form {
+    gap: 0;
+}
+
+#landingPage.landing-reset-page .password-hint-text {
+    margin-top: 0.45rem;
+    font-size: 0.82rem;
+    line-height: 1.45;
+    color: var(--landing-auth-muted);
+}
+
+#landingPage.landing-reset-page .password-hint-text.is-valid {
+    color: #22c55e;
+}
+
+#landingPage.landing-reset-page .password-hint-text.is-invalid {
+    color: #f97316;
+}
+
+#landingPage.landing-reset-page .reset-password-footer {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--landing-auth-border);
 }
 
 #landingPage .auth-white-card .btn-submit {
