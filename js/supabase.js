@@ -28,6 +28,8 @@ const SupabaseClient = {
     },
 
     isConfigured() {
+        if (this.client) return true;
+        if (typeof CONFIG !== 'undefined' && CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY) return true;
         const url = localStorage.getItem('supabase.url');
         const key = localStorage.getItem('supabase.anonKey');
         return !!(url && key);
