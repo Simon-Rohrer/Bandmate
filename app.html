@@ -3449,24 +3449,33 @@
                 <input type="hidden" id="songBandId">
                 <input type="hidden" id="songCollection" value="songs">
                 <div class="song-editor-scroll">
-                    <div class="settings-section">
-                        <h4 class="settings-section-title">
-                            <span class="icon">📅</span> Kalender & Farben
-                        </h4>
-                        <p class="settings-section-description">Synchronisiere bis zu 10 externe Kalender (Apple, Google etc.) und passe deine Kalenderfarben an.</p>
-                        
-                        <div class="settings-grid">
-                            <div class="settings-group full-width">
-                                <label>Externe Kalender (iCal/Webcal)</label>
-                                <div id="externalCalendarsList" class="external-calendars-list">
-                                    <!-- Dynamic rows will be inserted here -->
+                    <section class="song-editor-panel song-editor-panel-soft">
+                        <div class="song-editor-panel-head">
+                            <div>
+                                <span class="song-editor-panel-kicker">Datei & Import</span>
+                                <h3>Datei zuerst anhängen</h3>
+                            </div>
+                            <p>Hänge zuerst PDF oder ChordPro an. Titel, Tonart und weitere Felder werden wenn möglich direkt aus Datei oder Dateiname vorausgefüllt.</p>
+                        </div>
+                        <div class="song-editor-grid song-editor-grid-upload">
+                            <div class="form-group song-editor-file-group">
+                                <label for="songPdf">PDF / ChordPro Upload</label>
+                                <input type="file" id="songPdf" accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf">
+                                <div id="songCurrentPdf" class="song-editor-file-state" style="display: none;">
+                                    <div class="song-editor-file-meta">
+                                        <span class="song-editor-file-icon">Datei</span>
+                                        <span id="songPdfName">Keine Datei ausgewählt</span>
+                                    </div>
+                                    <button type="button" class="btn btn-sm btn-danger" id="deleteSongPdfBtn">Löschen</button>
                                 </div>
-                                <button type="button" id="btnAddCalendar" class="btn btn-secondary btn-sm" style="margin-top: 0.75rem;">
-                                    <span>➕</span> Weiteren Kalender hinzufügen
-                                </button>
+                            </div>
+                            <div class="song-editor-upload-hint">
+                                <strong>Automatische Vorbelegung</strong>
+                                <p>Beim Repertoire und im Songpool lesen wir zuerst Dateiname, erkannte Tonart und wenn vorhanden Metadaten aus PDF oder ChordPro aus. So sparst du dir die wichtigsten Felder oft von Hand.</p>
                             </div>
                         </div>
-                    </div>
+                    </section>
+
                     <section class="song-editor-panel">
                         <div class="song-editor-panel-head">
                             <div>
@@ -3619,26 +3628,15 @@
                     <section class="song-editor-panel">
                         <div class="song-editor-panel-head">
                             <div>
-                                <span class="song-editor-panel-kicker">Material</span>
-                                <h3>Notizen und PDF</h3>
+                                <span class="song-editor-panel-kicker">Notizen</span>
+                                <h3>Songinfos ergänzen</h3>
                             </div>
-                            <p>Ergänze Hinweise zum Song oder hinterlege ein PDF für Noten und Texte.</p>
+                            <p>Halte hier zusätzliche Hinweise, Arrangements oder interne Notizen zum Song kompakt fest.</p>
                         </div>
-                        <div class="song-editor-grid song-editor-grid-material">
-                            <div class="form-group">
+                        <div class="song-editor-grid song-editor-grid-notes">
+                            <div class="form-group full-width">
                                 <label for="songInfo">Songinfos</label>
                                 <textarea id="songInfo" rows="5" placeholder="Zusätzliche Infos zum Song..."></textarea>
-                            </div>
-                            <div class="form-group song-editor-file-group">
-                                <label for="songPdf">PDF / ChordPro Upload</label>
-                                <input type="file" id="songPdf" accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf">
-                                <div id="songCurrentPdf" class="song-editor-file-state" style="display: none;">
-                                    <div class="song-editor-file-meta">
-                                        <span class="song-editor-file-icon">Datei</span>
-                                        <span id="songPdfName">Keine Datei ausgewählt</span>
-                                    </div>
-                                    <button type="button" class="btn btn-sm btn-danger" id="deleteSongPdfBtn">Löschen</button>
-                                </div>
                             </div>
                         </div>
                     </section>
@@ -4379,18 +4377,71 @@
                 </div>
                 <button class="modal-close">&times;</button>
             </div>
-            <div class="modal-body modal-scroll">
-                <div class="chordpro-help-layout">
-                    <section class="chordpro-help-section">
-                        <div class="chordpro-help-icon">🔗</div>
-                        <h3>Warum den Kalender einrichten?</h3>
-                        <p>Du kannst private Kalender aus Apple Kalender, Google Calendar etc. einbinden, damit Bandkollegen bei Abstimmungen direkt sehen, falls du schon verplant bist.</p>
+            <div class="modal-body chordpro-help-body">
+                <div class="chordpro-help-intro">
+                    <p><strong>Externe Kalender</strong> helfen dir dabei, bei Proben und Auftritten schneller als verfügbar oder belegt erkannt zu werden. Wenn du möchtest, kannst du pro Kalender zusätzlich freigeben, dass Leiter und Co-Leiter nur blockierte Zeiten sehen, aber nie den eigentlichen Termininhalt.</p>
+                </div>
+
+                <div class="chordpro-help-grid calendar-help-grid">
+                    <section class="chordpro-help-card calendar-help-card">
+                        <div class="calendar-help-card-head">
+                            <span class="calendar-help-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 20 20" fill="none">
+                                    <path d="M8.2 11.8 4.7 15.3a2.2 2.2 0 1 1-3.1-3.1l3.5-3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="m11.8 8.2 3.5-3.5a2.2 2.2 0 0 1 3.1 3.1l-3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="m7 13 6-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                                </svg>
+                            </span>
+                            <h3>Warum den Kalender verbinden?</h3>
+                        </div>
+                        <p>Du kannst deine <strong>privaten Kalender</strong> einbinden, damit Bandmate beim Planen erkennt, ob du in einem Zeitraum schon belegt bist. So werden Konflikte früher sichtbar, ohne dass du alles doppelt eintragen musst.</p>
                     </section>
-                    
-                    <section class="chordpro-help-section">
-                        <div class="chordpro-help-icon">⚙️</div>
-                        <h3>So richtest du ihn ein</h3>
-                        <p>Gehe zu <strong>Einstellungen → Profil → Externe Kalender</strong> und kopiere dort die iCAL-URL deines Google oder Apple Kalenders hinein.</p>
+
+                    <section class="chordpro-help-card calendar-help-card">
+                        <div class="calendar-help-card-head">
+                            <span class="calendar-help-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 20 20" fill="none">
+                                    <path d="M2 10s3.2-5.4 8-5.4S18 10 18 10s-3.2 5.4-8 5.4S2 10 2 10Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"></path>
+                                    <circle cx="10" cy="10" r="2.2" stroke="currentColor" stroke-width="1.7"></circle>
+                                </svg>
+                            </span>
+                            <h3>Was sehen Leiter davon?</h3>
+                        </div>
+                        <p>Wenn du den Schalter <strong>Für Leiter sichtbar</strong> aktivierst, sehen Leiter und Co-Leiter nur, <strong>dass</strong> du in einem Zeitraum belegt bist. Titel, Beschreibung und andere Kalendereinträge bleiben verborgen.</p>
+                    </section>
+
+                    <section class="chordpro-help-card calendar-help-card">
+                        <div class="calendar-help-card-head">
+                            <span class="calendar-help-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 20 20" fill="none">
+                                    <rect x="3" y="4.5" width="14" height="12" rx="2.2" stroke="currentColor" stroke-width="1.7"></rect>
+                                    <path d="M3 8.2h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                                    <path d="M6.4 2.8v3.1M13.6 2.8v3.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                                </svg>
+                            </span>
+                            <h3>Welche Links funktionieren?</h3>
+                        </div>
+                        <p>Verwende am besten eine öffentliche <strong>iCal</strong>- oder <strong>Webcal</strong>-Adresse aus Google Kalender, Apple Kalender, Outlook oder einem anderen Kalenderdienst. Diese URL wird in den Profileinstellungen hinterlegt.</p>
+                    </section>
+
+                    <section class="chordpro-help-card calendar-help-card">
+                        <div class="calendar-help-card-head">
+                            <span class="calendar-help-card-icon" aria-hidden="true">
+                                <svg viewBox="0 0 20 20" fill="none">
+                                    <path d="M10 3.2v13.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                                    <path d="M5 8.2 10 3.2l5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path>
+                                    <path d="M4 16.2h12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"></path>
+                                </svg>
+                            </span>
+                            <h3>So richtest du es ein</h3>
+                        </div>
+                        <ol class="calendar-help-step-list">
+                            <li>Öffne <strong>Einstellungen</strong>.</li>
+                            <li>Gehe in den Bereich <strong>Profil</strong>.</li>
+                            <li>Füge unter <strong>Externe Kalender</strong> deine iCal- oder Webcal-URL ein.</li>
+                            <li>Entscheide pro Kalender, ob er <strong>für Leiter sichtbar</strong> sein soll.</li>
+                        </ol>
+                        <p class="calendar-help-note">Tipp: Du kannst mehrere Kalender hinterlegen und die Sichtbarkeit für jeden einzeln steuern.</p>
                     </section>
                 </div>
             </div>
@@ -4512,7 +4563,7 @@
 
     <script src="js/logger.js?v=20260311"></script>
     <script src="js/proxy-service.js?v=20260311"></script>
-    <script src="js/config.js"></script>
+    <script src="js/config.js?v=20260424-1"></script>
     <script src="js/supabase.js?v=20260407-17"></script>
     <script src="js/storage.js?v=20260409-1"></script>
     <script src="js/auth.js?v=20260407-19"></script>

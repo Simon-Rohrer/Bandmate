@@ -9151,7 +9151,11 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
 
 .detail-item-lineup {
     width: 100%;
-    max-width: 20rem;
+    max-width: none;
+}
+
+.detail-item-lineup-compact {
+    align-self: stretch;
 }
 
 .detail-lineup-list {
@@ -18425,6 +18429,58 @@ html[data-theme="light"] .loader-container,
     font-weight: 700;
 }
 
+.calendar-help-grid .calendar-help-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.calendar-help-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+}
+
+.calendar-help-card-icon {
+    width: 2.35rem;
+    height: 2.35rem;
+    flex: 0 0 2.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 14px;
+    color: var(--color-primary);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.14), rgba(59, 130, 246, 0.08));
+    border: 1px solid rgba(99, 102, 241, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.calendar-help-card-icon svg {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.calendar-help-card-head h3 {
+    margin: 0;
+}
+
+.calendar-help-step-list {
+    margin: 0;
+    padding-left: 1.15rem;
+    color: var(--color-text-secondary);
+}
+
+.calendar-help-step-list li + li {
+    margin-top: 0.42rem;
+}
+
+.calendar-help-note {
+    margin: 0;
+    padding-top: 0.1rem;
+    font-size: 0.92rem;
+    color: var(--color-text-muted);
+}
+
 .converter-container .cp-ipad-stage {
     width: 100%;
     min-height: 100%;
@@ -27646,6 +27702,28 @@ html[data-theme="dark"] #songpoolView .songpool-visibility-badge.is-private {
     gap: 0.45rem;
 }
 
+#songpoolView .songpool-document-badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0.18rem 0.58rem;
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 18%, var(--border));
+    background: color-mix(in srgb, var(--color-primary) 9%, transparent);
+    color: var(--color-primary);
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+#songpoolView .songpool-document-badge.is-chordpro {
+    border-color: color-mix(in srgb, #14b8a6 28%, var(--border));
+    background: color-mix(in srgb, #14b8a6 12%, transparent);
+    color: color-mix(in srgb, #14b8a6 82%, white 5%);
+}
+
 #songpoolView .songpool-owner-badge {
     display: inline-flex;
     align-items: center;
@@ -28810,6 +28888,8 @@ html[data-theme="light"] .calendar-sync-card,
     padding: 1.2rem 1.35rem 1.3rem;
     display: grid;
     gap: 1rem;
+    position: relative;
+    z-index: 1;
 }
 
 .song-editor-panel {
@@ -28860,8 +28940,17 @@ html[data-theme="light"] .calendar-sync-card,
     grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.song-editor-grid-upload {
+    grid-template-columns: minmax(320px, 1.05fr) minmax(0, 0.95fr);
+    align-items: stretch;
+}
+
 .song-editor-grid-material {
     grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+}
+
+.song-editor-grid-notes {
+    grid-template-columns: minmax(0, 1fr);
 }
 
 .song-editor-autofill-group {
@@ -28969,6 +29058,31 @@ html[data-theme="light"] .calendar-sync-card,
     gap: 0.7rem;
 }
 
+.song-editor-upload-hint {
+    display: grid;
+    align-content: start;
+    gap: 0.55rem;
+    min-height: 100%;
+    padding: 1rem 1.05rem;
+    border-radius: 1rem;
+    border: 1px solid color-mix(in srgb, var(--color-primary) 14%, var(--color-border));
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 8%, transparent), transparent 72%),
+        color-mix(in srgb, var(--color-surface) 96%, transparent);
+}
+
+.song-editor-upload-hint strong {
+    font-size: 0.95rem;
+    line-height: 1.3;
+    color: var(--color-text);
+}
+
+.song-editor-upload-hint p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+}
+
 .song-editor-file-group input[type="file"] {
     display: block;
     width: 100%;
@@ -29029,6 +29143,8 @@ html[data-theme="light"] .calendar-sync-card,
     background:
         linear-gradient(180deg, color-mix(in srgb, var(--color-primary) 3%, transparent), transparent 20%),
         var(--color-surface);
+    position: relative;
+    z-index: 3;
 }
 
 .song-pool-modal-body {
@@ -29728,6 +29844,7 @@ html[data-theme="light"] .calendar-sync-card,
 }
 
 @media (max-width: 900px) {
+    .song-editor-grid-upload,
     .song-editor-grid-primary,
     .song-editor-grid-secondary,
     .song-editor-grid-material {

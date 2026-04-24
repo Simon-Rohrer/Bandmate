@@ -3651,6 +3651,25 @@ const App = {
         UI.openModal('pdfPreviewModal');
     },
 
+    renderSongpoolDocumentBadges(song) {
+        if (!song) return '';
+
+        const badges = [];
+        const chordProText = typeof Storage !== 'undefined' && typeof Storage.getSongChordPro === 'function'
+            ? Storage.getSongChordPro(song)
+            : '';
+
+        if (song.pdf_url) {
+            badges.push('<span class="songpool-document-badge">PDF</span>');
+        }
+
+        if (chordProText) {
+            badges.push('<span class="songpool-document-badge is-chordpro">ChordPro</span>');
+        }
+
+        return badges.join('');
+    },
+
     renderSongDocumentPreviewButtons(song) {
         if (!song) return '-';
 
@@ -9487,6 +9506,7 @@ const App = {
 
         return {
             id: `bandpool-${song.id || Math.random().toString(36).slice(2, 9)}`,
+            sourceSongId: song.id || null,
             sourceType: 'bandpool',
             sourceLabel: 'Bandpool',
             file: null,
@@ -9507,28 +9527,43 @@ const App = {
         };
     },
 
-    async createSongpoolDraftFromBandSongFile(song, visibility = 'public', file = null) {
+    async createSongpoolDraftFromBandSongFile(song, visibility = 'public', file = null, draftOverrides = {}) {
         const baseDraft = this.createSongpoolDraftFromBandSong(song, visibility);
         if (!baseDraft) return null;
-        if (!file) return baseDraft;
+        if (!file) {
+            return {
+                ...baseDraft,
+                ...draftOverrides
+            };
+        }
 
         const isChordProUpload = this.isChordProLikeFileName(file.name || '');
         const plainInfo = Storage.getSongPlainInfo(song);
         const chordProText = isChordProUpload ? await file.text() : '';
+        const detectedMetadata = isChordProUpload
+            ? this.extractSongpoolMetadataFromText(chordProText, file.name, { requireExplicitTitle: true })
+            : await this.extractSongpoolMetadataFromPdfFile(file);
 
         return {
             ...baseDraft,
+            ...draftOverrides,
             sourceType: isChordProUpload ? 'chordpro' : 'pdf',
             sourceLabel: isChordProUpload ? 'ChordPro' : 'PDF',
             file,
             pdf_url: null,
+            title: baseDraft.title || detectedMetadata?.title || this.getSongpoolImportedFileBaseName(file.name || ''),
+            artist: baseDraft.artist || detectedMetadata?.artist || '',
+            bpm: baseDraft.bpm || detectedMetadata?.bpm || null,
+            key: baseDraft.key || detectedMetadata?.key || null,
+            timeSignature: baseDraft.timeSignature || detectedMetadata?.timeSignature || null,
+            language: baseDraft.language || detectedMetadata?.language || null,
             info: isChordProUpload
                 ? Storage.composeSongInfoWithChordPro(plainInfo, chordProText)
                 : (baseDraft.info || null)
         };
     },
 
-    async openSongpoolBandMissingDocumentModal(readySongs = [], missingSongs = [], visibility = 'public') {
+    async openSongpoolBandMissingDocumentModal(readySongs = [], missingSongs = [], visibility = 'public', draftMetaBySongId = new Map()) {
         const readyEntries = Array.isArray(readySongs) ? readySongs.filter(Boolean) : [];
         const missingEntries = Array.isArray(missingSongs) ? missingSongs.filter(Boolean) : [];
         const readyDocumentCount = readyEntries.length;
@@ -9537,7 +9572,12 @@ const App = {
 
         if (!missingEntries.length) {
             const drafts = await Promise.all(
-                readyEntries.map((song) => this.createSongpoolDraftFromBandSongFile(song, visibility))
+                readyEntries.map((song) => this.createSongpoolDraftFromBandSongFile(
+                    song,
+                    visibility,
+                    null,
+                    draftMetaBySongId.get(String(song?.id || '')) || {}
+                ))
             );
             return {
                 confirmed: true,
@@ -9616,7 +9656,12 @@ const App = {
 
                 if (includeReady) {
                     for (const song of readyEntries) {
-                        const draft = await this.createSongpoolDraftFromBandSongFile(song, visibility);
+                        const draft = await this.createSongpoolDraftFromBandSongFile(
+                            song,
+                            visibility,
+                            null,
+                            draftMetaBySongId.get(String(song?.id || '')) || {}
+                        );
                         if (draft) drafts.push(draft);
                     }
                 }
@@ -9625,7 +9670,12 @@ const App = {
                     for (const song of activeMissingEntries) {
                         const file = fileSelections.get(String(song.id));
                         if (!file) continue;
-                        const draft = await this.createSongpoolDraftFromBandSongFile(song, visibility, file);
+                        const draft = await this.createSongpoolDraftFromBandSongFile(
+                            song,
+                            visibility,
+                            file,
+                            draftMetaBySongId.get(String(song?.id || '')) || {}
+                        );
                         if (draft) drafts.push(draft);
                     }
                 }
@@ -10171,9 +10221,8 @@ const App = {
             return { title: '', key: null };
         }
 
-        const keyReadyBaseName = rawBaseName
+        const normalizedBaseName = rawBaseName
             .replace(/[“”„"'’`´‚]+/g, ' ')
-            .replace(/[()[\]{}]+/g, ' ')
             .replace(/\s{2,}/g, ' ')
             .trim();
 
@@ -10186,7 +10235,7 @@ const App = {
         ];
 
         for (let index = 0; index < trailingKeyPatterns.length; index++) {
-            const match = keyReadyBaseName.match(trailingKeyPatterns[index]);
+            const match = normalizedBaseName.match(trailingKeyPatterns[index]);
             if (!match) continue;
 
             const potentialTitle = String(match[1] || '').trim();
@@ -10194,14 +10243,33 @@ const App = {
             const normalizedKey = this.normalizeImportedSongKeyCandidate(potentialKey);
             const plainCandidate = potentialKey.replace(/[^A-Za-zÄÖÜäöüß]/g, '');
             const keyLooksSpecific = /[#b♯♭/]/.test(potentialKey) || /\d/.test(potentialKey) || plainCandidate.length > 1;
-            const titleTokenCount = potentialTitle.split(/\s+/).filter(Boolean).length;
-            const titleLooksSafe = potentialTitle.length >= 4 || titleTokenCount >= 2;
+            const normalizedPotentialTitle = this.normalizeImportedSongTitleCandidate(potentialTitle);
+            const titleTokenCount = normalizedPotentialTitle.split(/\s+/).filter(Boolean).length;
+            const titleLooksSafe = normalizedPotentialTitle.length >= 4 || titleTokenCount >= 2;
             const hasExplicitDelimiter = index === 0;
 
             if (normalizedKey && (hasExplicitDelimiter || keyLooksSpecific) && titleLooksSafe) {
                 titleSource = potentialTitle;
                 detectedKey = normalizedKey;
                 break;
+            }
+        }
+
+        let detectedArtist = '';
+        const titleWithoutKey = String(titleSource || '').trim();
+        const trailingArtistMatch = titleWithoutKey.match(/^(.*?)(?:\s*[\[(]\s*([^()[\]{}]+?)\s*[\])])\s*$/);
+        if (trailingArtistMatch) {
+            const potentialTitle = this.normalizeImportedSongTitleCandidate(String(trailingArtistMatch[1] || '').trim());
+            const potentialArtist = this.normalizeImportedSongTitleCandidate(String(trailingArtistMatch[2] || '').trim());
+
+            if (
+                potentialTitle
+                && potentialArtist
+                && !this.isWeakImportedSongTitleCandidate(potentialTitle)
+                && !this.isWeakImportedSongTitleCandidate(potentialArtist)
+            ) {
+                titleSource = potentialTitle;
+                detectedArtist = potentialArtist;
             }
         }
 
@@ -10212,6 +10280,7 @@ const App = {
                     .replace(/\s{2,}/g, ' ')
                     .trim()
             ),
+            artist: detectedArtist || '',
             key: detectedKey || null
         };
     },
@@ -10548,18 +10617,20 @@ const App = {
             const metadata = this.extractSongpoolMetadataFromText(extractedText, file.name);
             return {
                 ...metadata,
-                title: this.cleanImportedSongTitle(metadata.title, fallbackTitle),
-                detectedFrom: extractedText.trim() ? metadata.detectedFrom : 'Dateiname'
+                title: this.cleanImportedSongTitle(fileNameMeta.title, metadata.title || fallbackTitle),
+                artist: fileNameMeta.artist || metadata.artist || '',
+                key: fileNameMeta.key || metadata.key || null,
+                detectedFrom: fileNameMeta.title ? 'Dateiname' : (extractedText.trim() ? metadata.detectedFrom : 'Dateiname')
             };
         } catch (error) {
             console.warn('[Songpool] PDF metadata extraction failed:', error);
             return {
-                title: this.cleanImportedSongTitle('', fallbackTitle),
-                artist: '',
+                title: this.cleanImportedSongTitle(fileNameMeta.title, fallbackTitle),
+                artist: fileNameMeta.artist || '',
                 key: fileNameMeta.key || null,
                 timeSignature: null,
                 bpm: null,
-                language: this.getDetectedSongLanguage(fallbackTitle, ''),
+                language: this.getDetectedSongLanguage(fileNameMeta.title || fallbackTitle, ''),
                 detectedFrom: 'Dateiname'
             };
         }
@@ -10610,6 +10681,114 @@ const App = {
             info,
             visibility: 'public'
         };
+    },
+
+    normalizeSongKeySelectValue(value = '') {
+        const normalizedValue = String(value || '').trim();
+        const keyMap = {
+            Db: 'C#',
+            Eb: 'D#',
+            Gb: 'F#',
+            Ab: 'G#',
+            Bb: 'A#',
+            db: 'C#',
+            eb: 'D#',
+            gb: 'F#',
+            ab: 'G#',
+            bb: 'A#'
+        };
+        return keyMap[normalizedValue] || normalizedValue;
+    },
+
+    setSongFormFieldValue(fieldId, value, options = {}) {
+        const field = document.getElementById(fieldId);
+        if (!field) return false;
+
+        const nextValue = value == null ? '' : String(value);
+        if (!nextValue.trim()) return false;
+
+        const currentValue = String(field.value || '').trim();
+        const shouldOverwrite = options.overwrite === true;
+        if (!shouldOverwrite && currentValue) {
+            return false;
+        }
+
+        field.value = (fieldId === 'songKey' || fieldId === 'songOriginalKey')
+            ? this.normalizeSongKeySelectValue(nextValue)
+            : nextValue;
+
+        return true;
+    },
+
+    setSongFileSelectionState(file = null, fallbackFileName = '') {
+        const currentPdfContainer = document.getElementById('songCurrentPdf');
+        const pdfNameSpan = document.getElementById('songPdfName');
+        const deletePdfBtn = document.getElementById('deleteSongPdfBtn');
+        const songId = String(document.getElementById('songId')?.value || '').trim();
+        const fileName = String(file?.name || fallbackFileName || '').trim();
+
+        if (!currentPdfContainer || !pdfNameSpan) return;
+
+        if (fileName) {
+            currentPdfContainer.style.display = 'block';
+            pdfNameSpan.textContent = fileName;
+            if (deletePdfBtn) {
+                deletePdfBtn.hidden = !songId;
+            }
+            return;
+        }
+
+        currentPdfContainer.style.display = 'none';
+        if (deletePdfBtn) {
+            deletePdfBtn.hidden = false;
+        }
+    },
+
+    async applyImportedSongMetadataToForm(file, options = {}) {
+        if (!file) return null;
+
+        const lowerName = String(file.name || '').toLowerCase();
+        const isPdf = lowerName.endsWith('.pdf') || file.type === 'application/pdf';
+        const isChordPro = this.isChordProLikeFileName(file.name || '');
+
+        if (!isPdf && !isChordPro) {
+            return null;
+        }
+
+        let metadata = null;
+        if (isPdf) {
+            metadata = await this.extractSongpoolMetadataFromPdfFile(file);
+        } else {
+            const chordProText = await file.text();
+            metadata = this.extractSongpoolMetadataFromText(chordProText, file.name, { requireExplicitTitle: true });
+        }
+
+        const cleanedTitle = this.cleanImportedSongTitle(
+            metadata?.title,
+            this.getSongpoolImportedFileBaseName(file.name || '')
+        );
+        const detectedLanguage = this.getDetectedSongLanguage(cleanedTitle, metadata?.language || '');
+        const overwrite = options.overwriteExisting === true;
+        this.clearSongAutofillResults();
+
+        this.setSongFormFieldValue('songTitle', cleanedTitle, { overwrite });
+        this.setSongFormFieldValue('songArtist', metadata?.artist || '', { overwrite });
+        this.setSongFormFieldValue('songBPM', metadata?.bpm || '', { overwrite });
+        this.setSongFormFieldValue('songKey', metadata?.key || '', { overwrite });
+        this.setSongFormFieldValue('songTimeSignature', metadata?.timeSignature || '', { overwrite });
+        this.setSongFormFieldValue('songLanguage', detectedLanguage || '', { overwrite });
+
+        if (detectedLanguage) {
+            const languageInput = document.getElementById('songLanguage');
+            if (languageInput && String(languageInput.value || '').trim() === detectedLanguage) {
+                this.songLanguageAutoValue = detectedLanguage;
+            }
+        }
+
+        this.syncInferredSongLanguage({
+            force: overwrite === true && !String(document.getElementById('songLanguage')?.value || '').trim()
+        });
+        return metadata;
     },
 
     async handleSongpoolUploadSelection(event) {
@@ -10945,10 +11124,10 @@ const App = {
         // Reset PDF input
         const pdfInput = document.getElementById('songPdf');
         if (pdfInput) pdfInput.value = '';
-        const currentPdfContainer = document.getElementById('songCurrentPdf');
-        const pdfNameSpan = document.getElementById('songPdfName');
+        this.setSongFileSelectionState(null, '');
         let existingSongpoolPdfUrl = null;
         let existingSongpoolChordPro = '';
+        let existingDisplayFileName = '';
         this.songAutofillCandidates = [];
         if (this.songAutofillSearchTimer) {
             clearTimeout(this.songAutofillSearchTimer);
@@ -10958,6 +11137,10 @@ const App = {
 
         if (visibilityGroup) {
             visibilityGroup.hidden = !isSongpoolSong;
+        }
+
+        if (!isSongpoolSong) {
+            this.updateSongpoolKeyFieldRequirement(null);
         }
 
         if (songId) {
@@ -11000,13 +11183,13 @@ const App = {
 
                 // Show PDF info if exists
                 if (song.pdf_url) {
-                    currentPdfContainer.style.display = 'block';
                     // Extract filename from URL
                     const parts = song.pdf_url.split('/');
                     const filename = parts[parts.length - 1];
-                    pdfNameSpan.textContent = filename.replace(/^song-pdf-\d+-\d+-/, ''); // Try to show a cleaner name
+                    existingDisplayFileName = filename.replace(/^song-pdf-\d+-\d+-/, '');
+                    this.setSongFileSelectionState(null, existingDisplayFileName);
                 } else {
-                    currentPdfContainer.style.display = 'none';
+                    this.setSongFileSelectionState(null, '');
                 }
 
                 if (isSongpoolSong) {
@@ -11045,7 +11228,7 @@ const App = {
             const defaultVis = this.normalizeSongpoolVisibility(modalContext?.defaultVisibility || 'public');
             const visDefaultRadio = document.querySelector(`input[name="songVisibility"][value="${defaultVis}"]`);
             if (visDefaultRadio) visDefaultRadio.checked = true;
-            currentPdfContainer.style.display = 'none';
+            this.setSongFileSelectionState(null, '');
 
             if (isSongpoolSong) {
                 this.updateSongpoolKeyFieldRequirement(null);
@@ -11055,24 +11238,37 @@ const App = {
         UI.openModal('songModal');
         this.syncInferredSongLanguage();
 
-        if (isSongpoolSong && pdfInput) {
-            pdfInput.onchange = () => {
+        if (pdfInput) {
+            pdfInput.onchange = async () => {
                 const nextFile = pdfInput.files && pdfInput.files[0] ? pdfInput.files[0] : null;
-                this.updateSongpoolKeyFieldRequirement({
-                    file: nextFile,
-                    pdf_url: nextFile
-                        ? (this.isChordProLikeFileName(nextFile.name || '') ? existingSongpoolPdfUrl : null)
-                        : existingSongpoolPdfUrl,
-                    info: nextFile
-                        ? (this.isChordProLikeFileName(nextFile.name || '') ? document.getElementById('songInfo')?.value || existingSongpoolChordPro : '')
-                        : existingSongpoolChordPro
-                });
+                this.setSongFileSelectionState(nextFile, nextFile ? nextFile.name : existingDisplayFileName);
+
+                if (nextFile) {
+                    try {
+                        await this.applyImportedSongMetadataToForm(nextFile);
+                    } catch (error) {
+                        console.warn('[Song] Metadata prefill failed:', error);
+                    }
+                }
+
+                if (isSongpoolSong) {
+                    this.updateSongpoolKeyFieldRequirement({
+                        file: nextFile,
+                        pdf_url: nextFile
+                            ? (this.isChordProLikeFileName(nextFile.name || '') ? existingSongpoolPdfUrl : null)
+                            : existingSongpoolPdfUrl,
+                        info: nextFile
+                            ? (this.isChordProLikeFileName(nextFile.name || '') ? document.getElementById('songInfo')?.value || existingSongpoolChordPro : '')
+                            : existingSongpoolChordPro
+                    });
+                }
             };
         }
 
         // Wire up PDF delete button (ensure it's only added once or remove old listener)
         const deletePdfBtn = document.getElementById('deleteSongPdfBtn');
         if (deletePdfBtn) {
+            deletePdfBtn.hidden = !String(songId || '').trim();
             deletePdfBtn.onclick = () => this.handleDeleteSongPdf();
         }
     },
@@ -11301,22 +11497,11 @@ const App = {
             return;
         }
 
-        const normalizeSongKeyValue = value => {
-            const keyMap = {
-                Db: 'C#',
-                Eb: 'D#',
-                Gb: 'F#',
-                Ab: 'G#',
-                Bb: 'A#'
-            };
-            return keyMap[value] || value;
-        };
-
         const setValue = (id, value) => {
             const input = document.getElementById(id);
             if (!input || value == null || value === '') return;
             input.value = (id === 'songKey' || id === 'songOriginalKey')
-                ? normalizeSongKeyValue(value)
+                ? this.normalizeSongKeySelectValue(value)
                 : value;
         };
 
@@ -11519,11 +11704,15 @@ const App = {
                     const sb = SupabaseClient.getClient();
 
                     const fileExt = 'pdf';
-                    const fileName = `song-pdf-${user.id}-${Date.now()}.${fileExt}`;
+                    const fileName = `${String(user.id || 'user').trim()}/song-pdf-${Date.now()}.${fileExt}`;
 
                     const { error: uploadError } = await sb.storage
                         .from('song-pdfs')
-                        .upload(fileName, file, { upsert: true });
+                        .upload(fileName, file, {
+                            upsert: true,
+                            cacheControl: '3600',
+                            contentType: file.type || 'application/pdf'
+                        });
 
                     if (uploadError) {
                         UI.hideLoading();
@@ -11684,12 +11873,17 @@ const App = {
 
         if (!modal || !frame) return;
 
-        titleEl.textContent = title || 'PDF Vorschau';
+        const baseTitle = String(title || '').trim();
+        const previewTitle = baseTitle
+            ? (/pdf/i.test(baseTitle) ? baseTitle : `${baseTitle} - PDF`)
+            : 'PDF Vorschau';
+
+        titleEl.textContent = previewTitle;
         frame.src = url;
 
         if (downloadBtn) {
             downloadBtn.href = url;
-            downloadBtn.setAttribute('download', (title || 'song').replace(/[/\\?%*:|"<>]/g, '-') + '.pdf');
+            downloadBtn.setAttribute('download', (baseTitle || 'song').replace(/[/\\?%*:|"<>]/g, '-') + '.pdf');
         }
 
         UI.openModal('pdfPreviewModal');
@@ -12818,10 +13012,88 @@ const App = {
                 return;
             }
 
+            const initialDrafts = [
+                ...readyBandSongs.map((song) => this.createSongpoolDraftFromBandSong(song, visibility)),
+                ...missingDocumentSongs.map((song) => this.createSongpoolDraftFromBandSong(song, visibility))
+            ].filter(Boolean);
+
+            let selectedDrafts = initialDrafts;
+            try {
+                const existingSongs = await Storage.getSongpoolSongs(user.id, { includePublic: true });
+                const duplicateEntries = this.buildSongpoolDuplicateEntries(initialDrafts, existingSongs);
+
+                if (duplicateEntries.length > 0) {
+                    const reviewResult = await this.openSongpoolDuplicateReviewModal(duplicateEntries, {
+                        userId: user.id,
+                        title: 'Ähnliche Songs vorab prüfen',
+                        description: 'Prüfe mögliche Doppelungen zuerst. Danach ergänzt du nur noch fehlende Dateien und vervollständigst die Songdaten in der Vorschau.',
+                        getConfirmLabel: (activeCount, totalCount) => {
+                            if (activeCount === 0) return 'Ohne Treffer weiter';
+                            if (activeCount === totalCount) return 'Auswahl übernehmen';
+                            return `${activeCount} Songs übernehmen`;
+                        }
+                    });
+
+                    if (!reviewResult?.confirmed) {
+                        UI.showToast('Import abgebrochen.', 'info');
+                        return;
+                    }
+
+                    const selectedEntryIds = new Set(
+                        (Array.isArray(reviewResult.entries) ? reviewResult.entries : [])
+                            .map((entry) => String(entry?.draft?.id || ''))
+                            .filter(Boolean)
+                    );
+                    const duplicateDraftIdSet = new Set(
+                        duplicateEntries
+                            .map((entry) => String(entry?.draft?.id || ''))
+                            .filter(Boolean)
+                    );
+
+                    selectedDrafts = initialDrafts
+                        .filter((draft) => !duplicateDraftIdSet.has(String(draft.id)) || selectedEntryIds.has(String(draft.id)))
+                        .map((draft) => (
+                            selectedEntryIds.has(String(draft.id))
+                                ? {
+                                    ...draft,
+                                    duplicateReviewApproved: true,
+                                    duplicateReviewSignature: this.getSongpoolDuplicateDraftSignature(draft)
+                                }
+                                : draft
+                        ));
+                }
+            } catch (error) {
+                console.error('[Songpool] Duplicate pre-check for band import failed:', error);
+                UI.showToast(Storage._getSongpoolErrorMessage(error, 'Songpool konnte nicht geprüft werden.'), 'error');
+                return;
+            }
+
+            if (!selectedDrafts.length) {
+                UI.showToast('Keine Songs mehr zum Übernehmen ausgewählt.', 'info');
+                return;
+            }
+
+            const selectedDraftIdSet = new Set(selectedDrafts.map((draft) => String(draft.id)));
+            const selectedDraftMetaBySongId = new Map(
+                selectedDrafts
+                    .filter((draft) => draft.sourceSongId != null)
+                    .map((draft) => [
+                        String(draft.sourceSongId),
+                        {
+                            duplicateReviewApproved: Boolean(draft.duplicateReviewApproved),
+                            duplicateReviewSignature: draft.duplicateReviewSignature || ''
+                        }
+                    ])
+            );
+
+            const filteredReadyBandSongs = readyBandSongs.filter((song) => selectedDraftIdSet.has(`bandpool-${song.id}`));
+            const filteredMissingDocumentSongs = missingDocumentSongs.filter((song) => selectedDraftIdSet.has(`bandpool-${song.id}`));
+
             const documentResolution = await this.openSongpoolBandMissingDocumentModal(
-                readyBandSongs,
-                missingDocumentSongs,
-                visibility
+                filteredReadyBandSongs,
+                filteredMissingDocumentSongs,
+                visibility,
+                selectedDraftMetaBySongId
             );
 
             if (!documentResolution?.confirmed) {
@@ -13056,7 +13328,7 @@ const App = {
                     <td style="padding: var(--spacing-sm);" data-label="Lead Vocal">${song.leadVocal || '-'}</td>
                     <td style="padding: var(--spacing-sm);" data-label="Sprache">${song.language || '-'}</td>
                     <td style="padding: var(--spacing-sm);" data-label="Tracks">${song.tracks === 'yes' ? 'Ja' : (song.tracks === 'no' ? 'Nein' : '-')}</td>
-                    <td style="padding: var(--spacing-sm); text-align: center;" data-label="PDF">
+                    <td style="padding: var(--spacing-sm); text-align: center;" data-label="Dateien">
                         ${this.renderSongDocumentPreviewButtons(song)}
                     </td>
                     <td style="padding: var(--spacing-sm); font-size: 0.9em;" data-label="Infos">${this.escapeHtml(this.getSongInfoDisplay(song))}</td>
@@ -13473,6 +13745,7 @@ const App = {
                             <div class="songpool-title-main">${this.escapeHtml(song.title)}</div>
                             <div class="songpool-title-meta">
                                 ${getOwnershipBadge(song)}
+                                ${this.renderSongpoolDocumentBadges(song)}
                             </div>
                         </div>
                     </td>
@@ -13546,7 +13819,7 @@ const App = {
                                 <input type="checkbox" id="selectAllSongpoolSongs">
                             </th>
                             <th style="padding: var(--spacing-sm); text-align: center; width: 108px;">Aktionen</th>
-                            <th style="padding: var(--spacing-sm); text-align: center;">PDF</th>
+                            <th style="padding: var(--spacing-sm); text-align: center;">Dateien</th>
                             <th class="sortable-header sortable-col-title ${getSortClass('title')}" data-field="title" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Titel</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-artist ${getSortClass('artist')}" data-field="artist" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">Interpret</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>
                             <th class="sortable-header sortable-col-bpm ${getSortClass('bpm')}" data-field="bpm" style="padding: var(--spacing-sm); text-align: left; cursor: pointer;"><span class="sortable-header-content"><span class="sortable-header-label">BPM</span><span class="sortable-header-icon" aria-hidden="true"></span></span></th>

@@ -595,27 +595,55 @@ const Events = {
             ...guests.map(name => ({ name, isGuest: true }))
         ];
 
+        const metaCards = [];
+
+        if (event.status === 'confirmed') {
+            metaCards.push(`
+                <div class="detail-item detail-item-compact">
+                    <div class="detail-label">Datum & Zeit</div>
+                    <div class="detail-value">${eventDateTimeLabel}</div>
+                </div>
+            `);
+        }
+
+        metaCards.push(`
+            <div class="detail-item detail-item-compact">
+                <div class="detail-label">Ort</div>
+                <div class="detail-value">${Bands.escapeHtml(event.location || 'Nicht angegeben')}</div>
+            </div>
+        `);
+
+        if (event.soundcheckLocation) {
+            metaCards.push(`
+                <div class="detail-item detail-item-compact">
+                    <div class="detail-label">Soundcheck</div>
+                    <div class="detail-value">${Bands.escapeHtml(event.soundcheckLocation)}</div>
+                </div>
+            `);
+        }
+
+        metaCards.push(`
+            <div class="detail-item detail-item-compact detail-item-lineup detail-item-lineup-compact">
+                <div class="detail-label">Besetzung</div>
+                ${hasLineup ? `
+                <ul class="detail-lineup-list">
+                    ${lineupItems.map(item => `
+                        <li class="detail-lineup-item${item.isGuest ? ' is-guest' : ''}">
+                            <span class="detail-lineup-name">${Bands.escapeHtml(item.name)}</span>
+                            ${item.isGuest ? '<span class="detail-lineup-role">Gast</span>' : ''}
+                        </li>
+                    `).join('')}
+                </ul>
+                ` : `
+                <div class="detail-value detail-lineup-empty">Noch keine Besetzung hinterlegt</div>
+                `}
+            </div>
+        `);
+
         let html = `
             <div class="event-details-grid">
                 <div class="event-details-meta-row">
-                    ${event.status === 'confirmed' ? `
-                    <div class="detail-item detail-item-compact">
-                        <div class="detail-label">Datum & Zeit</div>
-                        <div class="detail-value">${eventDateTimeLabel}</div>
-                    </div>
-                    ` : ''}
-
-                    <div class="detail-item detail-item-compact">
-                        <div class="detail-label">Ort</div>
-                        <div class="detail-value">${Bands.escapeHtml(event.location || 'Nicht angegeben')}</div>
-                    </div>
-
-                    ${event.soundcheckLocation ? `
-                    <div class="detail-item detail-item-compact">
-                        <div class="detail-label">Soundcheck</div>
-                        <div class="detail-value">${Bands.escapeHtml(event.soundcheckLocation)}</div>
-                    </div>
-                    ` : ''}
+                    ${metaCards.join('')}
                 </div>
 
                 ${visibleInfo ? `
@@ -631,22 +659,6 @@ const Events = {
                     <div class="detail-value">${Bands.escapeHtml(event.techInfo)}</div>
                 </div>
                 ` : ''}
-
-                <div class="detail-item detail-item-wide detail-item-lineup">
-                    <div class="detail-label">Besetzung</div>
-                    ${hasLineup ? `
-                    <ul class="detail-lineup-list">
-                        ${lineupItems.map(item => `
-                            <li class="detail-lineup-item${item.isGuest ? ' is-guest' : ''}">
-                                <span class="detail-lineup-name">${Bands.escapeHtml(item.name)}</span>
-                                ${item.isGuest ? '<span class="detail-lineup-role">Gast</span>' : ''}
-                            </li>
-                        `).join('')}
-                    </ul>
-                    ` : `
-                    <div class="detail-value detail-lineup-empty">Noch keine Besetzung hinterlegt</div>
-                    `}
-                </div>
             </div>
         `;
         return html;
