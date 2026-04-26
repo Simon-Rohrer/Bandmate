@@ -260,7 +260,7 @@ const Statistics = {
 
             this._renderDashboard(dashboardData);
         } catch (error) {
-            console.error('[Statistics] Error rendering general stats:', error);
+            Logger.error('[Statistics] Error rendering general stats:', error);
             if (summaryContainer) {
                 summaryContainer.innerHTML = `
                     <div class="stats-overview-panel stats-overview-panel-error">

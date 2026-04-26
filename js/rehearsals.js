@@ -799,7 +799,7 @@ const Rehearsals = {
         }
 
         Storage.cleanupPastItems().catch(error => {
-            console.warn('[Rehearsals] Could not cleanup past items in background:', error);
+            Logger.warn('[Rehearsals] Could not cleanup past items in background:', error);
         });
 
         // Check if we have cached data and should use it
@@ -908,7 +908,7 @@ const Rehearsals = {
 
         // Safety check for containers
         if (!containerPending || !containerVoted) {
-            console.error('Rehearsal containers not found!');
+            Logger.error('Rehearsal containers not found!');
             if (overlay) overlay.style.display = 'none';
             return;
         }
@@ -1508,7 +1508,7 @@ const Rehearsals = {
                 // Force a true refresh from DB
                 await this.renderRehearsals(this.currentFilter, true);
             } catch (error) {
-                console.error('Error saving votes:', error);
+                Logger.error('Error saving votes:', error);
                 UI.showToast('Fehler beim Speichern der Abstimmungen', 'error');
             } finally {
                 UI.hideLoading();
@@ -1972,7 +1972,7 @@ const Rehearsals = {
     async openRehearsalDetails(rehearsalId) {
         const rehearsal = await Storage.getRehearsal(rehearsalId);
         if (!rehearsal) {
-            console.error('Rehearsal not found:', rehearsalId);
+            Logger.error('Rehearsal not found:', rehearsalId);
             return;
         }
 
@@ -1986,7 +1986,7 @@ const Rehearsals = {
         const proposedDates = Array.isArray(rehearsal.proposedDates) ? rehearsal.proposedDates : [];
 
         if (proposedDates.length === 0) {
-            console.warn('No proposed dates found for rehearsal:', rehearsalId);
+            Logger.warn('No proposed dates found for rehearsal:', rehearsalId);
             UI.showToast('Keine vorgeschlagenen Termine gefunden', 'warning');
             return;
         }
@@ -2201,7 +2201,7 @@ const Rehearsals = {
     async showConfirmationModal(rehearsalId, dateIndex, date, selectedDateIndexes = [dateIndex]) {
         const rehearsal = await Storage.getRehearsal(rehearsalId);
         if (!rehearsal) {
-            console.error('Rehearsal not found:', rehearsalId);
+            Logger.error('Rehearsal not found:', rehearsalId);
             return;
         }
 
@@ -2417,7 +2417,7 @@ const Rehearsals = {
         try {
             const rehearsal = await Storage.getRehearsal(rehearsalId);
             if (!rehearsal) {
-                console.error('Rehearsal not found:', rehearsalId);
+                Logger.error('Rehearsal not found:', rehearsalId);
                 UI.showToast('Probe nicht gefunden', 'error');
                 return;
             }
@@ -2597,7 +2597,7 @@ const Rehearsals = {
                 await App.updateDashboard();
             }
         } catch (error) {
-            console.error('[Rehearsals] confirmRehearsal failed', error);
+            Logger.error('[Rehearsals] confirmRehearsal failed', error);
             UI.showToast(error?.message || 'Probe konnte nicht bestätigt werden', 'error');
         }
     },
@@ -3197,9 +3197,9 @@ const Rehearsals = {
             if (typeof Calendar !== 'undefined' && Calendar.ensureLocationCalendar) {
                 try {
                     await Calendar.ensureLocationCalendar(linkedCalendar, location.name);
-                    console.log(`[Rehearsals] Calendar loaded: ${linkedCalendar}`);
+                    Logger.info(`[Rehearsals] Calendar loaded: ${linkedCalendar}`);
                 } catch (err) {
-                    console.error(`[Rehearsals] Failed to load calendar ${linkedCalendar}:`, err);
+                    Logger.error(`[Rehearsals] Failed to load calendar ${linkedCalendar}:`, err);
                     // Don't return true here - the calendar might have data that failed to refresh
                 }
             }
@@ -3208,7 +3208,7 @@ const Rehearsals = {
             const endDate = endIsoString ? new Date(endIsoString) : new Date(startDate.getTime() + 2 * 60 * 60 * 1000);
             return await App.checkLocationAvailability(locationId, startDate, endDate);
         } catch (e) {
-            console.error('Availability check failed', e);
+            Logger.error('Availability check failed', e);
             return { available: true, conflicts: [] };
         }
     },

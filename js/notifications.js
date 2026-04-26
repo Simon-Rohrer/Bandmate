@@ -39,7 +39,7 @@ const Notifications = {
                 window.clearTimeout(this.hoverOpenTimer);
                 this.hoverOpenTimer = window.setTimeout(() => {
                     this.toggleDropdown(true).catch(error => {
-                        console.error('[Notifications] Hover open failed:', error);
+                        Logger.error('[Notifications] Hover open failed:', error);
                     });
                 }, 80);
             });
@@ -195,7 +195,7 @@ const Notifications = {
             this.updateBadge(this.unreadCount);
             await this.syncMembershipContext(this.currentNotifications);
         } catch (error) {
-            console.error('[Notifications.refresh] Error:', error);
+            Logger.error('[Notifications.refresh] Error:', error);
             if (!quiet && typeof UI !== 'undefined' && UI.showToast) {
                 UI.showToast('Benachrichtigungen konnten nicht geladen werden', 'error');
             }
@@ -226,7 +226,7 @@ const Notifications = {
                     const message = String(error?.message || error || '');
                     if (message.includes('row-level security policy for table "notifications"')) {
                         this.repairDisabled = true;
-                        console.warn('[Notifications] Repair disabled until reload because notifications RLS is not fully applied yet.');
+                        Logger.warn('[Notifications] Repair disabled until reload because notifications RLS is not fully applied yet.');
                         break;
                     }
                     throw error;
@@ -235,7 +235,7 @@ const Notifications = {
 
             return repairedCount;
         } catch (error) {
-            console.error('[Notifications.repairPendingMembershipNotifications] Error:', error);
+            Logger.error('[Notifications.repairPendingMembershipNotifications] Error:', error);
             return 0;
         }
     },
@@ -453,7 +453,7 @@ const Notifications = {
             if (!Array.isArray(parsedValue)) return new Set();
             return new Set(parsedValue.map((value) => String(value)));
         } catch (error) {
-            console.warn('[Notifications] Could not read dismissed notification ids:', error);
+            Logger.warn('[Notifications] Could not read dismissed notification ids:', error);
             return new Set();
         }
     },
@@ -467,7 +467,7 @@ const Notifications = {
             dismissedIds.add(String(notificationId));
             localStorage.setItem(storageKey, JSON.stringify([...dismissedIds]));
         } catch (error) {
-            console.warn('[Notifications] Could not persist dismissed notification id:', error);
+            Logger.warn('[Notifications] Could not persist dismissed notification id:', error);
         }
     },
 
@@ -860,7 +860,7 @@ const Notifications = {
 
             await this.refresh({ quiet: true, skipAutoRead: true });
         } catch (error) {
-            console.error('[Notifications.respondToRequest] Error:', error);
+            Logger.error('[Notifications.respondToRequest] Error:', error);
             UI.showToast(error.message || 'Die Anfrage konnte nicht verarbeitet werden.', 'error');
         } finally {
             this.pendingActionRequestIds.delete(requestId);

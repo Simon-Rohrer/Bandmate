@@ -111,7 +111,7 @@ const Calendar = {
         Logger.time(timerLabel);
         const calendar = this.calendars[calendarType];
         if (!calendar) {
-            console.error(`Calendar type "${calendarType}" not found`);
+            Logger.error(`Calendar type "${calendarType}" not found`);
             Logger.timeEnd(timerLabel);
             return;
         }
@@ -133,7 +133,7 @@ const Calendar = {
 
         const container = document.getElementById(calendar.containerId);
         if (!container) {
-            console.error(`Container "${calendar.containerId}" not found`);
+            Logger.error(`Container "${calendar.containerId}" not found`);
             Logger.timeEnd(timerLabel);
             return;
         }
@@ -166,13 +166,13 @@ const Calendar = {
 
             // PREVENT CRASH: Validate if we actually got iCal data
             if (!icalData || typeof icalData !== 'string' || !icalData.includes('BEGIN:VCALENDAR')) {
-                console.error('Invalid iCal data received:', icalData?.substring(0, 100));
+                Logger.error('Invalid iCal data received:', icalData?.substring(0, 100));
                 throw new Error('Ungültiges Kalender-Format empfangen.');
             }
 
             // PREVENT CRASH: Validate if we actually got iCal data
             if (!icalData || typeof icalData !== 'string' || !icalData.includes('BEGIN:VCALENDAR')) {
-                console.error('Invalid iCal data received from proxy:', icalData?.substring(0, 100));
+                Logger.error('Invalid iCal data received from proxy:', icalData?.substring(0, 100));
                 throw new Error('Ungültiges Kalender-Format empfangen.');
             }
 
@@ -202,7 +202,7 @@ const Calendar = {
             Logger.info(`Calendar Loaded – "${calendarType}" (${calendar.events.length} events, ${duration}s)`);
             delete Logger.timers[timerLabel];
         } catch (error) {
-            console.error(`Fehler beim Laden des ${calendarType} Kalenders:`, error);
+            Logger.error(`Fehler beim Laden des ${calendarType} Kalenders:`, error);
             container.innerHTML = `
                 <div class="empty-state">
                     <div class="empty-icon">⚠️</div>

@@ -27,7 +27,7 @@ const Events = {
         this.availabilityRefreshTimer = setTimeout(() => {
             this.availabilityRefreshTimer = null;
             Promise.resolve(this.updateAvailabilityIndicators()).catch(error => {
-                console.warn('[Events] Availability refresh failed:', error);
+                Logger.warn('[Events] Availability refresh failed:', error);
             });
         }, 0);
     },
@@ -260,7 +260,7 @@ const Events = {
 
         try {
             Storage.cleanupPastItems().catch(error => {
-                console.warn('[Events] Could not cleanup past items in background:', error);
+                Logger.warn('[Events] Could not cleanup past items in background:', error);
             });
 
             let events = (await Storage.getUserEvents(user.id)) || [];
@@ -1815,7 +1815,7 @@ const Events = {
             UI.showToast('Auftritt wurde bestätigt!', 'success');
             await this.renderEvents(this.currentFilter, true);
         } catch (error) {
-            console.error('Error confirming event:', error);
+            Logger.error('Error confirming event:', error);
             UI.showToast('Fehler beim Bestätigen', 'error');
         }
     },
@@ -1926,7 +1926,7 @@ const Events = {
                 UI.closeModal('createEventModal');
                 await this.renderEvents(this.currentFilter, true);
             } catch (error) {
-                console.error('Error saving event:', error);
+                Logger.error('Error saving event:', error);
                 UI.showToast('Fehler beim Speichern', 'error');
             }
         };
@@ -2425,7 +2425,7 @@ const Events = {
                 this.currentBandMemberAbsences = [];
             }
         } catch (error) {
-            console.error('Error fetching band member absences:', error);
+            Logger.error('Error fetching band member absences:', error);
             this.currentBandMemberAbsences = [];
         }
     },
@@ -2445,7 +2445,7 @@ const Events = {
             try {
                 await PersonalCalendar.ensureDataLoaded();
             } catch (error) {
-                console.warn('[Events] Personal calendar availability could not be loaded:', error);
+                Logger.warn('[Events] Personal calendar availability could not be loaded:', error);
             }
         }
 

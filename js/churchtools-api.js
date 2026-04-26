@@ -55,7 +55,7 @@ const ChurchToolsAPI = {
             };
             
         } catch (error) {
-            console.error('Error fetching group members:', error);
+            Logger.error('Error fetching group members:', error);
             return {
                 success: false,
                 error: error.message,
@@ -96,7 +96,7 @@ const ChurchToolsAPI = {
             };
             
         } catch (error) {
-            console.error('Error fetching group details:', error);
+            Logger.error('Error fetching group details:', error);
             return {
                 success: false,
                 error: error.message,
@@ -110,7 +110,7 @@ const ChurchToolsAPI = {
         // TODO: Implement ChurchTools API integration
         // This is a placeholder for future implementation
 
-        console.log('ChurchTools sync prepared for:', {
+        Logger.info('ChurchTools sync prepared for:', {
             rehearsal,
             selectedDateIndex,
             config: this.config
@@ -132,7 +132,7 @@ const ChurchToolsAPI = {
     // Fetch events from ChurchTools
     async fetchCalendarEvents(startDate, endDate) {
         // TODO: Implement fetching events from ChurchTools
-        console.log('Fetching ChurchTools events:', { startDate, endDate });
+        Logger.info('Fetching ChurchTools events:', { startDate, endDate });
 
         return {
             success: false,
@@ -144,7 +144,7 @@ const ChurchToolsAPI = {
     // Check for conflicts with existing calendar events
     async checkConflicts(proposedDates) {
         // TODO: Implement conflict detection
-        console.log('Checking conflicts for dates:', proposedDates);
+        Logger.info('Checking conflicts for dates:', proposedDates);
 
         return {
             success: false,
@@ -156,7 +156,7 @@ const ChurchToolsAPI = {
     // Update existing calendar event
     async updateCalendarEvent(eventId, updates) {
         // TODO: Implement event update
-        console.log('Updating ChurchTools event:', { eventId, updates });
+        Logger.info('Updating ChurchTools event:', { eventId, updates });
 
         return {
             success: false,
@@ -167,7 +167,7 @@ const ChurchToolsAPI = {
     // Delete calendar event
     async deleteCalendarEvent(eventId) {
         // TODO: Implement event deletion
-        console.log('Deleting ChurchTools event:', eventId);
+        Logger.info('Deleting ChurchTools event:', eventId);
 
         return {
             success: false,
@@ -178,7 +178,7 @@ const ChurchToolsAPI = {
     // Test API connection
     async testConnection() {
         // TODO: Implement connection test
-        console.log('Testing ChurchTools connection');
+        Logger.info('Testing ChurchTools connection');
 
         return {
             success: false,
@@ -196,6 +196,6 @@ ChurchToolsAPI.setCalendar(123); // Calendar ID
 // Sync a confirmed rehearsal
 const result = await ChurchToolsAPI.syncRehearsalToCalendar(rehearsal, 0);
 if (result.success) {
-    console.log('Event created:', result.eventId);
+    Logger.info('Event created:', result.eventId);
 }
 */

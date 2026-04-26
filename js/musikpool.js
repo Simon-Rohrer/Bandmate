@@ -38,7 +38,7 @@ const Musikpool = {
             this.members = membersResult.members;
             this.renderMembers();
         } catch (error) {
-            console.error('Error loading Musikerpool:', error);
+            Logger.error('Error loading Musikerpool:', error);
             container.innerHTML = `
                 <div class="empty-state">
                     <p>Musikerpool-Daten konnten nicht geladen werden.</p>

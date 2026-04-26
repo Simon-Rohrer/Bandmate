@@ -33,7 +33,7 @@ const LandingPage = {
                 return;
             }
         } catch (error) {
-            console.warn('[LandingPage] Auth bootstrap failed:', error);
+            Logger.warn('[LandingPage] Auth bootstrap failed:', error);
         } finally {
             this.hideLoadingOverlay();
         }

@@ -331,7 +331,7 @@ const RichTextEditor = {
                     this.selectImage(leaf.domNode);
                 }
             } catch (err) {
-                console.error('Image insert error:', err);
+                Logger.error('Image insert error:', err);
                 UI.showToast('Fehler beim Einfügen des Bildes', 'error');
             } finally {
                 UI.hideLoading();
@@ -599,7 +599,7 @@ const App = {
         try {
             return JSON.parse(sessionStorage.getItem(this.navigationStateStorageKey) || 'null') || {};
         } catch (error) {
-            console.warn('[App] Could not parse persisted navigation state:', error);
+            Logger.warn('[App] Could not parse persisted navigation state:', error);
             return {};
         }
     },
@@ -614,7 +614,7 @@ const App = {
             };
             sessionStorage.setItem(this.navigationStateStorageKey, JSON.stringify(nextState));
         } catch (error) {
-            console.warn('[App] Could not persist navigation state:', error);
+            Logger.warn('[App] Could not persist navigation state:', error);
         }
     },
 
@@ -622,13 +622,15 @@ const App = {
         try {
             sessionStorage.removeItem(this.navigationStateStorageKey);
         } catch (error) {
-            console.warn('[App] Could not clear persisted navigation state:', error);
+            Logger.warn('[App] Could not clear persisted navigation state:', error);
         }
     },
 
     hasPasswordRecoveryHash() {
         const hash = window.location.hash || '';
-        return /(?:^|[&#])type=recovery(?:&|$)/i.test(hash);
+        const search = window.location.search || '';
+        const recoveryRegex = /(?:^|[&#?])type=recovery(?:&|$)/i;
+        return recoveryRegex.test(hash) || recoveryRegex.test(search);
     },
 
     isResetPasswordPage() {
@@ -644,7 +646,7 @@ const App = {
         const baseUrl = SupabaseClient.buildProjectPageUrl('reset-password.html');
         const targetUrl = `${baseUrl}${window.location.hash || ''}`;
 
-        console.log('[App] Password recovery link detected before app boot. Redirecting to reset-password page.');
+        Logger.info('[App] Password recovery link detected before app boot. Redirecting to reset-password page.');
         window.location.replace(targetUrl);
         return true;
     },
@@ -816,7 +818,7 @@ const App = {
                     return false;
             }
         } catch (error) {
-            console.warn('[App] Could not restore modal state:', modalState.id, error);
+            Logger.warn('[App] Could not restore modal state:', modalState.id, error);
             return false;
         }
     },
@@ -951,7 +953,7 @@ const App = {
             await Auth.logout();
             this.showAuth();
         } catch (err) {
-            console.error('Delete account error:', err);
+            Logger.error('Delete account error:', err);
             UI.showToast('Fehler beim Löschen: ' + (err.message || err), 'error');
         }
     },
@@ -1283,7 +1285,7 @@ const App = {
                 logoutImg.alt = mode === 'dark' ? 'Abmelden im Dunkelmodus' : 'Abmelden im Hellmodus';
             }
         } catch (error) {
-            console.warn('[Theme] Logout icon could not be updated', error);
+            Logger.warn('[Theme] Logout icon could not be updated', error);
         }
     },
 
@@ -1378,7 +1380,7 @@ const App = {
     setupMobileSubmenuToggle() {
         // Prevent re-initialization
         if (this._mobileSubmenuInitialized) {
-            console.log('[setupMobileSubmenuToggle] Already initialized, skipping...');
+            Logger.info('[setupMobileSubmenuToggle] Already initialized, skipping...');
             return;
         }
 
@@ -1392,20 +1394,20 @@ const App = {
         this._mobileSubmenuInitialized = true;
 
         // DEBUGGING: Log all nav-groups on initialization
-        console.log('[DEBUG] Nav groups found:', document.querySelectorAll('#appNav .nav-group').length);
+        Logger.info(`[DEBUG] Nav groups found: ${document.querySelectorAll('#appNav .nav-group').length}`);
         document.querySelectorAll('#appNav .nav-group').forEach((g, i) => {
             const mainBtn = g.querySelector('.nav-main');
-            console.log(`[DEBUG] Tab ${i}:`, mainBtn?.dataset.view, 'hasSubmenu:', !!g.querySelector('.nav-submenu'));
+            Logger.info(`[DEBUG] Tab ${i}: ${mainBtn?.dataset.view} hasSubmenu: ${!!g.querySelector('.nav-submenu')}`);
         });
 
         // Central delegation handler for ALL mobile bottom nav interactions
         navBar.addEventListener('click', async (e) => {
             // DEBUGGING: Log ALL clicks on navBar
-            console.log('[DEBUG] Click on navBar!', 'Target:', e.target, 'ClientX:', e.clientX, 'ClientY:', e.clientY);
+            Logger.info(`[DEBUG] Click on navBar! Target: ${e.target.tagName} ClientX: ${e.clientX}`);
 
             // Safety check: Only run logic if navBar is actually visible/active (mobile mode)
             if (window.innerWidth > 768) {
-                console.log('[DEBUG] Ignoring - desktop mode');
+                Logger.info('[DEBUG] Ignoring - desktop mode');
                 return;
             }
             const subitem = e.target.closest('.nav-subitem');
@@ -1414,16 +1416,16 @@ const App = {
                 const fallbackGroup = e.target.closest('.nav-group');
                 if (fallbackGroup) {
                     mainitem = fallbackGroup.querySelector('.nav-item.nav-main');
-                    console.log('[DEBUG] Using fallback mainitem from nav-group:', mainitem);
+                    Logger.info('[DEBUG] Using fallback mainitem from nav-group:', mainitem);
                 }
             }
 
-            console.log('[DEBUG] Closest subitem:', subitem);
-            console.log('[DEBUG] Closest mainitem:', mainitem);
+            Logger.info('[DEBUG] Closest subitem:', subitem);
+            Logger.info('[DEBUG] Closest mainitem:', mainitem);
 
             // 1. CLICK ON A SUBMENU ITEM (The actual links in the bubble)
             if (subitem) {
-                console.log('[DEBUG] Subitem clicked:', subitem.dataset.view);
+                Logger.info('[DEBUG] Subitem clicked:', subitem.dataset.view);
                 e.preventDefault();
                 const view = subitem.dataset.view;
                 const group = subitem.closest('.nav-group');
@@ -1445,7 +1447,7 @@ const App = {
 
                 // Navigate
                 if (view) {
-                    console.log('[DEBUG] Navigating to:', view);
+                    Logger.info('[DEBUG] Navigating to:', view);
                     await this.navigateTo(view, 'mobile-nav-sub');
                 }
                 return;
@@ -1453,14 +1455,14 @@ const App = {
 
             // 2. CLICK ON A MAIN ICON (The bottom icons)
             if (mainitem) {
-                console.log('[DEBUG] Main item clicked:', mainitem.dataset.view);
+                Logger.info('[DEBUG] Main item clicked:', mainitem.dataset.view);
                 e.preventDefault();
                 e.stopPropagation(); // Avoid global "close all" handler
 
                 const navGroup = mainitem.closest('.nav-group');
                 const hasSubmenu = navGroup && navGroup.querySelector('.nav-submenu');
 
-                console.log('[DEBUG] Has submenu:', !!hasSubmenu);
+                Logger.info('[DEBUG] Has submenu:', !!hasSubmenu);
 
                 if (hasSubmenu) {
                     // TOGGLE SUBMENU logic
@@ -1470,7 +1472,7 @@ const App = {
                     });
 
                     navGroup.classList.toggle('submenu-open');
-                    console.log('[DEBUG] Toggled submenu-open, now:', navGroup.classList.contains('submenu-open'));
+                    Logger.info('[DEBUG] Toggled submenu-open, now:', navGroup.classList.contains('submenu-open'));
                     return;
                 } else {
                     // DIRECT NAVIGATION (e.g. for simple buttons without submenus)
@@ -1482,12 +1484,12 @@ const App = {
 
                     const view = mainitem.dataset.view;
                     if (view) {
-                        console.log('[DEBUG] Direct navigation to:', view);
+                        Logger.info('[DEBUG] Direct navigation to:', view);
                         await this.navigateTo(view, 'mobile-nav-main-direct');
                     }
                 }
             } else {
-                console.log('[DEBUG] Click on navBar but no mainitem/subitem found! This should not happen.');
+                Logger.info('[DEBUG] Click on navBar but no mainitem/subitem found! This should not happen.');
             }
         });
 
@@ -1684,14 +1686,14 @@ const App = {
     setupSidebarNav() {
         // Prevent re-initialization
         if (this._sidebarNavInitialized) {
-            console.log('[setupSidebarNav] Already initialized, skipping...');
+            Logger.info('[setupSidebarNav] Already initialized, skipping...');
             return;
         }
 
         Logger.info('[setupSidebarNav] Initializing...');
         const sidebarNav = document.querySelector('.sidebar-nav');
         if (!sidebarNav) {
-            console.warn('[setupSidebarNav] No .sidebar-nav found');
+            Logger.warn('[setupSidebarNav] No .sidebar-nav found');
             return;
         }
 
@@ -1775,7 +1777,7 @@ const App = {
                 }
 
                 this.navigateTo(view, 'sidebar').catch(err => {
-                    console.error('[Sidebar Nav Error]:', err);
+                    Logger.error('[Sidebar Nav Error]:', err);
                 });
             }
         });
@@ -2078,7 +2080,7 @@ const App = {
             try {
                 return await Storage.getById('users', memberId);
             } catch (error) {
-                console.warn('[Rundown PDF] Member lookup failed:', error);
+                Logger.warn('[Rundown PDF] Member lookup failed:', error);
                 return null;
             }
         }));
@@ -2198,7 +2200,7 @@ const App = {
             try {
                 creator = await Storage.getById('users', event.createdBy);
             } catch (error) {
-                console.warn('[Rundown PDF] Creator lookup failed:', error);
+                Logger.warn('[Rundown PDF] Creator lookup failed:', error);
             }
         }
         const lineup = [
@@ -2525,7 +2527,7 @@ const App = {
                 targetFrame.contentWindow.print();
                 return true;
             } catch (error) {
-                console.warn('[Rundown PDF] Print dialog failed:', error);
+                Logger.warn('[Rundown PDF] Print dialog failed:', error);
                 return false;
             }
         };
@@ -2631,7 +2633,7 @@ const App = {
                 downloadBtn.disabled = false;
             }
         } catch (error) {
-            console.error('[Rundown PDF] Preview generation failed:', error);
+            Logger.error('[Rundown PDF] Preview generation failed:', error);
             this.currentRundownPdfPreview = null;
             frame.removeAttribute('src');
             frame.srcdoc = this.buildRundownPdfPreviewErrorDocument('Die Vorschau konnte nicht geladen werden. Du kannst es direkt erneut versuchen oder gleich exportieren.');
@@ -2707,7 +2709,7 @@ const App = {
                 previewOnly: false
             });
         } catch (error) {
-            console.error('[Rundown PDF] Export failed:', error);
+            Logger.error('[Rundown PDF] Export failed:', error);
             const fallbackOpened = await this.openRundownPdfPrintDialog();
             if (fallbackOpened) {
                 UI.showToast('Direkter PDF-Download war nicht möglich. Der Druckdialog wurde als Fallback geöffnet.', 'warning');
@@ -3240,7 +3242,7 @@ const App = {
                         const profile = await Storage.getById('users', membership.userId);
                         return { membership, profile };
                     } catch (error) {
-                        console.warn('[Band Rider] Mitglied konnte nicht geladen werden:', error);
+                        Logger.warn('[Band Rider] Mitglied konnte nicht geladen werden:', error);
                         return { membership, profile: null };
                     }
                 })
@@ -3330,7 +3332,7 @@ const App = {
             UI.openModal('bandRiderModal');
             await this.refreshBandRiderPreview(true);
         } catch (error) {
-            console.error('[Band Rider] Failed to show modal:', error);
+            Logger.error('[Band Rider] Failed to show modal:', error);
             UI.showToast('Fehler beim Laden des Riders.', 'error');
         }
     },
@@ -3548,7 +3550,7 @@ const App = {
 
             this.applyBandRiderPreviewScaling();
         } catch (error) {
-            console.error('[Band Rider] Preview failed:', error);
+            Logger.error('[Band Rider] Preview failed:', error);
         } finally {
             session.isRendering = false;
             if (loading) loading.hidden = true;
@@ -3566,7 +3568,7 @@ const App = {
             UI.showToast('Rider erfolgreich gespeichert.', 'success');
             this.setBandRiderDirtyState(false);
         } catch (err) {
-            console.error('[Band Rider] Save failed:', err);
+            Logger.error('[Band Rider] Save failed:', err);
             UI.showToast('Fehler beim Speichern.', 'error');
         }
     },
@@ -3597,7 +3599,7 @@ const App = {
 
             UI.showToast('PDF-Export erfolgreich.', 'success');
         } catch (err) {
-            console.error('[Band Rider] Export failed:', err);
+            Logger.error('[Band Rider] Export failed:', err);
             UI.showToast('PDF-Export fehlgeschlagen.', 'error');
         } finally {
             if (btn) {
@@ -3857,7 +3859,7 @@ const App = {
                     blob: pdfBlob
                 });
             } catch (error) {
-                console.error('[Songpool] PDF download failed:', error);
+                Logger.error('[Songpool] PDF download failed:', error);
                 errorCount++;
             }
         }
@@ -3874,7 +3876,7 @@ const App = {
                     blob: chordProBlob
                 });
             } catch (error) {
-                console.error('[Songpool] ChordPro download failed:', error);
+                Logger.error('[Songpool] ChordPro download failed:', error);
                 errorCount++;
             }
         }
@@ -4115,7 +4117,7 @@ const App = {
         const isSettingsSelector = !!container?.closest('#settingsModal');
 
         if (!container || !input) {
-            console.warn(`Instrument selector not found: ${containerId} or ${inputId}`);
+            Logger.warn(`Instrument selector not found: ${containerId} or ${inputId}`);
             return;
         }
 
@@ -4188,7 +4190,7 @@ const App = {
                         return normalizeInstrumentValues(parsedValue);
                     }
                 } catch (error) {
-                    console.warn('Instrument values could not be parsed as JSON, fallback to CSV parsing.', error);
+                    Logger.warn('Instrument values could not be parsed as JSON, fallback to CSV parsing.', error);
                 }
             }
 
@@ -4446,13 +4448,13 @@ const App = {
 
     async init() {
         if (this.isInitializing) {
-            console.log('[App.init] Initialization already in progress, skipping duplicate.');
+            Logger.info('[App.init] Initialization already in progress, skipping duplicate.');
             return;
         }
 
         const startTime = performance.now();
         this.isInitializing = true;
-        console.log('[App.init] Boot sequence started...');
+        Logger.info('[App.init] Boot sequence started...');
 
         if (this.redirectPasswordRecoveryToResetPage()) {
             this.isInitializing = false;
@@ -4542,25 +4544,25 @@ const App = {
 
         // Sequential initialization with progress logging
         try {
-            console.log('[App.init] Step 1: Recovering session...');
+            Logger.info('[App.init] Step 1: Recovering session...');
             await Auth.init();
 
             // Give the browser a chance to respond to loader/events
             await new Promise(resolve => setTimeout(resolve, 0));
 
             const authCheckTime = ((performance.now() - startTime) / 1000).toFixed(2);
-            console.log(`[App.init] Auth state determined at ${authCheckTime}s. Authenticated: ${Auth.isAuthenticated()}`);
+            Logger.info(`[App.init] Auth state determined at ${authCheckTime}s. Authenticated: ${Auth.isAuthenticated()}`);
 
             if (Auth.isAuthenticated()) {
-                console.log('[App.init] Step 2: Displaying main application...');
+                Logger.info('[App.init] Step 2: Displaying main application...');
                 await this.showApp();
 
                 const appShowTime = ((performance.now() - startTime) / 1000).toFixed(2);
-                console.log(`[App.init] Application rendered at ${appShowTime}s.`);
+                Logger.info(`[App.init] Application rendered at ${appShowTime}s.`);
 
                 // Background tasks (non-blocking)
                 setTimeout(async () => {
-                    console.log('[App.init] Background: Starting maintenance tasks...');
+                    Logger.info('[App.init] Background: Starting maintenance tasks...');
                     try {
                         // Initialize header submenu for default view on mobile only
                         if (window.innerWidth <= 768) {
@@ -4572,14 +4574,14 @@ const App = {
                         Storage.cleanupPastItems(); // already parallelized internally now
 
                         const totalLoadTime = ((performance.now() - startTime) / 1000).toFixed(2);
-                        console.log(`[App.init] All background tasks initiated. Total lifecycle: ${totalLoadTime}s.`);
+                        Logger.info(`[App.init] All background tasks initiated. Total lifecycle: ${totalLoadTime}s.`);
                     } catch (bgErr) {
-                        console.warn('[App.init] Background task encountered an issue:', bgErr);
+                        Logger.warn('[App.init] Background task encountered an issue:', bgErr);
                     }
                 }, 1000);
 
             } else {
-                console.log('[App.init] Not authenticated. Showing auth/landing UI.');
+                Logger.info('[App.init] Not authenticated. Showing auth/landing UI.');
                 this.showAuth();
             }
 
@@ -4587,7 +4589,7 @@ const App = {
             this.setupEventListeners();
 
         } catch (error) {
-            console.error('[App.init] CRITICAL: Device boot sequence failed:', error);
+            Logger.error('[App.init] CRITICAL: Device boot sequence failed:', error);
             if (Auth.isAuthenticated()) {
                 UI.showToast('Fehler beim Initialisieren der App.', 'error');
             }
@@ -4613,7 +4615,7 @@ const App = {
 
             const promises = standardCalendars.map(cal =>
                 Calendar.ensureLocationCalendar(cal.id, cal.name)
-                    .catch(err => console.error(`[App] Kalender konnte nicht geladen werden: ${cal.name}`, err))
+                    .catch(err => Logger.error(`[App] Kalender konnte nicht geladen werden: ${cal.name}`, err))
             );
 
             return Promise.all(promises);
@@ -4714,7 +4716,7 @@ const App = {
                         }
                     }, 3000);
                 } catch (err) {
-                    console.error('Password reset request failed:', err);
+                    Logger.error('Password reset request failed:', err);
                     UI.showToast('Fehler: ' + (err.message || 'Anfrage fehlgeschlagen'), 'error');
                     if (submitBtn) {
                         submitBtn.disabled = false;
@@ -4854,7 +4856,7 @@ const App = {
 
                     if (registerSubmitBtn) registerSubmitBtn.disabled = false;
                 } catch (error) {
-                    console.error('Error checking username:', error);
+                    Logger.error('Error checking username:', error);
                     setUsernameFeedback('Benutzername konnte gerade nicht geprüft werden.', 'info');
                     if (registerSubmitBtn) registerSubmitBtn.disabled = false;
                 }
@@ -4893,7 +4895,7 @@ const App = {
                         wasAdjusted: adjusted
                     });
                 } catch (error) {
-                    console.error('Error generating username suggestion:', error);
+                    Logger.error('Error generating username suggestion:', error);
                     setUsernameFeedback('Benutzervorschlag konnte nicht erstellt werden.', 'info');
                     if (registerSubmitBtn) registerSubmitBtn.disabled = false;
                 }
@@ -5093,7 +5095,7 @@ const App = {
 
         // Donate button is configured dynamically based on admin settings
         this.updateDonateButton().catch(err => {
-            console.warn('[setupEventListeners] Donate button could not be initialized:', err);
+            Logger.warn('[setupEventListeners] Donate button could not be initialized:', err);
         });
         // Band löschen Button
         // (Removed duplicate deleteBandBtn handler; handled below with Bands.currentBandId)
@@ -5193,17 +5195,17 @@ const App = {
             const isAppVisible = mainApp && (mainApp.style.display === 'block' || mainApp.classList.contains('active'));
 
             if (isAppVisible && !this.isPasswordRecoveryMode) {
-                console.log('[Recovery] Suppressing ghost recovery modal - app is already active');
+                Logger.info('[Recovery] Suppressing ghost recovery modal - app is already active');
                 return;
             }
 
             // Robustness: Only show if we explicitly detected recovery state or have a token
             if (!this.isPasswordRecoveryMode && !(window.location.hash && window.location.hash.includes('recovery'))) {
-                console.log('[Recovery] Suppressing recovery modal - no active token found');
+                Logger.info('[Recovery] Suppressing recovery modal - no active token found');
                 return;
             }
 
-            console.log('Opening reset password modal (Recovery Mode)');
+            Logger.info('Opening reset password modal (Recovery Mode)');
             this.isPasswordRecoveryMode = true;
 
             // Hide main app completely
@@ -6149,7 +6151,7 @@ const App = {
 
                     await this.handleAddUser();
                 } catch (error) {
-                    console.error('[addUserForm] Fehler beim Hinzufügen:', error);
+                    Logger.error('[addUserForm] Fehler beim Hinzufügen:', error);
                     UI.hideLoading();
                     UI.showToast('Fehler: ' + error.message, 'error');
                 } finally {
@@ -6349,7 +6351,7 @@ const App = {
                     this.rememberCurrentView(view);
                     this.setPersistedNavigationState({ scrollTop: 0 });
                 } catch (uiErr) {
-                    console.error('[navigateTo] UI.showView error:', uiErr);
+                    Logger.error('[navigateTo] UI.showView error:', uiErr);
                 }
 
 
@@ -6514,14 +6516,14 @@ const App = {
                             }
                         }
                     } else {
-                        console.error('Musikpool object not found!');
+                        Logger.error('Musikpool object not found!');
                     }
                 } else if (view === 'kalender') {
                     // Load personal calendar when navigating to view
                     if (typeof PersonalCalendar !== 'undefined' && PersonalCalendar.loadPersonalCalendar) {
                         PersonalCalendar.loadPersonalCalendar();
                     } else {
-                        console.error('[navigateTo] PersonalCalendar object not found!');
+                        Logger.error('[navigateTo] PersonalCalendar object not found!');
                     }
                 } else if (view === 'settings') {
                     // Load settings view content
@@ -6533,7 +6535,7 @@ const App = {
                 // Kein View gefunden
             }
         } catch (error) {
-            console.error('[navigateTo] Fehler:', error);
+            Logger.error('[navigateTo] Fehler:', error);
         }
     },
 
@@ -6665,7 +6667,7 @@ const App = {
 
         // Load calendars list when switching to locations tab
         if (tabName === 'locations' && Auth.isAdmin()) {
-            console.log('[switchSettingsTab] Loading calendars for locations tab...');
+            Logger.info('[switchSettingsTab] Loading calendars for locations tab...');
             this.renderCalendarsList();
         }
     },
@@ -6806,7 +6808,7 @@ const App = {
 
             const { data: { session } } = await sb.auth.getSession();
             if (session) {
-                await sb.auth.signOut().catch(err => console.warn('[handleRegister] Sign-out after register failed:', err));
+                await sb.auth.signOut().catch(err => Logger.warn('[handleRegister] Sign-out after register failed:', err));
                 SupabaseClient.clearStoredAuthSession();
                 if (typeof Auth !== 'undefined') {
                     Auth.currentUser = null;
@@ -6850,11 +6852,11 @@ const App = {
         const password = document.getElementById('newUserPassword').value;
         const isAdmin = document.getElementById('newUserIsAdmin').checked;
 
-        console.log('[handleAddUser] Form values:', { firstName, lastName, email, username, passwordLength: password.length, isAdmin });
+        Logger.info('[handleAddUser] Form values:', { firstName, lastName, email, username, passwordLength: password.length, isAdmin });
 
         if (!firstName || !lastName || !email || !username || !password) {
             UI.showToast('Bitte alle Felder ausfüllen', 'error');
-            console.warn('[handleAddUser] Missing fields');
+            Logger.warn('[handleAddUser] Missing fields');
             return;
         }
 
@@ -6870,11 +6872,11 @@ const App = {
                 UI.hideLoading();
                 UI.showToast('Timeout beim Erstellen des Benutzers. Bitte prüfe die Verbindung.', 'error');
             }, 5000);
-            console.log('[handleAddUser] Loading shown, checking existing users...');
+            Logger.info('[handleAddUser] Loading shown, checking existing users...');
 
             // Check if username or email already exists
             const existingUsers = await Storage.getAll('users');
-            console.log('[handleAddUser] Existing users count:', existingUsers.length);
+            Logger.info('[handleAddUser] Existing users count:', existingUsers.length);
 
             const usernameExists = existingUsers.some(u => u.username.toLowerCase() === username.toLowerCase());
             const emailExists = existingUsers.some(u => u.email.toLowerCase() === email.toLowerCase());
@@ -6893,13 +6895,13 @@ const App = {
                 return;
             }
 
-            console.log('[handleAddUser] Creating user via Auth.createUserByAdmin...');
+            Logger.info('[handleAddUser] Creating user via Auth.createUserByAdmin...');
             const newUserId = await Auth.createUserByAdmin(firstName, lastName, email, username, password, '');
-            console.log('[handleAddUser] User created, ID:', newUserId);
+            Logger.info('[handleAddUser] User created, ID:', newUserId);
 
             // If admin checkbox was checked, update role
             if (isAdmin) {
-                console.log('[handleAddUser] Setting admin role...');
+                Logger.info('[handleAddUser] Setting admin role...');
                 // Wait for profile to be created by trigger
                 let profile = null;
                 let attempts = 0;
@@ -6911,9 +6913,9 @@ const App = {
 
                 if (profile) {
                     await Storage.updateUser(newUserId, { role: 'admin' });
-                    console.log('[handleAddUser] Admin role applied.');
+                    Logger.info('[handleAddUser] Admin role applied.');
                 } else {
-                    console.warn('[handleAddUser] Profile not found after timeout, could not apply Admin role.');
+                    Logger.warn('[handleAddUser] Profile not found after timeout, could not apply Admin role.');
                     UI.showToast('Benutzer erstellt, aber Admin-Rechte konnten nicht gesetzt werden (Timeout).', 'warning');
                 }
             }
@@ -6926,10 +6928,10 @@ const App = {
 
             // Refresh users list
             await this.renderUsersList();
-            console.log('[handleAddUser] Done!');
+            Logger.info('[handleAddUser] Done!');
         } catch (error) {
             if (loadingTimeout) clearTimeout(loadingTimeout);
-            console.error('[handleAddUser] Error:', error);
+            Logger.error('[handleAddUser] Error:', error);
             UI.hideLoading();
             UI.showToast(error.message, 'error');
         }
@@ -7182,7 +7184,7 @@ const App = {
                     const results = await Promise.all(files.map(f => readFileAsDataURL(f)));
                     results.forEach(r => images.push(r));
                 } catch (err) {
-                    console.error('Fehler beim Lesen der Bilddateien', err);
+                    Logger.error('Fehler beim Lesen der Bilddateien', err);
                     UI.showToast('Fehler beim Verarbeiten der Bilder', 'error');
                 }
             }
@@ -7216,7 +7218,7 @@ const App = {
                         const results = await Promise.all(files.map(f => readFileAsDataURL(f)));
                         finalImages = results.slice();
                     } catch (err) {
-                        console.error('Fehler beim Lesen der Bilddateien', err);
+                        Logger.error('Fehler beim Lesen der Bilddateien', err);
                         UI.showToast('Fehler beim Verarbeiten der Bilder', 'error');
                     }
                 }
@@ -7241,7 +7243,7 @@ const App = {
                 successMessage = 'News veröffentlicht!';
             }
         } catch (error) {
-            console.error('[handleCreateNews] Fehler:', error);
+            Logger.error('[handleCreateNews] Fehler:', error);
             UI.showToast(error.message || 'Fehler beim Speichern der News', 'error');
             return;
         }
@@ -7254,10 +7256,10 @@ const App = {
         this.newsItems = null;
 
         void this.navigateTo('news', 'news-refresh').catch(error => {
-            console.error('[handleCreateNews] News-Refresh fehlgeschlagen:', error);
+            Logger.error('[handleCreateNews] News-Refresh fehlgeschlagen:', error);
         });
         void this.updateNewsNavBadge().catch(error => {
-            console.error('[handleCreateNews] Badge-Update fehlgeschlagen:', error);
+            Logger.error('[handleCreateNews] Badge-Update fehlgeschlagen:', error);
         });
     },
 
@@ -7277,7 +7279,7 @@ const App = {
     async openEditNews(newsId) {
         const news = await Storage.getById('news', newsId);
         if (!news) {
-            console.error('News not found:', newsId);
+            Logger.error('News not found:', newsId);
             UI.showToast('News nicht gefunden', 'error');
             return;
         }
@@ -7290,7 +7292,7 @@ const App = {
             return;
         }
 
-        console.log('Opening edit for news:', news);
+        Logger.info('Opening edit for news:', news);
 
         // Reset file input first
         const imagesInput = document.getElementById('newsImages');
@@ -7303,7 +7305,7 @@ const App = {
         if (titleInput) titleInput.value = news.title || '';
         if (editInput) editInput.value = news.id;
 
-        console.log('Populated fields - Title:', news.title, 'Content:', news.content);
+        Logger.info('Populated fields - Title:', news.title, 'Content:', news.content);
 
         // Render previews from existing images
         const preview = document.getElementById('newsImagesPreview');
@@ -7537,7 +7539,7 @@ const App = {
                     await this.updateNewsNavBadge();
                     // Optional: refresh list if needed, but avoid layout shift
                 } catch (error) {
-                    console.error('Error marking news as read:', error);
+                    Logger.error('Error marking news as read:', error);
                 }
             })();
         }
@@ -7639,7 +7641,7 @@ const App = {
                 .filter(b => ['leader', 'co-leader'].includes(b.role))
                 .map(b => String(b.id));
         } catch (err) {
-            console.warn('[voteBanner] Could not load bands:', err);
+            Logger.warn('[voteBanner] Could not load bands:', err);
             return;
         }
 
@@ -8049,7 +8051,7 @@ const App = {
         try {
             return this.normalizeEventRundownData(JSON.parse(jsonPayload));
         } catch (error) {
-            console.warn('[App] Event rundown could not be parsed:', error);
+            Logger.warn('[App] Event rundown could not be parsed:', error);
             return this.normalizeEventRundownData();
         }
     },
@@ -8766,7 +8768,7 @@ const App = {
             this.showSongpoolSelectorForDraft(songpoolSongs, options);
 
         } catch (error) {
-            console.error('[Event] Error loading songpool:', error);
+            Logger.error('[Event] Error loading songpool:', error);
             UI.showToast(Storage._getSongpoolErrorMessage(error, 'Songpool konnte nicht geladen werden.'), 'error');
         }
     },
@@ -8822,7 +8824,7 @@ const App = {
                 UI.showToast(`${successCount} Song${successCount === 1 ? '' : 's'} aus dem Songpool in die Band importiert.`, 'success');
             }
         } catch (error) {
-            console.error('[Event] Songpool copy error:', error);
+            Logger.error('[Event] Songpool copy error:', error);
             UI.showToast('Fehler beim Importieren der Songs aus dem Songpool.', 'error');
         } finally {
             UI.hideLoading();
@@ -8923,7 +8925,7 @@ const App = {
                 UI.showToast(`Vorlage "${name}" gespeichert.`, 'success');
                 modal.remove();
             } catch (err) {
-                console.error('[Rundown] saveRundownAsTemplate error', err);
+                Logger.error('[Rundown] saveRundownAsTemplate error', err);
                 UI.showToast('Vorlage konnte nicht gespeichert werden.', 'error');
             }
         });
@@ -8943,7 +8945,7 @@ const App = {
         try {
             templates = await Storage.getRundownTemplates(user.id);
         } catch (err) {
-            console.error('[Rundown] getRundownTemplates error', err);
+            Logger.error('[Rundown] getRundownTemplates error', err);
         } finally {
             UI.hideLoading();
         }
@@ -9116,7 +9118,7 @@ const App = {
                 UI.showToast('PDF heruntergeladen!', 'success');
             }
         } catch (error) {
-            console.error('Error generating PDF:', error);
+            Logger.error('Error generating PDF:', error);
             UI.showToast('Fehler bei PDF-Erstellung', 'error');
         }
     },
@@ -9144,7 +9146,7 @@ const App = {
             if (text.startsWith('PK') || text.includes(String.fromCharCode(0))) {
                 UI.hideLoading();
                 UI.showToast('Fehler: Das ist keine gültige CSV-Datei.', 'error');
-                console.error('Binary file detected (PK header or null bytes). Likely an Excel (.xlsx) or Numbers file.');
+                Logger.error('Binary file detected (PK header or null bytes). Likely an Excel (.xlsx) or Numbers file.');
                 alert('Es sieht so aus, als hätten Sie eine Excel- oder Numbers-Datei hochgeladen.\n\nBitte öffnen Sie die Datei in Ihrem Programm und wählen Sie "Datei > Exportieren > CSV" (Kommagetrennte Werte).');
                 return;
             }
@@ -9181,7 +9183,7 @@ const App = {
                     const info = parts[9] || '';
                     const ccli = parts[10] || '';
 
-                    console.log(`Extracted data: Title="${title}", Artist="${artist}"`);
+                    Logger.info(`Extracted data: Title="${title}", Artist="${artist}"`);
 
                     if (title) {
                         try {
@@ -9204,14 +9206,14 @@ const App = {
                             successCount++;
 
                         } catch (err) {
-                            console.error('Import error for line:', line, err);
+                            Logger.error('Import error for line:', line, err);
                             dbErrorCount++;
                         }
                     } else {
-                        console.warn('Skipping line: Title missing');
+                        Logger.warn('Skipping line: Title missing');
                     }
                 } else {
-                    console.warn('Skipping line: Not enough columns');
+                    Logger.warn('Skipping line: Not enough columns');
                 }
 
                 processed++;
@@ -9242,7 +9244,7 @@ const App = {
             const pref = localStorage.getItem(this.songpoolShowPublicStorageKey);
             return pref === null ? true : pref === 'true';
         } catch (error) {
-            console.warn('[Songpool] Public toggle could not be read:', error);
+            Logger.warn('[Songpool] Public toggle could not be read:', error);
             return false;
         }
     },
@@ -9251,7 +9253,7 @@ const App = {
         try {
             localStorage.setItem(this.songpoolShowPublicStorageKey, showPublic ? 'true' : 'false');
         } catch (error) {
-            console.warn('[Songpool] Public toggle could not be saved:', error);
+            Logger.warn('[Songpool] Public toggle could not be saved:', error);
         }
     },
 
@@ -9503,7 +9505,7 @@ const App = {
         try {
             existingSongs = await Storage.getSongpoolSongs(user.id, { includePublic: true });
         } catch (error) {
-            console.error('[Songpool] Existing songs could not be loaded for duplicate check:', error);
+            Logger.error('[Songpool] Existing songs could not be loaded for duplicate check:', error);
             throw new Error(Storage._getSongpoolErrorMessage(error, 'Songpool konnte nicht geprüft werden.'));
         }
 
@@ -10037,7 +10039,7 @@ const App = {
                 savedDraftIds.push(draft.id);
             } catch (error) {
                 errorCount++;
-                console.error('[Songpool] Draft save failed:', error);
+                Logger.error('[Songpool] Draft save failed:', error);
             }
         }
 
@@ -10715,7 +10717,7 @@ const App = {
                 detectedFrom: fileNameMeta.title ? 'Dateiname' : (extractedText.trim() ? metadata.detectedFrom : 'Dateiname')
             };
         } catch (error) {
-            console.warn('[Songpool] PDF metadata extraction failed:', error);
+            Logger.warn('[Songpool] PDF metadata extraction failed:', error);
             return {
                 title: this.cleanImportedSongTitle(fileNameMeta.title, fallbackTitle),
                 artist: fileNameMeta.artist || '',
@@ -10900,7 +10902,7 @@ const App = {
                 const draft = await this.createSongpoolImportDraft(file);
                 if (draft) drafts.push(draft);
             } catch (error) {
-                console.error('[Songpool] Import draft could not be created:', error);
+                Logger.error('[Songpool] Import draft could not be created:', error);
                 errors.push(error.message || `"${file.name}" konnte nicht verarbeitet werden.`);
             }
         }
@@ -10971,7 +10973,7 @@ const App = {
                 }
             }
         } catch (error) {
-            console.error('[Songpool] Duplicate pre-check could not be prepared:', error);
+            Logger.error('[Songpool] Duplicate pre-check could not be prepared:', error);
             UI.showToast(Storage._getSongpoolErrorMessage(error, 'Songpool konnte nicht geprüft werden.'), 'error');
             return;
         }
@@ -11188,7 +11190,7 @@ const App = {
                 UI.showToast(`${result.errorCount} Import${result.errorCount === 1 ? '' : 'e'} konnten nicht gespeichert werden.`, result.successCount > 0 ? 'warning' : 'error');
             }
         } catch (error) {
-            console.error('[Songpool] saveSongpoolImportDrafts failed:', error);
+            Logger.error('[Songpool] saveSongpoolImportDrafts failed:', error);
             UI.showToast(error.message || 'Songpool konnte nicht geprüft werden.', 'error');
             return;
         }
@@ -11339,7 +11341,7 @@ const App = {
                     try {
                         await this.applyImportedSongMetadataToForm(nextFile);
                     } catch (error) {
-                        console.warn('[Song] Metadata prefill failed:', error);
+                        Logger.warn('[Song] Metadata prefill failed:', error);
                     }
                 }
 
@@ -11603,7 +11605,7 @@ const App = {
         setValue('songKey', candidate.key);
         setValue('songOriginalKey', candidate.originalKey);
         setValue('songTimeSignature', candidate.timeSignature);
-        setValue('songLeadVocal', candidate.leadVocal);
+        // setValue('songLeadVocal', candidate.leadVocal); // Disabled per user request
         const detectedLanguage = this.getDetectedSongLanguage(candidate.title, candidate.language);
         setValue('songLanguage', detectedLanguage);
         this.songLanguageAutoValue = detectedLanguage || '';
@@ -11952,7 +11954,7 @@ const App = {
                 }
             }
         } catch (error) {
-            console.error('[App] handleSaveSong failed:', error);
+            Logger.error('[App] handleSaveSong failed:', error);
             UI.showToast(error.message || 'Fehler beim Speichern des Songs.', 'error');
         }
     },
@@ -12077,7 +12079,7 @@ const App = {
                 if (song.bandId) await this.renderBandSongs(song.bandId);
             }
         } catch (err) {
-            console.error('Error deleting song PDF:', err);
+            Logger.error('Error deleting song PDF:', err);
             UI.showToast('Fehler beim Löschen des PDFs', 'error');
         }
     },
@@ -12360,7 +12362,7 @@ const App = {
                         await Promise.all(updatePromises);
                         UI.showToast('Reihenfolge gespeichert', 'success');
                     } catch (error) {
-                        console.error('Error saving order:', error);
+                        Logger.error('Error saving order:', error);
                         UI.showToast('Fehler beim Speichern der Reihenfolge', 'error');
                         // Re-render to restore correct state
                         this.renderEventSongs(eventId);
@@ -12388,7 +12390,7 @@ const App = {
                 const confirmed = await UI.confirmDelete('Möchtest du diesen Song wirklich löschen?');
                 if (confirmed) {
                     const songId = btn.dataset.id;
-                    console.log('Deleting song:', songId, 'for event:', eventId);
+                    Logger.info('Deleting song:', songId, 'for event:', eventId);
 
                     // Save song data before deleting for potential rollback
                     const song = await Storage.getById('songs', songId);
@@ -12398,9 +12400,9 @@ const App = {
 
                     await Storage.deleteSong(songId);
                     UI.showToast('Song gelöscht', 'success');
-                    console.log('Re-rendering event songs only');
+                    Logger.info('Re-rendering event songs only');
                     await this.renderEventSongs(eventId);
-                    console.log('Finished re-rendering event songs');
+                    Logger.info('Finished re-rendering event songs');
                 }
             });
         });
@@ -13050,7 +13052,7 @@ const App = {
             this.bindSongpoolTempModalBackdropClose(tempModal, closeModal);
         } catch (error) {
             UI.hideLoading();
-            console.error('[Songpool] Band import modal could not be opened:', error);
+            Logger.error('[Songpool] Band import modal could not be opened:', error);
             UI.showToast(error.message || 'Band-Songs konnten nicht geladen werden.', 'error');
         }
     },
@@ -13093,7 +13095,7 @@ const App = {
 
                     readyBandSongs.push(bandSong);
                 } catch (error) {
-                    console.error('[Songpool] Band song could not be loaded:', error);
+                    Logger.error('[Songpool] Band song could not be loaded:', error);
                     loadErrorCount++;
                 }
             }
@@ -13156,7 +13158,7 @@ const App = {
                         ));
                 }
             } catch (error) {
-                console.error('[Songpool] Duplicate pre-check for band import failed:', error);
+                Logger.error('[Songpool] Duplicate pre-check for band import failed:', error);
                 UI.showToast(Storage._getSongpoolErrorMessage(error, 'Songpool konnte nicht geprüft werden.'), 'error');
                 return;
             }
@@ -13208,7 +13210,7 @@ const App = {
             }
             return;
         } catch (error) {
-            console.error('[Songpool] Band songs could not be copied to songpool:', error);
+            Logger.error('[Songpool] Band songs could not be copied to songpool:', error);
             UI.showToast(error.message || 'Band-Songs konnten nicht in den Songpool übernommen werden.', 'error');
             return;
         } finally {
@@ -13617,7 +13619,7 @@ const App = {
                         await this.renderBandSongs(bandId);
                     } catch (error) {
                         UI.hideLoading();
-                        console.error('Error deleting songs:', error);
+                        Logger.error('Error deleting songs:', error);
                         UI.showToast('Fehler beim Löschen', 'error');
                     }
                 }
@@ -13660,7 +13662,7 @@ const App = {
                             await this.renderBandSongs(bandId);
                         } catch (error) {
                             UI.hideLoading();
-                            console.error('Error deleting song:', error);
+                            Logger.error('Error deleting song:', error);
                             UI.showToast('Fehler beim Löschen des Songs', 'error');
                         }
                     }
@@ -13693,7 +13695,7 @@ const App = {
                 includePublic: showPublicSongs
             });
         } catch (error) {
-            console.error('[Songpool] View could not be rendered:', error);
+            Logger.error('[Songpool] View could not be rendered:', error);
             container.innerHTML = `
                 <div class="empty-state">
                     <p>Der Songpool konnte gerade nicht geladen werden.</p>
@@ -14097,7 +14099,7 @@ const App = {
                         );
                         await this.renderSongpoolView();
                     } catch (error) {
-                        console.error('[Songpool] Bulk delete failed:', error);
+                        Logger.error('[Songpool] Bulk delete failed:', error);
                         UI.showToast(error.message || 'Fehler beim Löschen im Songpool', 'error');
                     } finally {
                         delete bulkDeleteBtn.dataset.busy;
@@ -14141,7 +14143,7 @@ const App = {
                     UI.showToast('Song aus dem Songpool gelöscht', 'success');
                     await this.renderSongpoolView();
                 } catch (error) {
-                    console.error('[Songpool] Delete failed:', error);
+                    Logger.error('[Songpool] Delete failed:', error);
                     UI.showToast(error.message || 'Fehler beim Löschen des Songpool-Songs', 'error');
                 }
             });
@@ -14612,7 +14614,7 @@ const App = {
                 }
             }
         } catch (error) {
-            console.warn('[App] Could not persist onboarding flag reset:', error);
+            Logger.warn('[App] Could not persist onboarding flag reset:', error);
         }
 
         return true;
@@ -14697,7 +14699,7 @@ const App = {
 
         if (typeof Notifications !== 'undefined' && typeof Notifications.start === 'function') {
             Notifications.start().catch(error => {
-                console.error('[App.showApp] Could not start notifications:', error);
+                Logger.error('[App.showApp] Could not start notifications:', error);
             });
         }
 
@@ -14772,7 +14774,7 @@ const App = {
 
         if (typeof ChordProConverter !== 'undefined' && typeof ChordProConverter.loadBands === 'function') {
             ChordProConverter.loadBands().catch(err => {
-                console.warn('[showApp] Could not pre-load ChordPro bands:', err);
+                Logger.warn('[showApp] Could not pre-load ChordPro bands:', err);
             });
         }
     },
@@ -14842,7 +14844,7 @@ const App = {
         const effectiveRoot = root || document.querySelector('#settingsModal .modal-body');
 
         if (!effectiveRoot) {
-            console.error('Settings view root element not found!');
+            Logger.error('Settings view root element not found!');
             return;
         }
 
@@ -14955,8 +14957,8 @@ const App = {
                         <span class="toggle-slider"></span>
                     </span>
                     <span class="external-calendar-visibility-copy">
-                        <span class="external-calendar-visibility-title">Für Leiter sichtbar</span>
-                        <span class="external-calendar-visibility-note">Zeigt bei der Planung nur blockierte Zeiten</span>
+                        <span class="external-calendar-visibility-title">Sichtbar</span>
+                        <span class="external-calendar-visibility-note">Zeigt bei Bandmitgliedern für die Planung nur blockierte Zeiträume</span>
                     </span>
                 </label>
                 <div class="external-calendar-field">
@@ -15032,7 +15034,7 @@ const App = {
                     renderCalendarRow({ name: 'Hauptkalender', url: user.personal_ical_url });
                 }
             } catch (error) {
-                console.error('Error loading external calendars:', error);
+                Logger.error('Error loading external calendars:', error);
             }
         };
         loadUserCalendars();
@@ -15144,7 +15146,7 @@ const App = {
                     }
                     await this.updateDonateButton();
                 } catch (error) {
-                    console.error('Error saving donate link:', error);
+                    Logger.error('Error saving donate link:', error);
                     UI.showToast('Fehler beim Speichern: ' + error.message, 'error');
                 }
             });
@@ -15255,7 +15257,7 @@ const App = {
 
                         await Storage.syncSharedExternalCalendarBusySlots(user.id, savedExternalCalendars);
                     } catch (error) {
-                        console.error('Error updating external calendars records:', error);
+                        Logger.error('Error updating external calendars records:', error);
                         throw new Error(Storage._getExternalCalendarSharingErrorMessage(
                             error,
                             'Externe Kalender konnten nicht gespeichert werden.'
@@ -15268,7 +15270,7 @@ const App = {
                         const sb = SupabaseClient.getClient();
                         const { error } = await sb.auth.updateUser({ email });
                         if (error) {
-                            console.error('Error updating auth email:', error);
+                            Logger.error('Error updating auth email:', error);
                             UI.showToast('Hinweis: E-Mail für Login konnte nicht geändert werden.', 'warning');
                         }
                     }
@@ -15278,7 +15280,7 @@ const App = {
                         const sb = SupabaseClient.getClient();
                         const { error } = await sb.auth.updateUser({ password });
                         if (error) {
-                            console.error('Error updating password:', error);
+                            Logger.error('Error updating password:', error);
                         }
                     }
 
@@ -15295,7 +15297,7 @@ const App = {
                     // Clear Personal Calendar Cache (partial reset) to force refresh without breaking clicks
                     if (typeof PersonalCalendar !== 'undefined' && typeof PersonalCalendar.clearCache === 'function') {
                         PersonalCalendar.clearCache(false);
-                        console.log('[App] PersonalCalendar marked for refresh after profile update');
+                        Logger.info('[App] PersonalCalendar marked for refresh after profile update');
                     }
 
                     // Update header
@@ -15350,7 +15352,7 @@ const App = {
                     // Render updated profile image
                     this.renderProfileImageSettings(updatedUser);
                 } catch (error) {
-                    console.error('Error updating profile:', error);
+                    Logger.error('Error updating profile:', error);
                     UI.showToast('Fehler beim Aktualisieren: ' + error.message, 'error');
                 } finally {
                     // Re-query button to be safe
@@ -15562,7 +15564,7 @@ const App = {
             });
 
         } catch (err) {
-            console.error(err);
+            Logger.error(err);
             list.innerHTML = `<div class="error-state" style="color:red">Fehler: ${err.message}</div>`;
         }
     },
@@ -16494,7 +16496,7 @@ const App = {
 
             await personalCalendar.syncCalendarBackground();
         } catch (error) {
-            console.warn('[App.refreshPersonalCalendarAfterAbsenceChange] Failed:', error);
+            Logger.warn('[App.refreshPersonalCalendarAfterAbsenceChange] Failed:', error);
         }
     },
 
@@ -16512,7 +16514,7 @@ const App = {
 
             await personalCalendar.syncCalendarBackground();
         } catch (error) {
-            console.warn('[App.refreshPersonalCalendarAfterPlanningChange] Failed:', error);
+            Logger.warn('[App.refreshPersonalCalendarAfterPlanningChange] Failed:', error);
         }
     },
 
@@ -16605,7 +16607,7 @@ const App = {
 
         if (typeof Rehearsals !== 'undefined' && typeof Rehearsals.updateAvailabilityIndicators === 'function') {
             Promise.resolve(Rehearsals.updateAvailabilityIndicators()).catch(error => {
-                console.warn('[applyPendingCreateRehearsalDefaults] Could not refresh availability', error);
+                Logger.warn('[applyPendingCreateRehearsalDefaults] Could not refresh availability', error);
             });
         }
     },
@@ -16630,7 +16632,7 @@ const App = {
 
         if (typeof Events !== 'undefined' && typeof Events.updateAvailabilityIndicators === 'function') {
             Promise.resolve(Events.updateAvailabilityIndicators()).catch(error => {
-                console.warn('[applyPendingCreateEventDefaults] Could not refresh availability', error);
+                Logger.warn('[applyPendingCreateEventDefaults] Could not refresh availability', error);
             });
         }
     },
@@ -16644,7 +16646,7 @@ const App = {
             btn.click();
         } else {
             this.pendingCreateRehearsalDefaults = null;
-            console.warn('[openCreateRehearsalModal] createRehearsalBtn not found');
+            Logger.warn('[openCreateRehearsalModal] createRehearsalBtn not found');
         }
     },
 
@@ -16657,7 +16659,7 @@ const App = {
             btn.click();
         } else {
             this.pendingCreateEventDefaults = null;
-            console.warn('[openCreateEventModal] createEventBtn not found');
+            Logger.warn('[openCreateEventModal] createEventBtn not found');
         }
     },
 
@@ -16674,7 +16676,7 @@ const App = {
         Logger.action('Open Settings Modal');
         const user = Auth.currentUser;
         if (!user) {
-            console.warn('[openSettingsModal] No user found!');
+            Logger.warn('[openSettingsModal] No user found!');
             return;
         }
 
@@ -16798,7 +16800,7 @@ const App = {
             try {
                 URL.revokeObjectURL(this.profileImageDraftObjectUrl);
             } catch (error) {
-                console.warn('Could not revoke profile image preview URL:', error);
+                Logger.warn('Could not revoke profile image preview URL:', error);
             }
         }
         this.profileImageDraftObjectUrl = null;
@@ -16859,7 +16861,7 @@ const App = {
             if (!sb) return;
             await sb.storage.from('profile-images').remove([pathPart]);
         } catch (error) {
-            console.warn('Could not remove file from storage:', error);
+            Logger.warn('Could not remove file from storage:', error);
         }
     },
 
@@ -16876,7 +16878,7 @@ const App = {
                 );
                 file = await Promise.race([compressionPromise, timeoutPromise]);
             } catch (error) {
-                console.warn('Compression failed or timed out, using original file', error);
+                Logger.warn('Compression failed or timed out, using original file', error);
             }
 
             const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -17269,7 +17271,7 @@ const App = {
 
     // Handle calendar form submission
     async handleCalendarForm() {
-        console.log('[handleCalendarForm] Starting calendar form submission');
+        Logger.info('[handleCalendarForm] Starting calendar form submission');
         const editIdInput = document.getElementById('editCalendarId');
         const nameInput = document.getElementById('calendarName');
         const iconInput = document.getElementById('calendarIcon');
@@ -17280,7 +17282,7 @@ const App = {
         const icon = iconInput.value.trim() || '📅';
         const icalUrl = urlInput.value.trim();
 
-        console.log('[handleCalendarForm] Form data:', { calendarId, name, icon, icalUrl });
+        Logger.info('[handleCalendarForm] Form data:', { calendarId, name, icon, icalUrl });
 
         if (!name || !icalUrl) {
             UI.showToast('Bitte fülle alle Pflichtfelder aus', 'error');
@@ -17291,54 +17293,54 @@ const App = {
         UI.showLoading('Kalender wird gespeichert...', 0);
 
         try {
-            console.log('[handleCalendarForm] Attempting to save calendar...');
+            Logger.info('[handleCalendarForm] Attempting to save calendar...');
             let result;
             if (calendarId) {
                 // Update existing calendar
-                console.log('[handleCalendarForm] Updating calendar with ID:', calendarId);
+                Logger.info('[handleCalendarForm] Updating calendar with ID:', calendarId);
                 result = await Storage.updateCalendar(calendarId, {
                     name,
                     icon,
                     ical_url: icalUrl
                 });
-                console.log('[handleCalendarForm] Calendar updated:', result);
+                Logger.info('[handleCalendarForm] Calendar updated:', result);
                 UI.showToast('Kalender aktualisiert', 'success');
             } else {
                 // Create new calendar
-                console.log('[handleCalendarForm] Creating new calendar...');
+                Logger.info('[handleCalendarForm] Creating new calendar...');
                 result = await Storage.createCalendar({
                     name,
                     icon,
                     ical_url: icalUrl,
                     is_system: false
                 });
-                console.log('[handleCalendarForm] Calendar created:', result);
+                Logger.info('[handleCalendarForm] Calendar created:', result);
                 UI.showToast('Kalender erstellt', 'success');
             }
 
             this.invalidateSettingsCache();
-            console.log('[handleCalendarForm] Closing modal and refreshing data...');
+            Logger.info('[handleCalendarForm] Closing modal and refreshing data...');
             UI.closeModal('calendarModal');
 
             // Refresh calendar data
-            console.log('[handleCalendarForm] Rendering calendars list...');
+            Logger.info('[handleCalendarForm] Rendering calendars list...');
             await this.renderCalendarsList();
-            console.log('[handleCalendarForm] Rendering locations list...');
+            Logger.info('[handleCalendarForm] Rendering locations list...');
             await this.renderLocationsList();
-            console.log('[handleCalendarForm] Rendering calendar tabs...');
+            Logger.info('[handleCalendarForm] Rendering calendar tabs...');
             await this.renderProbeorteCalendarTabs();
 
             // Reload Calendar module
-            console.log('[handleCalendarForm] Reinitializing Calendar module...');
+            Logger.info('[handleCalendarForm] Reinitializing Calendar module...');
             if (typeof Calendar.initCalendars === 'function') {
                 await Calendar.initCalendars();
             }
 
-            console.log('[handleCalendarForm] Calendar saved successfully!');
+            Logger.info('[handleCalendarForm] Calendar saved successfully!');
         } catch (error) {
-            console.error('[handleCalendarForm] Error saving calendar:', error);
-            console.error('[handleCalendarForm] Error stack:', error.stack);
-            console.error('[handleCalendarForm] Error details:', {
+            Logger.error('[handleCalendarForm] Error saving calendar:', error);
+            Logger.error('[handleCalendarForm] Error stack:', error.stack);
+            Logger.error('[handleCalendarForm] Error details:', {
                 message: error.message,
                 name: error.name,
                 code: error.code
@@ -17384,7 +17386,7 @@ const App = {
                     await Calendar.initCalendars();
                 }
             } catch (error) {
-                console.error('Error deleting calendar:', error);
+                Logger.error('Error deleting calendar:', error);
                 UI.showToast('Fehler beim Löschen: ' + error.message, 'error');
             }
         }
@@ -17719,7 +17721,7 @@ const App = {
                         await this.toggleUserAdmin(userId, true);
                     }
                 } catch (error) {
-                    console.error('Error in make-admin-btn handler:', error);
+                    Logger.error('Error in make-admin-btn handler:', error);
                     UI.showToast('Fehler: ' + error.message, 'error');
                 }
             });
@@ -17746,7 +17748,7 @@ const App = {
                         await this.toggleUserAdmin(userId, false);
                     }
                 } catch (error) {
-                    console.error('Error in remove-admin-btn handler:', error);
+                    Logger.error('Error in remove-admin-btn handler:', error);
                     UI.showToast('Fehler: ' + error.message, 'error');
                 }
             });
@@ -17756,10 +17758,10 @@ const App = {
             btn.addEventListener('click', async () => {
                 try {
                     const userId = btn.dataset.userId;
-                    console.log('Delete user button clicked for:', userId);
+                    Logger.info('Delete user button clicked for:', userId);
 
                     const user = await Storage.getById('users', userId);
-                    console.log('User found:', user);
+                    Logger.info('User found:', user);
 
                     if (!user) {
                         UI.showToast('Benutzer nicht gefunden', 'error');
@@ -17767,13 +17769,13 @@ const App = {
                     }
 
                     const confirmed = await UI.confirmDelete(`Möchtest du den Benutzer ${(user.first_name && user.last_name) ? `${user.first_name} ${user.last_name}` : user.username} wirklich löschen? Dies kann nicht rückgängig gemacht werden!`);
-                    console.log('User confirmed deletion:', confirmed);
+                    Logger.info('User confirmed deletion:', confirmed);
 
                     if (confirmed) {
                         await this.deleteUser(userId);
                     }
                 } catch (error) {
-                    console.error('Error in delete-user-btn handler:', error);
+                    Logger.error('Error in delete-user-btn handler:', error);
                     UI.showToast('Fehler beim Löschen: ' + error.message, 'error');
                 }
             });
@@ -17783,7 +17785,7 @@ const App = {
     // Toggle user admin status
     async toggleUserAdmin(userId, makeAdmin) {
         try {
-            console.log('Toggling admin status:', { userId, makeAdmin });
+            Logger.info('Toggling admin status:', { userId, makeAdmin });
 
             const sb = SupabaseClient.getClient();
             if (!sb) {
@@ -17798,7 +17800,7 @@ const App = {
                 .maybeSingle();
 
             if (fetchError) {
-                console.error('Error fetching user:', fetchError);
+                Logger.error('Error fetching user:', fetchError);
                 throw new Error('Benutzer konnte nicht gefunden werden');
             }
 
@@ -17806,7 +17808,7 @@ const App = {
                 throw new Error('Benutzer existiert nicht');
             }
 
-            console.log('Current user state:', existingUser);
+            Logger.info('Current user state:', existingUser);
 
             // Update admin status without expecting a return value
             const { error: updateError } = await sb
@@ -17815,15 +17817,15 @@ const App = {
                 .eq('id', userId);
 
             if (updateError) {
-                console.error('Supabase error toggling admin:', updateError);
+                Logger.error('Supabase error toggling admin:', updateError);
                 throw new Error(updateError.message || 'Fehler beim Aktualisieren');
             }
 
-            console.log('Admin status updated successfully');
+            Logger.info('Admin status updated successfully');
             UI.showToast(makeAdmin ? 'Benutzer ist jetzt Admin' : 'Admin-Rechte entfernt', 'success');
             await this.renderUsersList();
         } catch (error) {
-            console.error('Error toggling admin:', error);
+            Logger.error('Error toggling admin:', error);
             UI.showToast('Fehler beim Ändern der Admin-Rechte: ' + error.message, 'error');
         }
     },
@@ -17831,12 +17833,12 @@ const App = {
     // Delete user
     async deleteUser(userId) {
         try {
-            console.log('Deleting user:', userId);
+            Logger.info('Deleting user:', userId);
             UI.showLoading('Lösche Benutzer...');
 
             // Remove user from all bands
             const userBands = await Storage.getUserBands(userId);
-            console.log('User bands:', userBands);
+            Logger.info('User bands:', userBands);
             for (const ub of userBands) {
                 await Storage.removeBandMember(ub.bandId, userId);
             }
@@ -17846,7 +17848,7 @@ const App = {
             if (sb) {
                 const { error } = await sb.from('votes').delete().eq('userId', userId);
                 if (error) {
-                    console.error('Error deleting votes:', error);
+                    Logger.error('Error deleting votes:', error);
                 }
             }
 
@@ -17858,13 +17860,13 @@ const App = {
                 throw new Error('Benutzer konnte nicht gelöscht werden (RLS/Policy?)');
             }
 
-            console.log('User deleted successfully');
+            Logger.info('User deleted successfully');
             UI.hideLoading();
             UI.showToast('Benutzer gelöscht', 'success');
             await this.renderUsersList();
         } catch (error) {
             UI.hideLoading();
-            console.error('Error deleting user:', error);
+            Logger.error('Error deleting user:', error);
             UI.showToast('Fehler beim Löschen des Benutzers: ' + error.message, 'error');
         }
     },
@@ -17958,7 +17960,7 @@ const App = {
                     );
                     file = await Promise.race([compressionPromise, timeoutPromise]);
                 } catch (cErr) {
-                    console.warn('Image compression failed or timed out, trying original file', cErr);
+                    Logger.warn('Image compression failed or timed out, trying original file', cErr);
                 }
 
                 const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
@@ -17998,7 +18000,7 @@ const App = {
                 const sb = SupabaseClient.getClient();
                 const { error } = await sb.auth.updateUser({ email });
                 if (error) {
-                    console.error('Error updating auth email:', error);
+                    Logger.error('Error updating auth email:', error);
                     UI.showToast('E-Mail aktualisiert, aber Login-Email bleibt alt (Auth-Fehler)', 'warning');
                 }
             }
@@ -18008,7 +18010,7 @@ const App = {
                 const sb = SupabaseClient.getClient();
                 const { error } = await sb.auth.updateUser({ password });
                 if (error) {
-                    console.error('Error updating password:', error);
+                    Logger.error('Error updating password:', error);
                 }
             }
 
@@ -18048,7 +18050,7 @@ const App = {
             }
 
         } catch (error) {
-            console.error('Error updating profile:', error);
+            Logger.error('Error updating profile:', error);
             UI.showToast('Fehler beim Aktualisieren: ' + error.message, 'error');
         } finally {
             UI.hideLoading();
@@ -18184,7 +18186,7 @@ const App = {
                 dropdown.value = newCalendar.id;
             }
         } catch (error) {
-            console.error('Error creating calendar:', error);
+            Logger.error('Error creating calendar:', error);
             UI.showToast('Fehler beim Erstellen: ' + error.message, 'error');
         }
     },
@@ -18198,7 +18200,7 @@ const App = {
         const calendarSection = document.querySelector('#probeorteView .section');
 
         if (!submenu || !calendarSection) {
-            console.warn('[renderProbeorteCalendarTabs] Submenu or section container not found');
+            Logger.warn('[renderProbeorteCalendarTabs] Submenu or section container not found');
             return;
         }
 
@@ -18357,7 +18359,7 @@ const App = {
 
         // Check calendar for conflicts
         if (typeof Calendar === 'undefined' || !Calendar.calendars) {
-            console.warn('Calendar not loaded, skipping availability check');
+            Logger.warn('Calendar not loaded, skipping availability check');
             return { available: true };
         }
 
@@ -18481,7 +18483,7 @@ const App = {
                 }
             }
         } catch (err) {
-            console.error('[updateDashboard] QuickAccess failed', err);
+            Logger.error('[updateDashboard] QuickAccess failed', err);
         }
 
         // Drag & Drop Setup
@@ -18532,7 +18534,7 @@ const App = {
                 });
             }
         } catch (err) {
-            console.error('[updateDashboard] Error in drag & drop logic', err);
+            Logger.error('[updateDashboard] Error in drag & drop logic', err);
         }
 
         // --- 2. Parallel Data Fetching ---
@@ -18557,11 +18559,11 @@ const App = {
         }
 
         // Start all fetches
-        const bandsPromise = Storage.getUserBands(user.id).catch(e => { console.error('Bands fetch failed', e); return []; });
-        const eventsPromise = Storage.getUserEvents(user.id).catch(e => { console.error('Events fetch failed', e); return []; });
-        const rehearsalsPromise = Storage.getUserRehearsals(user.id).catch(e => { console.error('Rehearsals fetch failed', e); return []; });
+        const bandsPromise = Storage.getUserBands(user.id).catch(e => { Logger.error('Bands fetch failed', e); return []; });
+        const eventsPromise = Storage.getUserEvents(user.id).catch(e => { Logger.error('Events fetch failed', e); return []; });
+        const rehearsalsPromise = Storage.getUserRehearsals(user.id).catch(e => { Logger.error('Rehearsals fetch failed', e); return []; });
         // Use optimized getLatestNews instead of fetching all
-        const newsPromise = Storage.getLatestNews(10).catch(e => { console.error('News fetch failed', e); return []; });
+        const newsPromise = Storage.getLatestNews(10).catch(e => { Logger.error('News fetch failed', e); return []; });
 
         // Handle News
         newsPromise.then(news => {
@@ -18737,15 +18739,15 @@ const App = {
                         nextEventContent.innerHTML = `<div class="next-event-placeholder">Keine anstehenden Termine geplant.</div>`;
                     }
                 } catch (err) {
-                    console.error('[updateDashboard] Error in Next Event logic', err);
+                    Logger.error('[updateDashboard] Error in Next Event logic', err);
                     nextEventContent.innerHTML = '<div class="next-event-placeholder">Fehler beim Laden</div>';
                 }
             }
 
             // Render upcoming list using cached data
-            this.renderUpcomingList(events, rehearsals).catch(err => console.error('[updateDashboard] renderUpcomingList failed', err));
+            this.renderUpcomingList(events, rehearsals).catch(err => Logger.error('[updateDashboard] renderUpcomingList failed', err));
         } catch (err) {
-            console.error('[updateDashboard] Failed to load events/rehearsals:', err);
+            Logger.error('[updateDashboard] Failed to load events/rehearsals:', err);
         }
 
         // Handle Activities (needs News + Events + Rehearsals)
@@ -18832,7 +18834,7 @@ const App = {
                     });
                     activities = activities.concat(voteActivities);
                 } catch (err) {
-                    console.warn('[dashboard] Could not load vote activities:', err);
+                    Logger.warn('[dashboard] Could not load vote activities:', err);
                 }
 
                 activities = activities.filter(a => a.date).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
@@ -18868,7 +18870,7 @@ const App = {
                 }
             }
         } catch (err) {
-            console.error('[updateDashboard] Failed to load activities:', err);
+            Logger.error('[updateDashboard] Failed to load activities:', err);
         }
 
         Logger.timeEnd('dashboard-load');
@@ -19086,7 +19088,7 @@ const App = {
                         .remove([oldFileName]);
 
                     if (deleteError) {
-                        console.warn('Could not delete old band image:', deleteError);
+                        Logger.warn('Could not delete old band image:', deleteError);
                         // Continue anyway - not critical
                     }
                 }
@@ -19096,7 +19098,7 @@ const App = {
             try {
                 file = await this.compressImage(file);
             } catch (e) {
-                console.warn('Band image compression failed', e);
+                Logger.warn('Band image compression failed', e);
             }
 
             const fileExt = 'jpg';
@@ -19108,7 +19110,7 @@ const App = {
                 .upload(fileName, file, { upsert: true });
 
             if (uploadError) {
-                console.error('Band image upload error:', uploadError);
+                Logger.error('Band image upload error:', uploadError);
                 UI.showToast('Fehler beim Bild-Upload: ' + uploadError.message, 'error');
                 return false;
             }
@@ -19145,7 +19147,7 @@ const App = {
             }
 
         } catch (err) {
-            console.error('Error in handleUpdateBandImage:', err);
+            Logger.error('Error in handleUpdateBandImage:', err);
             UI.showToast('Ein unerwarteter Fehler ist aufgetreten', 'error');
             return false;
         }
@@ -19184,7 +19186,7 @@ const App = {
                         .remove([fileName]);
 
                     if (deleteError) {
-                        console.warn('Could not delete band image from storage:', deleteError);
+                        Logger.warn('Could not delete band image from storage:', deleteError);
                         // Continue anyway to remove URL from DB
                     }
                 }
@@ -19209,7 +19211,7 @@ const App = {
                 UI.showToast('Fehler beim Löschen', 'error');
             }
         } catch (err) {
-            console.error('Error in handleDeleteBandImage:', err);
+            Logger.error('Error in handleDeleteBandImage:', err);
             UI.showToast('Ein Fehler ist aufgetreten', 'error');
         }
     },

@@ -55,7 +55,7 @@ const PersonalCalendar = {
                     try {
                         await Storage.syncSharedExternalCalendarBusySlots(user.id, userCalendars, allExternal);
                     } catch (error) {
-                        console.warn('[PersonalCalendar] Shared calendar sync failed:', error);
+                        Logger.warn('[PersonalCalendar] Shared calendar sync failed:', error);
                     }
                 } else if (user.personal_ical_url) {
                     allExternal = await this.loadExternalCalendar(user.personal_ical_url, 'Hauptkalender');
@@ -66,7 +66,7 @@ const PersonalCalendar = {
                 this.externalEvents = allExternal || [];
                 this.hasLoaded = true;
             } catch (e) {
-                console.warn('[PersonalCalendar] Silent data load failed:', e);
+                Logger.warn('[PersonalCalendar] Silent data load failed:', e);
             } finally {
                 this.isLoading = false;
                 this.loadingPromise = null;
@@ -88,7 +88,7 @@ const PersonalCalendar = {
         const startTime = performance.now();
         const container = document.getElementById('personalCalendarContainer');
         if (!container) {
-            console.error('[PersonalCalendar] Container not found!');
+            Logger.error('[PersonalCalendar] Container not found!');
             Logger.timeEnd('Personal Calendar Load');
             return;
         }
@@ -120,7 +120,7 @@ const PersonalCalendar = {
                 try {
                     await Storage.syncSharedExternalCalendarBusySlots(user.id, userCalendars, allExternal);
                 } catch (error) {
-                    console.warn('[PersonalCalendar] Shared calendar sync failed:', error);
+                    Logger.warn('[PersonalCalendar] Shared calendar sync failed:', error);
                 }
             } else if (user.personal_ical_url) {
                 // Migration/Legacy support
@@ -165,7 +165,7 @@ const PersonalCalendar = {
             
             delete Logger.timers['Personal Calendar Load']; 
         } catch (error) {
-            console.error('[PersonalCalendar] Error loading personal calendar:', error);
+            Logger.error('[PersonalCalendar] Error loading personal calendar:', error);
             this.hasLoaded = false;
             container.innerHTML = `
                 <div class="empty-state">
@@ -207,7 +207,7 @@ const PersonalCalendar = {
                 throw new Error('Supabase client not initialized');
             }
         } catch (error) {
-            console.error('[PersonalCalendar] Error loading events:', error);
+            Logger.error('[PersonalCalendar] Error loading events:', error);
             // Fallback to storage
             const allEvents = await Storage.getAllEvents() || [];
             return allEvents.filter(event => bandIds.includes(event.bandId));
@@ -233,7 +233,7 @@ const PersonalCalendar = {
                 throw new Error('Supabase client not initialized');
             }
         } catch (error) {
-            console.error('[PersonalCalendar] Error loading rehearsals:', error);
+            Logger.error('[PersonalCalendar] Error loading rehearsals:', error);
             // Fallback to storage
             const allRehearsals = await Storage.getAllRehearsals() || [];
             return allRehearsals.filter(rehearsal =>
@@ -248,7 +248,7 @@ const PersonalCalendar = {
             const absences = await Storage.getUserAbsences(userId);
             return Array.isArray(absences) ? absences : [];
         } catch (error) {
-            console.error('[PersonalCalendar] Error loading absences:', error);
+            Logger.error('[PersonalCalendar] Error loading absences:', error);
             return [];
         }
     },
@@ -1045,7 +1045,7 @@ const PersonalCalendar = {
         }
 
         if (!item) {
-            console.warn('[PersonalCalendar] Item not found (likely being reloaded):', itemId, itemType);
+            Logger.warn('[PersonalCalendar] Item not found (likely being reloaded):', itemId, itemType);
             // Optional: trigger a refresh if we're not already loading
             if (!this.isLoading && !this.hasLoaded) {
                 this.loadPersonalCalendar();
@@ -1684,7 +1684,7 @@ const PersonalCalendar = {
                     // Don't throw, let them see the link anyway, but warn heavily
                 }
             } catch (e) {
-                console.warn('Verification of public URL failed', e);
+                Logger.warn('Verification of public URL failed', e);
             }
 
             // Convert to webcal://
@@ -1695,7 +1695,7 @@ const PersonalCalendar = {
             UI.showToast('Kalender erfolgreich synchronisiert!', 'success');
 
         } catch (error) {
-            console.error('Subscription Error:', error);
+            Logger.error('Subscription Error:', error);
             UI.showToast('Fehler: ' + error.message, 'error');
         }
     },
@@ -1741,7 +1741,7 @@ const PersonalCalendar = {
      */
     async syncCalendarBackground() {
         try {
-            console.log('[PersonalCalendar] Starting background sync...');
+            Logger.info('[PersonalCalendar] Starting background sync...');
             const user = Auth.getCurrentUser();
             if (!user) return;
 
@@ -1758,12 +1758,12 @@ const PersonalCalendar = {
                 this.events = allEvents || [];
                 this.rehearsals = allRehearsals || [];
                 this.absences = allAbsences || [];
-                console.log(`[PersonalCalendar] Reloaded ${this.events.length} events, ${this.rehearsals.length} rehearsals and ${this.absences.length} absences for sync`);
+                Logger.info(`[PersonalCalendar] Reloaded ${this.events.length} events, ${this.rehearsals.length} rehearsals and ${this.absences.length} absences for sync`);
             }
 
             const icsContent = this.generateICSContent();
             if (!icsContent) {
-                console.warn('[PersonalCalendar] No content generated for sync');
+                Logger.warn('[PersonalCalendar] No content generated for sync');
                 return;
             }
 
@@ -1777,10 +1777,10 @@ const PersonalCalendar = {
                 });
 
                 if (error) throw error;
-                console.log('[PersonalCalendar] Background sync success');
+                Logger.info('[PersonalCalendar] Background sync success');
             }
         } catch (e) {
-            console.warn('[PersonalCalendar] Background sync failed', e);
+            Logger.warn('[PersonalCalendar] Background sync failed', e);
         }
     },
 

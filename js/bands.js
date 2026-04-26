@@ -164,7 +164,7 @@ const Bands = {
             Logger.timeEnd('Bands Load');
 
         } catch (error) {
-            console.error('Error rendering bands:', error);
+            Logger.error('Error rendering bands:', error);
             UI.showToast('Fehler beim Laden der Bands', 'error');
             container.innerHTML = '<p class="error-text">Fehler beim Laden der Daten. Bitte versuchen Sie es später erneut.</p>';
         } finally {
@@ -291,7 +291,7 @@ const Bands = {
         const user = Auth.getCurrentUser();
 
         if (!band) {
-            console.error('bandDetails: Band not found in storage', bandId);
+            Logger.error('bandDetails: Band not found in storage', bandId);
             return;
         }
 
@@ -680,7 +680,7 @@ const Bands = {
 
             UI.closeModal('joinBandModal');
         } catch (error) {
-            console.error('[Bands.joinBand] Error creating join request:', error);
+            Logger.error('[Bands.joinBand] Error creating join request:', error);
             UI.showToast(error.message || 'Die Anfrage konnte nicht gesendet werden.', 'error');
         }
     },
@@ -879,7 +879,7 @@ const Bands = {
                     });
                     return;
                 }
-                console.warn('[BandAbsences] Settings shortcut not available');
+                Logger.warn('[BandAbsences] Settings shortcut not available');
             });
             shortcutBtn._bound = true;
         }
@@ -1085,9 +1085,9 @@ const Bands = {
         // Use Supabase auth ID as fallback
         const userId = user?.id || supabaseUser?.id;
 
-        console.log('createBand - user:', user);
-        console.log('createBand - supabaseUser:', supabaseUser);
-        console.log('createBand - userId:', userId);
+        Logger.info('createBand - user:', user);
+        Logger.info('createBand - supabaseUser:', supabaseUser);
+        Logger.info('createBand - userId:', userId);
 
         if (!userId) {
             UI.showToast('Fehler: Benutzer nicht korrekt geladen. Bitte lade die Seite neu und melde dich erneut an.', 'error');
@@ -1156,7 +1156,7 @@ const Bands = {
             return band;
         } catch (error) {
             UI.hideLoading();
-            console.error('Error creating band:', error);
+            Logger.error('Error creating band:', error);
             UI.showToast('Fehler beim Erstellen der Band: ' + (error.message || 'Unbekannter Fehler'), 'error');
         }
     },
@@ -1306,7 +1306,7 @@ const Bands = {
             if (absenceBtn) absenceBtn.style.display = 'inline-block';
             if (settingsBtn) settingsBtn.style.display = 'inline-block';
         } catch (e) {
-            console.error('updateNavVisibility error', e);
+            Logger.error('updateNavVisibility error', e);
         }
     },
 
@@ -1428,7 +1428,7 @@ const Bands = {
             UI.closeModal('addMemberModal');
             return true;
         } catch (error) {
-            console.error('[Bands.addMember] Error sending invite:', error);
+            Logger.error('[Bands.addMember] Error sending invite:', error);
             UI.showToast(error.message || 'Fehler beim Senden der Einladung', 'error');
             return false;
         }

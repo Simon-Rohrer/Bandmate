@@ -89,7 +89,9 @@
     <script>
         // Initialize pdf.js worker and CMaps
         window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-        console.log('[pdf.js] Library initialized (3.11.174)');
+        if (typeof Logger !== 'undefined' && Logger.debugMode) {
+            if(typeof Logger!=="undefined" && Logger.debugMode) console.log('[pdf.js] Library initialized (3.11.174)');
+        }
     </script>
 </head>
 
@@ -4647,7 +4649,11 @@
         if (window.location.protocol === 'file:' || window.location.protocol === 'capacitor:') {
             var script = document.createElement('script');
             script.src = 'capacitor.js';
-            script.onerror = function () { console.log('Capacitor not available (running in browser mode)'); };
+            script.onerror = function () { 
+                if (typeof Logger !== 'undefined' && Logger.debugMode) {
+                    if(typeof Logger!=="undefined" && Logger.debugMode) console.log('Capacitor not available (running in browser mode)'); 
+                }
+            };
             document.head.appendChild(script);
         }
     </script>

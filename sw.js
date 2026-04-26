@@ -34,15 +34,15 @@ const urlsToCache = [
 
 // Install Service Worker
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing Service Worker...');
+  Logger.info('[SW] Installing Service Worker...');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        console.log('[SW] Caching app shell');
+        Logger.info('[SW] Caching app shell');
         return cache.addAll(urlsToCache);
       })
       .catch((error) => {
-        console.error('[SW] Cache installation failed:', error);
+        Logger.error('[SW] Cache installation failed:', error);
       })
   );
   self.skipWaiting();
@@ -50,13 +50,13 @@ self.addEventListener('install', (event) => {
 
 // Activate Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating Service Worker...');
+  Logger.info('[SW] Activating Service Worker...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            console.log('[SW] Deleting old cache:', cacheName);
+            Logger.info('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
@@ -91,7 +91,7 @@ self.addEventListener('fetch', (event) => {
         return caches.match(event.request)
           .then((response) => {
             if (response) {
-              console.log('[SW] Serving from cache:', event.request.url);
+              Logger.info('[SW] Serving from cache:', event.request.url);
               return response;
             }
             // If not in cache, return offline page or error
@@ -105,7 +105,7 @@ self.addEventListener('fetch', (event) => {
 
 // Background Sync (optional for future)
 self.addEventListener('sync', (event) => {
-  console.log('[SW] Background sync:', event.tag);
+  Logger.info('[SW] Background sync:', event.tag);
   if (event.tag === 'sync-data') {
     event.waitUntil(syncData());
   }
@@ -113,12 +113,12 @@ self.addEventListener('sync', (event) => {
 
 async function syncData() {
   // Implement background sync logic here
-  console.log('[SW] Syncing data...');
+  Logger.info('[SW] Syncing data...');
 }
 
 // Push Notifications (optional for future)
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push notification received');
+  Logger.info('[SW] Push notification received');
   const options = {
     body: event.data ? event.data.text() : 'Neue Benachrichtigung',
     icon: '/images/icon-192.png',
@@ -136,7 +136,7 @@ self.addEventListener('push', (event) => {
 });
 
 self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked');
+  Logger.info('[SW] Notification clicked');
   event.notification.close();
   event.waitUntil(
     clients.openWindow('/')

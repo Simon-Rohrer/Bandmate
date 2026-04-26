@@ -83,7 +83,7 @@ const UI = {
                 try {
                     App.handleModalOpened(modalId);
                 } catch (error) {
-                    console.warn('[UI.openModal] Could not persist modal state:', error);
+                    Logger.warn('[UI.openModal] Could not persist modal state:', error);
                 }
             }
 
@@ -292,7 +292,7 @@ const UI = {
                 try {
                     App.resetFeedbackModal();
                 } catch (err) {
-                    console.warn('[UI.closeModal] Could not reset feedback modal:', err);
+                    Logger.warn('[UI.closeModal] Could not reset feedback modal:', err);
                 }
             }
 
@@ -306,12 +306,12 @@ const UI = {
                             }
                         }
                     } catch (err) {
-                        console.warn('[UI.closeModal] Could not restore deleted event songs:', err);
+                        Logger.warn('[UI.closeModal] Could not restore deleted event songs:', err);
                     } finally {
                         try {
                             App.resetDraftEventState();
                         } catch (err) {
-                            console.warn('[UI.closeModal] Could not reset event draft state:', err);
+                            Logger.warn('[UI.closeModal] Could not reset event draft state:', err);
                         }
                     }
                 })();
@@ -327,7 +327,7 @@ const UI = {
                 try {
                     App.handleModalClosed(modalId);
                 } catch (error) {
-                    console.warn('[UI.closeModal] Could not clear modal state:', error);
+                    Logger.warn('[UI.closeModal] Could not clear modal state:', error);
                 }
             }
 
@@ -364,12 +364,12 @@ const UI = {
                             }
                         }
                     } catch (err) {
-                        console.warn('[UI.closeAllModals] Could not restore deleted event songs:', err);
+                        Logger.warn('[UI.closeAllModals] Could not restore deleted event songs:', err);
                     } finally {
                         try {
                             App.resetDraftEventState();
                         } catch (err) {
-                            console.warn('[UI.closeAllModals] Could not reset event draft state:', err);
+                            Logger.warn('[UI.closeAllModals] Could not reset event draft state:', err);
                         }
                     }
                 })();
@@ -380,7 +380,7 @@ const UI = {
                     try {
                         App.handleModalClosed(modal.id);
                     } catch (error) {
-                        console.warn('[UI.closeAllModals] Could not clear modal state:', error);
+                        Logger.warn('[UI.closeAllModals] Could not clear modal state:', error);
                     }
                 }
             }
@@ -412,7 +412,7 @@ const UI = {
             const closeBtn = modal ? modal.querySelector('.modal-close') : null;
 
             if (!modal || !confirmBtn || !cancelBtn || !closeBtn) {
-                console.error('confirmAction: Required modal elements not found');
+                Logger.error('confirmAction: Required modal elements not found');
                 resolve(false);
                 return;
             }
@@ -501,7 +501,7 @@ const UI = {
         const toast = document.getElementById('toast');
 
         if (!toast) {
-            console.error('[UI.showToast] Toast element not found!');
+            Logger.error('[UI.showToast] Toast element not found!');
             return;
         }
 
@@ -857,7 +857,7 @@ const UI = {
                     try {
                         onTimeout();
                     } catch (err) {
-                        console.warn('[UI.showLoading] onTimeout callback failed:', err);
+                        Logger.warn('[UI.showLoading] onTimeout callback failed:', err);
                     }
                 }
 

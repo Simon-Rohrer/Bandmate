@@ -22,7 +22,7 @@ const Auth = {
                     return parsed;
                 }
             } catch (error) {
-                console.warn('[Auth] Could not read cached user profile:', error);
+                Logger.warn('[Auth] Could not read cached user profile:', error);
             }
         }
 
@@ -41,7 +41,7 @@ const Auth = {
                 window.localStorage.removeItem(this.USER_CACHE_KEY);
             }
         } catch (error) {
-            console.warn('[Auth] Could not cache current user profile:', error);
+            Logger.warn('[Auth] Could not cache current user profile:', error);
         }
     },
 
@@ -91,7 +91,7 @@ const Auth = {
                 throw new Error(error.message || 'Auth-Benutzer konnte nicht gelöscht werden.');
             }
         } catch (e) {
-            console.warn('delete_auth_user RPC failed', e);
+            Logger.warn('delete_auth_user RPC failed', e);
             throw e;
         }
         return true;
@@ -108,7 +108,7 @@ const Auth = {
 
     async init() {
         if (this.initialized) {
-            console.log('[Auth.init] Already initialized, skipping');
+            Logger.info('[Auth.init] Already initialized, skipping');
             return;
         }
         this.initialized = true;
@@ -132,12 +132,12 @@ const Auth = {
                     'Supabase Session-Check Zeitüberschreitung'
                 );
                 if (error) {
-                    console.warn('[Auth.init] Supabase session check error:', error);
+                    Logger.warn('[Auth.init] Supabase session check error:', error);
                 } else if (data && data.session) {
                     await this.setCurrentUser(data.session.user);
                 }
             } catch (err) {
-                console.error('[Auth.init] Failed to get Supabase session (likely AbortError or network issue):', err);
+                Logger.error('[Auth.init] Failed to get Supabase session (likely AbortError or network issue):', err);
                 if (!this.currentUser) {
                     this.currentUser = null;
                     this.supabaseUser = null;
@@ -156,8 +156,11 @@ const Auth = {
                     this.supabaseUser = null;
                 } else if (event === 'PASSWORD_RECOVERY') {
                     // Only trigger if URL actually contains recovery token
-                    if (window.location.hash && window.location.hash.includes('type=recovery')) {
-                        console.log('Password recovery mode detected via URL (auth.js)');
+                    const hasRecovery = /(?:^|[&#?])type=recovery(?:&|$)/i.test(window.location.hash || '') || 
+                                       /(?:^|[&#?])type=recovery(?:&|$)/i.test(window.location.search || '');
+
+                    if (hasRecovery) {
+                        Logger.info('Password recovery mode detected via URL or event (auth.js)');
 
                         const currentPath = window.location.pathname || '';
                         const isResetPasswordPage = /reset-password\.html$/i.test(currentPath);
@@ -183,7 +186,7 @@ const Auth = {
                         // Dispatch immediately, no timeout to avoid race conditions with showApp
                         window.dispatchEvent(new CustomEvent('auth:password_recovery'));
                     } else {
-                        console.log('Ignoring PASSWORD_RECOVERY event (no type=recovery in URL)');
+                        Logger.info('Ignoring PASSWORD_RECOVERY event (no type=recovery in URL)');
                     }
                 }
             });
@@ -205,9 +208,9 @@ const Auth = {
                 'Profil-Lookup Zeitüberschreitung'
             );
         } catch (error) {
-            console.warn('[Auth.setCurrentUser] Profile lookup timed out or failed:', error);
+            Logger.warn('[Auth.setCurrentUser] Profile lookup timed out or failed:', error);
         }
-        // console.log('[Auth.setCurrentUser] Profile from storage:', profile);
+        // Logger.info('[Auth.setCurrentUser] Profile from storage:', profile);
 
         if (profile) {
             this.currentUser = profile;
@@ -217,7 +220,7 @@ const Auth = {
                 return;
             }
 
-            console.warn('[Auth.setCurrentUser] Profile not found in storage, using fallback');
+            Logger.warn('[Auth.setCurrentUser] Profile not found in storage, using fallback');
             this.currentUser = {
                 id: supabaseAuthUser.id,
                 email: supabaseAuthUser.email,
@@ -229,7 +232,7 @@ const Auth = {
             };
             this.cacheCurrentUser(this.currentUser);
         }
-        // console.log('[Auth.setCurrentUser] Final currentUser:', JSON.stringify(this.currentUser, null, 2));
+        // Logger.info('[Auth.setCurrentUser] Final currentUser:', JSON.stringify(this.currentUser, null, 2));
 
     },
 
@@ -274,7 +277,7 @@ const Auth = {
         });
 
         if (error) {
-            console.error('Supabase signUp error:', error);
+            Logger.error('Supabase signUp error:', error);
 
             // CRITICAL FIX: Supabase may throw "Database error saving new user" 
             // but the user is still created successfully. Only fail if there's 
@@ -288,7 +291,7 @@ const Auth = {
             }
 
             // If we have user data despite the error, log it but continue
-            console.warn('[Auth.register] Supabase reported error but user was created:', error.message);
+            Logger.warn('[Auth.register] Supabase reported error but user was created:', error.message);
         }
 
         if (data.user) {
@@ -307,7 +310,7 @@ const Auth = {
     },
 
     async createUserByAdmin(firstName, lastName, email, username, password, instrument = "") {
-        console.log('[createUserByAdmin] Starting with:', { firstName, lastName, email, username, instrument });
+        Logger.info('[createUserByAdmin] Starting with:', { firstName, lastName, email, username, instrument });
 
         // Admin creates user without registration code
         if (!this.isAdmin()) {
@@ -324,10 +327,10 @@ const Auth = {
             throw new Error('Passwort muss mindestens 6 Zeichen lang sein');
         }
 
-        console.log('[createUserByAdmin] Checking if username exists...');
+        Logger.info('[createUserByAdmin] Checking if username exists...');
         const existingUser = await Storage.getUserByUsername(username);
         if (existingUser) {
-            console.warn('[createUserByAdmin] Username exists:', existingUser);
+            Logger.warn('[createUserByAdmin] Username exists:', existingUser);
             throw new Error('Benutzername bereits vergeben');
         }
 
@@ -336,7 +339,7 @@ const Auth = {
             throw new Error('Supabase nicht konfiguriert');
         }
 
-        console.log('[createUserByAdmin] Creating user via isolated client...');
+        Logger.info('[createUserByAdmin] Creating user via isolated client...');
 
         try {
             // CRITICAL FIX: Use a separate, isolated Supabase client for the new user creation.
@@ -375,12 +378,12 @@ const Auth = {
             });
 
             if (authError) {
-                console.error('[createUserByAdmin] Auth error:', authError);
+                Logger.error('[createUserByAdmin] Auth error:', authError);
                 throw new Error(authError.message || 'Benutzer konnte nicht erstellt werden');
             }
 
             const newUserId = authData.user?.id;
-            console.log('[createUserByAdmin] User created with ID:', newUserId);
+            Logger.info('[createUserByAdmin] User created with ID:', newUserId);
 
             // Clean up: Sign out variable client (just to be safe, though it's not persisted)
             await tempClient.auth.signOut();
@@ -388,7 +391,7 @@ const Auth = {
             return newUserId;
 
         } catch (error) {
-            console.error('[createUserByAdmin] Error:', error);
+            Logger.error('[createUserByAdmin] Error:', error);
             throw error;
         }
     },
@@ -425,7 +428,7 @@ const Auth = {
         window.scrollTo(0, 0);
 
         if (error) {
-            console.error('Supabase signIn error:', error);
+            Logger.error('Supabase signIn error:', error);
             const normalizedMessage = (error.message || '').toLowerCase();
             if (
                 normalizedMessage.includes('email not confirmed') ||
@@ -447,7 +450,7 @@ const Auth = {
                 metadata.email_activation_completed !== true &&
                 !confirmedAt
             ) {
-                await sb.auth.signOut().catch(err => console.warn('[Auth.login] Sign-out after activation check failed:', err));
+                await sb.auth.signOut().catch(err => Logger.warn('[Auth.login] Sign-out after activation check failed:', err));
                 SupabaseClient.clearStoredAuthSession();
                 this.currentUser = null;
                 this.supabaseUser = null;
@@ -498,11 +501,11 @@ const Auth = {
         if (sb) {
             const { error } = await sb.auth.signOut();
             if (error) {
-                console.error('Supabase signOut error:', error);
+                Logger.error('Supabase signOut error:', error);
             }
         }
 
-        console.log('[Auth.logout] User logged out and all caches cleared');
+        Logger.info('[Auth.logout] User logged out and all caches cleared');
     },
 
     isAuthenticated() {
@@ -512,7 +515,7 @@ const Auth = {
             SupabaseClient.clearStoredAuthSession();
             const sb = SupabaseClient.getClient();
             if (sb) {
-                sb.auth.signOut().catch(err => console.warn('[Auth.isAuthenticated] Sign-out after expiry failed:', err));
+                sb.auth.signOut().catch(err => Logger.warn('[Auth.isAuthenticated] Sign-out after expiry failed:', err));
             }
         }
         return this.currentUser !== null;

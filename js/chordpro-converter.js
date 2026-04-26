@@ -87,7 +87,7 @@ const ChordProConverter = {
     FLAT_MINOR_KEYS: new Set(['Dm', 'Gm', 'Cm', 'Fm', 'Bbm', 'Ebm', 'Abm', 'Dbm', 'Gbm']),
 
     init() {
-        console.log('💎 [ChordProConverter] Initializing converter engine...');
+        Logger.info('💎 [ChordProConverter] Initializing converter engine...');
         this.setupEventListeners();
         this.setupResizeHandle();
         this.loadBands();
@@ -572,7 +572,7 @@ const ChordProConverter = {
                 e.preventDefault();
                 dropzone.classList.remove('drag-over');
                 if (e.dataTransfer.files.length) {
-                    console.log('📥 [ChordProConverter] File dropped');
+                    Logger.info('📥 [ChordProConverter] File dropped');
                     this.handleFileSelected(e.dataTransfer.files[0]);
                 }
             };
@@ -581,7 +581,7 @@ const ChordProConverter = {
         if (fileInput) {
             fileInput.onchange = (e) => {
                 if (e.target.files.length) {
-                    console.log('📥 [ChordProConverter] File selected via input');
+                    Logger.info('📥 [ChordProConverter] File selected via input');
                     this.handleFileSelected(e.target.files[0]);
                 }
             };
@@ -589,35 +589,35 @@ const ChordProConverter = {
 
         if (startBtn) {
             startBtn.onclick = () => {
-                console.log('🚀 [ChordProConverter] Start button clicked');
+                Logger.info('🚀 [ChordProConverter] Start button clicked');
                 this.startConversion();
             };
         }
 
         if (resetBtn) {
             resetBtn.onclick = () => {
-                console.log('🔄 [ChordProConverter] Reset requested');
+                Logger.info('🔄 [ChordProConverter] Reset requested');
                 this.reset();
             };
         }
 
         if (downloadBtn) {
             downloadBtn.onclick = () => {
-                console.log('📥 [ChordProConverter] Download requested');
+                Logger.info('📥 [ChordProConverter] Download requested');
                 this.downloadResult();
             };
         }
 
         if (bandSelect) {
             bandSelect.onchange = (e) => {
-                console.log('🎸 [ChordProConverter] Band selected:', e.target.value);
+                Logger.info('🎸 [ChordProConverter] Band selected:', e.target.value);
                 this.handleBandSelected(e.target.value);
             };
         }
 
         if (saveToSongBtn) {
             saveToSongBtn.onclick = () => {
-                console.log('💾 [ChordProConverter] Save to song requested');
+                Logger.info('💾 [ChordProConverter] Save to song requested');
                 this.saveToSong();
             };
         }
@@ -673,7 +673,7 @@ const ChordProConverter = {
         const newFileBtn = document.getElementById('createNewChordProBtn');
         if (newFileBtn) {
             newFileBtn.onclick = () => {
-                console.log('📝 [ChordProConverter] Creating new ChordPro file (manual)');
+                Logger.info('📝 [ChordProConverter] Creating new ChordPro file (manual)');
                 this.reset();
 
                 const template = `{title: Titel des Songs}
@@ -719,14 +719,14 @@ const ChordProConverter = {
     },
 
     handleFileSelected(file) {
-        console.log('� [ChordProConverter] Selected file info:', {
+        Logger.info('� [ChordProConverter] Selected file info:', {
             name: file.name,
             size: `${(file.size / 1024).toFixed(2)} KB`,
             type: file.type
         });
 
         if (file.type !== 'application/pdf') {
-            console.error('❌ [ChordProConverter] Invalid file type:', file.type);
+            Logger.error('❌ [ChordProConverter] Invalid file type:', file.type);
             alert('Bitte wähle eine PDF-Datei aus.');
             return;
         }
@@ -737,52 +737,52 @@ const ChordProConverter = {
         this.updateDisclaimer('ready');
         this.syncActionState();
         this.startConversion();
-        console.log('✅ [ChordProConverter] Start button enabled');
+        Logger.info('✅ [ChordProConverter] Start button enabled');
     },
 
     async startConversion() {
         if (!this.selectedFile) {
-            console.warn('⚠️ [ChordProConverter] Attempted conversion without file');
+            Logger.warn('⚠️ [ChordProConverter] Attempted conversion without file');
             return;
         }
 
         if (this.isConverting) {
-            console.warn('⚠️ [ChordProConverter] Conversion already in progress');
+            Logger.warn('⚠️ [ChordProConverter] Conversion already in progress');
             return;
         }
 
         const startTime = performance.now();
         this.isConverting = true;
         this.syncActionState();
-        console.log('🏗️ [ChordProConverter] Beginning conversion pipeline...');
+        Logger.info('🏗️ [ChordProConverter] Beginning conversion pipeline...');
         this.showLoading(true, 'PDF wird analysiert...');
 
         try {
             if (!window.pdfjsLib) {
-                console.error('❌ [ChordProConverter] pdfjsLib missing on window object');
+                Logger.error('❌ [ChordProConverter] pdfjsLib missing on window object');
                 throw new Error('PDF-Bibliothek noch nicht geladen. Bitte Seite neu laden.');
             }
 
-            console.log('🔍 [ChordProConverter] Step 1: Attempting direct text extraction...');
+            Logger.info('🔍 [ChordProConverter] Step 1: Attempting direct text extraction...');
             let text = await this.extractTextFromPdf(this.selectedFile);
 
             // If empty text after all extraction plans, trigger OCR fallback
             if (text.trim().length < 10) {
-                console.warn('⚠️ [ChordProConverter] Extraction returned minimal text. Triggering OCR engine...');
+                Logger.warn('⚠️ [ChordProConverter] Extraction returned minimal text. Triggering OCR engine...');
                 this.showLoading(true, 'OCR Texterkennung läuft...', 0);
                 text = await this.performOcrOnPdf(this.selectedFile);
             }
 
             this.extractedText = text;
             const extractionTime = ((performance.now() - startTime) / 1000).toFixed(2);
-            console.log(`✅ [ChordProConverter] Extraction complete in ${extractionTime}s. Text length: ${text.length}`);
+            Logger.info(`✅ [ChordProConverter] Extraction complete in ${extractionTime}s. Text length: ${text.length}`);
 
             if (text.trim().length < 5) {
-                console.error('❌ [ChordProConverter] No readable text found after all attempts');
+                Logger.error('❌ [ChordProConverter] No readable text found after all attempts');
                 throw new Error('Es konnte kein Text extrahiert werden. Möglicherweise ist die Datei geschützt oder unleserlich.');
             }
 
-            console.log('🎼 [ChordProConverter] Step 2: Applying ChordPro heuristics...');
+            Logger.info('🎼 [ChordProConverter] Step 2: Applying ChordPro heuristics...');
             this.convertedChordPro = this.convertToChordPro(text);
             this.setEditorSelectedKey(this.detectKeyFromChordProText(this.convertedChordPro));
 
@@ -800,9 +800,9 @@ const ChordProConverter = {
             this.syncActionState();
             this.scrollToEditor();
 
-            console.log('✨ [ChordProConverter] Pipeline finished successfully');
+            Logger.info('✨ [ChordProConverter] Pipeline finished successfully');
         } catch (err) {
-            console.error('💥 [ChordProConverter] Critical error during conversion:', err);
+            Logger.error('💥 [ChordProConverter] Critical error during conversion:', err);
             this.updateDisclaimer('error', err.message);
             alert('Fehler bei der Konvertierung: ' + err.message);
         } finally {
@@ -821,7 +821,7 @@ const ChordProConverter = {
         });
 
         const pdf = await loadingTask.promise;
-        console.log(`📑 [ChordProConverter] PDF loaded: ${pdf.numPages} total pages`);
+        Logger.info(`📑 [ChordProConverter] PDF loaded: ${pdf.numPages} total pages`);
 
         let fullText = '';
         for (let i = 1; i <= pdf.numPages; i++) {
@@ -840,13 +840,13 @@ const ChordProConverter = {
             for (const plan of extractPlans) {
                 textContent = await page.getTextContent(plan.params);
                 if (textContent.items.length > 0) {
-                    console.log(`  📄 Page ${i}: Extracted using [${plan.name}] plan (${textContent.items.length} items)`);
+                    Logger.info(`  📄 Page ${i}: Extracted using [${plan.name}] plan (${textContent.items.length} items)`);
                     break;
                 }
             }
 
             if (!textContent || textContent.items.length === 0) {
-                console.warn(`  ⚠️ Page ${i}: No text items found in any extraction plan`);
+                Logger.warn(`  ⚠️ Page ${i}: No text items found in any extraction plan`);
                 continue;
             }
 
@@ -876,14 +876,14 @@ const ChordProConverter = {
             fullText += pageText + '\n\n';
 
             const pageTime = (performance.now() - pageStartTime).toFixed(0);
-            console.log(`  ✅ Page ${i} processed in ${pageTime}ms`);
+            Logger.info(`  ✅ Page ${i} processed in ${pageTime}ms`);
         }
         return fullText;
     },
 
     async performOcrOnPdf(file) {
         if (!window.Tesseract) {
-            console.error('❌ [ChordProConverter] Tesseract.js not found in global scope');
+            Logger.error('❌ [ChordProConverter] Tesseract.js not found in global scope');
             throw new Error('OCR-Bibliothek nicht geladen.');
         }
 
@@ -891,10 +891,10 @@ const ChordProConverter = {
         const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
         let ocrText = '';
 
-        console.log(`📷 [ChordProConverter] Initializing Tesseract for ${pdf.numPages} pages...`);
+        Logger.info(`📷 [ChordProConverter] Initializing Tesseract for ${pdf.numPages} pages...`);
 
         for (let i = 1; i <= pdf.numPages; i++) {
-            console.log(`  📸 OCR Rendering Page ${i}...`);
+            Logger.info(`  📸 OCR Rendering Page ${i}...`);
             const page = await pdf.getPage(i);
             const viewport = page.getViewport({ scale: 2.0 });
 
@@ -905,7 +905,7 @@ const ChordProConverter = {
 
             await page.render({ canvasContext: context, viewport: viewport }).promise;
 
-            console.log(`  🤖 Tesseract identifying Page ${i}...`);
+            Logger.info(`  🤖 Tesseract identifying Page ${i}...`);
             const { data: { text } } = await Tesseract.recognize(
                 canvas,
                 'deu+eng',
@@ -923,7 +923,7 @@ const ChordProConverter = {
                 }
             );
             ocrText += text + '\n\n';
-            console.log(`  ✅ Page ${i} OCR complete.`);
+            Logger.info(`  ✅ Page ${i} OCR complete.`);
         }
         return ocrText;
     },
@@ -1016,7 +1016,7 @@ const ChordProConverter = {
             return /^(Verse|Vers|VERS|Chorus|Bridge|Intro|Outro|Refrain|Pre-Chorus|Instr|Solo|Strophe|Zwischenspiel|Ablauf|Einstieg|Interlude)\s*[:\-\d]*.*$/i.test(trimmed);
         };
 
-        console.log(`  🔧 [Heuristics] Processing ${lines.length} lines...`);
+        Logger.info(`  🔧 [Heuristics] Processing ${lines.length} lines...`);
 
         for (let i = 0; i < lines.length; i++) {
             let currentLine = lines[i];
@@ -1086,7 +1086,7 @@ const ChordProConverter = {
     },
 
     loadBands: async function () {
-        console.log('🎸 [ChordProConverter] Loading bands for selection...');
+        Logger.info('🎸 [ChordProConverter] Loading bands for selection...');
         const bandSelect = document.getElementById('converterBandSelect');
         if (!bandSelect) return;
 
@@ -1094,7 +1094,7 @@ const ChordProConverter = {
         if (!user) {
             bandSelect.innerHTML = '<option value="">Band wählen...</option>';
             this.bandsLoadedForUserId = null;
-            console.warn('⚠️ [ChordProConverter] No active user session yet, bands not loaded');
+            Logger.warn('⚠️ [ChordProConverter] No active user session yet, bands not loaded');
             return;
         }
 
@@ -1107,10 +1107,10 @@ const ChordProConverter = {
             bandSelect.innerHTML = '<option value="">Band wählen...</option>' +
                 bands.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
             this.bandsLoadedForUserId = user.id;
-            console.log(`  ✅ Loaded ${bands.length} bands`);
+            Logger.info(`  ✅ Loaded ${bands.length} bands`);
         } catch (err) {
             this.bandsLoadedForUserId = null;
-            console.error('❌ [ChordProConverter] Error loading bands:', err);
+            Logger.error('❌ [ChordProConverter] Error loading bands:', err);
         }
     },
 
@@ -1136,14 +1136,14 @@ const ChordProConverter = {
                 : '<option value="">Keine Songs in dieser Band</option>';
             songSelect.value = '';
             this.syncActionState();
-            console.log(`  ✅ Loaded ${songs.length} songs for band ${bandId}`);
+            Logger.info(`  ✅ Loaded ${songs.length} songs for band ${bandId}`);
         } catch (err) {
             if (requestId !== this.songLoadRequestId) return;
             songSelect.disabled = true;
             songSelect.value = '';
             songSelect.innerHTML = '<option value="">Songs konnten nicht geladen werden</option>';
             this.syncActionState();
-            console.error('❌ [ChordProConverter] Error loading songs:', err);
+            Logger.error('❌ [ChordProConverter] Error loading songs:', err);
             UI.showToast('Songs konnten nicht geladen werden. Bitte versuche es später erneut.', 'error');
         }
     },
@@ -1152,7 +1152,7 @@ const ChordProConverter = {
         const songId = document.getElementById('converterSongSelect').value;
         const chordpro = document.getElementById('chordproResultArea').value;
         if (!songId) {
-            console.warn('⚠️ [ChordProConverter] Save attempted without song selected');
+            Logger.warn('⚠️ [ChordProConverter] Save attempted without song selected');
             UI.showToast('Bitte wähle einen Song aus.', 'warning');
             return;
         }
@@ -1161,11 +1161,11 @@ const ChordProConverter = {
             return;
         }
 
-        console.log(`💾 [ChordProConverter] Saving content to song ${songId}...`);
+        Logger.info(`💾 [ChordProConverter] Saving content to song ${songId}...`);
         this.showLoading(true, 'In Datenbank speichern...');
         try {
             const result = await Storage.saveChordProToSong(songId, chordpro);
-            console.log('✅ [ChordProConverter] Database update successful via field:', result.field);
+            Logger.info('✅ [ChordProConverter] Database update successful via field:', result.field);
 
             if (result.usedInfoFallback) {
                 UI.showToast('ChordPro im Song gespeichert. Aktuell wird dafür das Song-Infofeld genutzt.', 'success');
@@ -1173,7 +1173,7 @@ const ChordProConverter = {
                 UI.showToast('ChordPro erfolgreich im Song gespeichert.', 'success');
             }
         } catch (err) {
-            console.error('❌ [ChordProConverter] Database update failed:', err);
+            Logger.error('❌ [ChordProConverter] Database update failed:', err);
             UI.showToast(err.message || 'Fehler beim Speichern', 'error');
         } finally {
             this.showLoading(false);
@@ -1187,7 +1187,7 @@ const ChordProConverter = {
             return;
         }
         const fileName = (this.selectedFile ? this.selectedFile.name.replace('.pdf', '') : 'converted') + '.cho';
-        console.log(`📥 [ChordProConverter] Generating download file: ${fileName}`);
+        Logger.info(`📥 [ChordProConverter] Generating download file: ${fileName}`);
 
         const blob = new Blob([text], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -1199,7 +1199,7 @@ const ChordProConverter = {
     },
 
     reset() {
-        console.log('🔄 [ChordProConverter] Resetting converter state');
+        Logger.info('🔄 [ChordProConverter] Resetting converter state');
         this.selectedFile = null;
         this.extractedText = '';
         this.convertedChordPro = '';

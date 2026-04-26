@@ -15,7 +15,7 @@ const FeedbackService = {
 
         const sb = SupabaseClient.getClient();
         if (!sb) {
-            console.error('Supabase client not initialized');
+            Logger.error('Supabase client not initialized');
             throw new Error('Verbindung zum Server fehlgeschlagen.');
         }
 
@@ -40,7 +40,7 @@ const FeedbackService = {
             .select();
 
         if (error) {
-            console.error('Error submitting feedback:', error);
+            Logger.error('Error submitting feedback:', error);
             throw new Error('Fehler beim Senden: ' + error.message);
         }
 
@@ -55,7 +55,7 @@ const FeedbackService = {
         Logger.info('[FeedbackService] Getting all feedback (manual join)...');
         const sb = SupabaseClient.getClient();
         if (!sb) {
-            console.error('[FeedbackService] No Supabase client');
+            Logger.error('[FeedbackService] No Supabase client');
             return [];
         }
 
@@ -66,7 +66,7 @@ const FeedbackService = {
             .order('created_at', { ascending: false });
 
         if (error) {
-            console.error('Error fetching feedback:', error);
+            Logger.error('Error fetching feedback:', error);
             throw new Error('Fehler beim Laden: ' + error.message);
         }
 
@@ -84,7 +84,7 @@ const FeedbackService = {
                 .in('id', userIds);
 
             if (userError) {
-                console.warn('[FeedbackService] Could not fetch users for join:', userError);
+                Logger.warn('[FeedbackService] Could not fetch users for join:', userError);
                 return feedbacks; // Return without user details
             }
 
@@ -98,7 +98,7 @@ const FeedbackService = {
             }));
 
         } catch (joinErr) {
-            console.warn('[FeedbackService] Manual join failed:', joinErr);
+            Logger.warn('[FeedbackService] Manual join failed:', joinErr);
             return feedbacks; // Fallback
         }
     },
@@ -119,17 +119,17 @@ const FeedbackService = {
             .select();
 
         if (error) {
-            console.error('[FeedbackService] Update failed:', error);
+            Logger.error('[FeedbackService] Update failed:', error);
             throw new Error('Status Fehler: ' + error.message);
         }
 
         // Check if row was actually updated (RLS might return no error but update 0 rows)
         if (!data || data.length === 0) {
-            console.error('[FeedbackService] Update returned 0 rows. Likely RLS permission issue.');
+            Logger.error('[FeedbackService] Update returned 0 rows. Likely RLS permission issue.');
             throw new Error('Fehler: Keine Berechtigung zum Aktualisieren oder Eintrag nicht gefunden.');
         }
 
-        console.log('[FeedbackService] Status updated successfully:', data);
+        Logger.info('[FeedbackService] Status updated successfully:', data);
         return data;
     },
 
@@ -148,13 +148,13 @@ const FeedbackService = {
             .select();
 
         if (error) {
-            console.error('[FeedbackService] Delete failed:', error);
+            Logger.error('[FeedbackService] Delete failed:', error);
             throw new Error('Löschen fehlgeschlagen: ' + error.message);
         }
 
         // Check if row was actually deleted
         if (!data || data.length === 0) {
-            console.error('[FeedbackService] Delete returned 0 rows. Likely RLS permission issue.');
+            Logger.error('[FeedbackService] Delete returned 0 rows. Likely RLS permission issue.');
             throw new Error('Fehler: Keine Berechtigung zum Löschen oder Eintrag nicht gefunden.');
         }
 

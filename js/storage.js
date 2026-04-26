@@ -69,7 +69,7 @@ const Storage = {
                 this.songChordProSaveField = storedField;
             }
         } catch (err) {
-            console.warn('[Storage] Could not read ChordPro save field preference:', err);
+            Logger.warn('[Storage] Could not read ChordPro save field preference:', err);
         }
 
         return this.songChordProSaveField;
@@ -85,7 +85,7 @@ const Storage = {
                 localStorage.removeItem(this.SONG_CHORDPRO_FIELD_STORAGE_KEY);
             }
         } catch (err) {
-            console.warn('[Storage] Could not persist ChordPro save field preference:', err);
+            Logger.warn('[Storage] Could not persist ChordPro save field preference:', err);
         }
     },
 
@@ -98,7 +98,7 @@ const Storage = {
         try {
             return `${this.ABSENCE_META_PREFIX}${JSON.stringify(meta)}${this.ABSENCE_META_SUFFIX}${visibleReason}`;
         } catch (error) {
-            console.warn('[Storage] Could not serialize absence meta:', error);
+            Logger.warn('[Storage] Could not serialize absence meta:', error);
             return visibleReason;
         }
     },
@@ -132,7 +132,7 @@ const Storage = {
                 meta: JSON.parse(metaPayload)
             };
         } catch (error) {
-            console.warn('[Storage] Could not parse absence meta:', error);
+            Logger.warn('[Storage] Could not parse absence meta:', error);
             return {
                 raw,
                 text: visibleText || raw.trim(),
@@ -288,7 +288,7 @@ const Storage = {
                 Logger.warn(`Verbindungsproblem beim Abrufen von ${key}`);
                 return [];
             }
-            console.error('Supabase getAll error', key, error);
+            Logger.error('Supabase getAll error', key, error);
             return [];
         }
         return data || [];
@@ -305,7 +305,7 @@ const Storage = {
 
         const { data, error } = await query;
         if (error) {
-            console.error(`Supabase get error in ${key} with filters`, filters, error);
+            Logger.error(`Supabase get error in ${key} with filters`, filters, error);
             return [];
         }
         return data || [];
@@ -329,7 +329,7 @@ const Storage = {
                 Logger.warn(`Verbindungsproblem beim Abrufen von ${key}: ${error.message}. Bitte überprüfe deine Internetverbindung oder Supabase-URL.`);
                 return null;
             }
-            console.error('Supabase getById error', key, { message: error.message, code: error.code, details: error.details, hint: error.hint } || error);
+            Logger.error('Supabase getById error', key, { message: error.message, code: error.code, details: error.details, hint: error.hint } || error);
             return null;
         }
         return data || null;
@@ -370,7 +370,7 @@ const Storage = {
                     Logger.warn(`Netzwerkproblem beim Laden von ${key} (Batch)`);
                     return [];
                 }
-                console.error(`Supabase getBatchByIds error in ${key}`, error);
+                Logger.error(`Supabase getBatchByIds error in ${key}`, error);
                 return [];
             }
             return data || [];
@@ -378,7 +378,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn(`Netzwerkproblem beim Laden von ${key} (Batch-Catch)`);
             } else {
-                console.error(`Unexpected error in getBatchByIds (${key}):`, err);
+                Logger.error(`Unexpected error in getBatchByIds (${key}):`, err);
             }
             return [];
         }
@@ -415,7 +415,7 @@ const Storage = {
 
     _getSongpoolErrorMessage(error, fallback = 'Songpool konnte nicht geladen werden.') {
         // Log raw error for diagnostics
-        if (error) console.warn('[Songpool] Raw Error Detail:', error);
+        if (error) Logger.warn('[Songpool] Raw Error Detail:', error);
 
         if (this._isMissingSongpoolTableError(error)) {
             return 'Die Songpool-Tabelle fehlt noch. Bitte zuerst das SQL aus "sql/songpool_setup.sql" in Supabase ausführen.';
@@ -463,7 +463,7 @@ const Storage = {
                 Logger.warn(`Verbindungsproblem beim Aktualisieren von ${key}`);
                 return null;
             }
-            console.error('Supabase update error', key, error);
+            Logger.error('Supabase update error', key, error);
             return null;
         }
         return data || null;
@@ -483,7 +483,7 @@ const Storage = {
                 Logger.warn(`Verbindungsproblem beim Löschen aus ${key}`);
                 return false;
             }
-            console.error('Supabase delete error', key, error);
+            Logger.error('Supabase delete error', key, error);
             return false;
         }
         return true;
@@ -511,7 +511,7 @@ const Storage = {
             .ilike('username', username)
             .limit(1)
             .maybeSingle();
-        if (error) { console.error('Supabase getUserByUsername error', error); return null; }
+        if (error) { Logger.error('Supabase getUserByUsername error', error); return null; }
         return data || null;
     },
 
@@ -524,7 +524,7 @@ const Storage = {
             .ilike('email', email)
             .limit(1)
             .maybeSingle();
-        if (error) { console.error('Supabase getUserByEmail error', error); return null; }
+        if (error) { Logger.error('Supabase getUserByEmail error', error); return null; }
         return data || null;
     },
 
@@ -593,7 +593,7 @@ const Storage = {
             .eq('joinCode', joinCode)
             .limit(1)
             .maybeSingle();
-        if (error) { console.error('Supabase getBandByJoinCode error', error); return null; }
+        if (error) { Logger.error('Supabase getBandByJoinCode error', error); return null; }
         return data || null;
     },
 
@@ -632,7 +632,7 @@ const Storage = {
             .from('bandMembers')
             .select('id, bandId, userId, role, joinedAt')
             .eq('bandId', bandId);
-        if (error) { console.error('Supabase getBandMembers error', error); return []; }
+        if (error) { Logger.error('Supabase getBandMembers error', error); return []; }
         return data || [];
     },
 
@@ -650,7 +650,7 @@ const Storage = {
                     Logger.warn('Netzwerkproblem beim Laden der Bands');
                     return [];
                 }
-                console.error('Supabase getUserBands error', error);
+                Logger.error('Supabase getUserBands error', error);
                 return [];
             }
 
@@ -665,7 +665,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn('Netzwerkproblem beim Laden der Bands (Catch)');
             } else {
-                console.error('[Storage] Unexpected error in getUserBands:', err);
+                Logger.error('[Storage] Unexpected error in getUserBands:', err);
             }
             return [];
         }
@@ -682,21 +682,21 @@ const Storage = {
             .limit(1)
             .maybeSingle();
 
-        if (error) { console.error('Supabase getUserRoleInBand error', error); return null; }
+        if (error) { Logger.error('Supabase getUserRoleInBand error', error); return null; }
         return data ? data.role : null;
     },
 
     async updateBandMemberRole(bandId, userId, newRole) {
         const sb = SupabaseClient.getClient();
         const { error } = await sb.from('bandMembers').update({ role: newRole }).eq('bandId', bandId).eq('userId', userId);
-        if (error) { console.error('Supabase updateBandMemberRole error', error); return false; }
+        if (error) { Logger.error('Supabase updateBandMemberRole error', error); return false; }
         return true;
     },
 
     async removeBandMember(bandId, userId) {
         const sb = SupabaseClient.getClient();
         const { error } = await sb.from('bandMembers').delete().eq('bandId', bandId).eq('userId', userId);
-        if (error) { console.error('Supabase removeBandMember error', error); return false; }
+        if (error) { Logger.error('Supabase removeBandMember error', error); return false; }
         return true;
     },
 
@@ -737,7 +737,7 @@ const Storage = {
 
         const { data, error } = await query.maybeSingle();
         if (error) {
-            console.error('Supabase getPendingBandMembershipRequest error', error);
+            Logger.error('Supabase getPendingBandMembershipRequest error', error);
             return null;
         }
 
@@ -757,7 +757,7 @@ const Storage = {
             .or(`createdByUserId.eq.${userId},targetUserId.eq.${userId}`);
 
         if (selfError) {
-            console.error('Supabase getPendingMembershipRequestsForUserContext self error', selfError);
+            Logger.error('Supabase getPendingMembershipRequestsForUserContext self error', selfError);
         } else {
             (selfRequests || []).forEach((request) => {
                 if (request?.id != null) uniqueRequests.set(String(request.id), request);
@@ -776,7 +776,7 @@ const Storage = {
                 .in('bandId', cleanedLeaderBandIds);
 
             if (leaderError) {
-                console.error('Supabase getPendingMembershipRequestsForUserContext leader error', leaderError);
+                Logger.error('Supabase getPendingMembershipRequestsForUserContext leader error', leaderError);
             } else {
                 (leaderRequests || []).forEach((request) => {
                     if (request?.id != null) uniqueRequests.set(String(request.id), request);
@@ -796,7 +796,7 @@ const Storage = {
             .in('role', ['leader', 'co-leader']);
 
         if (error) {
-            console.error('Supabase getBandLeadershipMembers error', error);
+            Logger.error('Supabase getBandLeadershipMembers error', error);
             return [];
         }
 
@@ -851,7 +851,7 @@ const Storage = {
             .limit(limit);
 
         if (error) {
-            console.error('Supabase getNotificationsForUser error', error);
+            Logger.error('Supabase getNotificationsForUser error', error);
             return [];
         }
 
@@ -869,7 +869,7 @@ const Storage = {
             .eq('status', 'unread');
 
         if (error) {
-            console.error('Supabase getUnreadNotificationCount error', error);
+            Logger.error('Supabase getUnreadNotificationCount error', error);
             return 0;
         }
 
@@ -889,7 +889,7 @@ const Storage = {
             .in('id', ids);
 
         if (error) {
-            console.error('Supabase markNotificationsRead error', error);
+            Logger.error('Supabase markNotificationsRead error', error);
             return false;
         }
 
@@ -908,7 +908,7 @@ const Storage = {
             .eq('id', notificationId);
 
         if (error) {
-            console.error('Supabase dismissNotification error', error);
+            Logger.error('Supabase dismissNotification error', error);
             return false;
         }
 
@@ -925,7 +925,7 @@ const Storage = {
             .eq('requestId', requestId);
 
         if (error) {
-            console.error('Supabase updateNotificationsByRequest error', error);
+            Logger.error('Supabase updateNotificationsByRequest error', error);
             return false;
         }
 
@@ -943,7 +943,7 @@ const Storage = {
             .order('createdAt', { ascending: false });
 
         if (error) {
-            console.error('Supabase getNotificationsByRequest error', error);
+            Logger.error('Supabase getNotificationsByRequest error', error);
             return [];
         }
 
@@ -971,7 +971,7 @@ const Storage = {
             .from('events')
             .select('*')
             .eq('bandId', bandId);
-        if (error) { console.error('Supabase getBandEvents error', error); return []; }
+        if (error) { Logger.error('Supabase getBandEvents error', error); return []; }
         return data || [];
     },
 
@@ -992,7 +992,7 @@ const Storage = {
                     Logger.warn('Netzwerkproblem beim Laden der Auftritte');
                     return [];
                 }
-                console.error('Supabase getUserEvents error', error);
+                Logger.error('Supabase getUserEvents error', error);
                 return [];
             }
             return data || [];
@@ -1000,7 +1000,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn('Netzwerkproblem beim Laden der Auftritte (Catch)');
             } else {
-                console.error('[Storage] Unexpected error in getUserEvents:', err);
+                Logger.error('[Storage] Unexpected error in getUserEvents:', err);
             }
             return [];
         }
@@ -1036,7 +1036,7 @@ const Storage = {
             .from('rehearsals')
             .select('*')
             .eq('bandId', bandId);
-        if (error) { console.error('Supabase getBandRehearsals error', error); return []; }
+        if (error) { Logger.error('Supabase getBandRehearsals error', error); return []; }
         return data || [];
     },
 
@@ -1057,7 +1057,7 @@ const Storage = {
                     Logger.warn('Netzwerkproblem beim Laden der Probetermine');
                     return [];
                 }
-                console.error('Supabase getUserRehearsals error', error);
+                Logger.error('Supabase getUserRehearsals error', error);
                 return [];
             }
             return data || [];
@@ -1065,7 +1065,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn('Netzwerkproblem beim Laden der Probetermine (Catch)');
             } else {
-                console.error('[Storage] Unexpected error in getUserRehearsals:', err);
+                Logger.error('[Storage] Unexpected error in getUserRehearsals:', err);
             }
             return [];
         }
@@ -1098,7 +1098,7 @@ const Storage = {
             .from('votes')
             .select('*')
             .eq('rehearsalId', rehearsalId);
-        if (error) { console.error('Supabase getRehearsalVotes error', error); return []; }
+        if (error) { Logger.error('Supabase getRehearsalVotes error', error); return []; }
         return (data || []).map(vote => this.normalizeVoteRecord(vote));
     },
 
@@ -1109,21 +1109,21 @@ const Storage = {
             .from('votes')
             .select('*')
             .in('rehearsalId', rehearsalIds);
-        if (error) { console.error('Supabase getRehearsalVotesForMultipleRehearsals error', error); return []; }
+        if (error) { Logger.error('Supabase getRehearsalVotesForMultipleRehearsals error', error); return []; }
         return (data || []).map(vote => this.normalizeVoteRecord(vote));
     },
 
     async getUserVoteForDate(userId, rehearsalId, dateIndex) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb.from('votes').select('*').eq('userId', userId).eq('rehearsalId', rehearsalId).eq('dateIndex', dateIndex).limit(1).maybeSingle();
-        if (error) { console.error('Supabase getUserVoteForDate error', error); return null; }
+        if (error) { Logger.error('Supabase getUserVoteForDate error', error); return null; }
         return data ? this.normalizeVoteRecord(data) : null;
     },
 
     async getUserVotesForRehearsal(userId, rehearsalId) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb.from('votes').select('*').eq('userId', userId).eq('rehearsalId', rehearsalId);
-        if (error) { console.error('Supabase getUserVotesForRehearsal error', error); return []; }
+        if (error) { Logger.error('Supabase getUserVotesForRehearsal error', error); return []; }
         return (data || []).map(vote => this.normalizeVoteRecord(vote));
     },
 
@@ -1134,7 +1134,7 @@ const Storage = {
             .select('*')
             .eq('userId', userId)
             .in('rehearsalId', rehearsalIds);
-        if (error) { console.error('Supabase getUserVotesForMultipleRehearsals error', error); return []; }
+        if (error) { Logger.error('Supabase getUserVotesForMultipleRehearsals error', error); return []; }
         return (data || []).map(vote => this.normalizeVoteRecord(vote));
     },
 
@@ -1159,7 +1159,7 @@ const Storage = {
             .from('votes')
             .select('*')
             .eq('eventId', eventId);
-        if (error) { console.error('Supabase getEventVotes error', error); return []; }
+        if (error) { Logger.error('Supabase getEventVotes error', error); return []; }
         return (data || []).map(vote => this.normalizeVoteRecord(vote));
     },
 
@@ -1176,7 +1176,7 @@ const Storage = {
                     Logger.warn('Netzwerkproblem beim Laden der Event-Stimmen');
                     return [];
                 }
-                console.error('Supabase getEventVotesForMultipleEvents error', error);
+                Logger.error('Supabase getEventVotesForMultipleEvents error', error);
                 return [];
             }
             return (data || []).map(vote => this.normalizeVoteRecord(vote));
@@ -1184,7 +1184,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn('Netzwerkproblem beim Laden der Event-Stimmen (Catch)');
             } else {
-                console.error('[Storage] Unexpected error in getEventVotesForMultipleEvents:', err);
+                Logger.error('[Storage] Unexpected error in getEventVotesForMultipleEvents:', err);
             }
             return [];
         }
@@ -1199,14 +1199,14 @@ const Storage = {
             .eq('dateIndex', dateIndex)
             .limit(1)
             .maybeSingle();
-        if (error) { console.error('Supabase getUserEventVoteForDate error', error); return null; }
+        if (error) { Logger.error('Supabase getUserEventVoteForDate error', error); return null; }
         return data ? this.normalizeVoteRecord(data) : null;
     },
 
     async getUserEventVotes(userId, eventId) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb.from('votes').select('*').eq('userId', userId).eq('eventId', eventId);
-        if (error) { console.error('Supabase getUserEventVotes error', error); return []; }
+        if (error) { Logger.error('Supabase getUserEventVotes error', error); return []; }
         return (data || []).map(vote => this.normalizeVoteRecord(vote));
     },
 
@@ -1217,7 +1217,7 @@ const Storage = {
             .select('*')
             .eq('userId', userId)
             .in('eventId', eventIds);
-        if (error) { console.error('Supabase getUserEventVotesForMultipleEvents error', error); return []; }
+        if (error) { Logger.error('Supabase getUserEventVotesForMultipleEvents error', error); return []; }
         return (data || []).map(vote => this.normalizeVoteRecord(vote));
     },
 
@@ -1238,7 +1238,7 @@ const Storage = {
             .select('*')
             .eq('eventId', eventId)
             .eq('dateIndex', dateIndex);
-        if (error) { console.error('Supabase getEventTimeSuggestions error', error); return []; }
+        if (error) { Logger.error('Supabase getEventTimeSuggestions error', error); return []; }
         return data || [];
     },
 
@@ -1255,7 +1255,7 @@ const Storage = {
                     Logger.warn('Netzwerkproblem beim Laden der Zeitvorschläge');
                     return [];
                 }
-                console.error('Supabase getEventTimeSuggestionsForMultipleEvents error', error);
+                Logger.error('Supabase getEventTimeSuggestionsForMultipleEvents error', error);
                 return [];
             }
             return data || [];
@@ -1263,7 +1263,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn('Netzwerkproblem beim Laden der Zeitvorschläge (Catch)');
             } else {
-                console.error('[Storage] Unexpected error in getEventTimeSuggestionsForMultipleEvents:', err);
+                Logger.error('[Storage] Unexpected error in getEventTimeSuggestionsForMultipleEvents:', err);
             }
             return [];
         }
@@ -1278,7 +1278,7 @@ const Storage = {
             .eq('dateIndex', dateIndex)
             .limit(1)
             .maybeSingle();
-        if (error) { console.error('Supabase getUserEventTimeSuggestionForDate error', error); return null; }
+        if (error) { Logger.error('Supabase getUserEventTimeSuggestionForDate error', error); return null; }
         return data || null;
     },
 
@@ -1300,14 +1300,14 @@ const Storage = {
             .select('*')
             .eq('rehearsalId', rehearsalId)
             .eq('dateIndex', dateIndex);
-        if (error) { console.error('Supabase getTimeSuggestionsForDate error', error); return []; }
+        if (error) { Logger.error('Supabase getTimeSuggestionsForDate error', error); return []; }
         return data || [];
     },
 
     async getUserTimeSuggestionForDate(userId, rehearsalId, dateIndex) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb.from('timeSuggestions').select('*').eq('userId', userId).eq('rehearsalId', rehearsalId).eq('dateIndex', dateIndex).limit(1).maybeSingle();
-        if (error) { console.error('Supabase getUserTimeSuggestionForDate error', error); return null; }
+        if (error) { Logger.error('Supabase getUserTimeSuggestionForDate error', error); return null; }
         return data || null;
     },
 
@@ -1372,7 +1372,7 @@ const Storage = {
             .from('absences')
             .select('id, userId, startDate, endDate, reason, createdAt')
             .eq('userId', userId);
-        if (error) { console.error('Supabase getUserAbsences error', error); return []; }
+        if (error) { Logger.error('Supabase getUserAbsences error', error); return []; }
         return (data || []).map(absence => this.decorateAbsence(absence));
     },
 
@@ -1383,7 +1383,7 @@ const Storage = {
             .from('absences')
             .select('id, userId, startDate, endDate, reason, createdAt')
             .in('userId', userIds);
-        if (error) { console.error('Supabase getAbsencesForUsers error', error); return []; }
+        if (error) { Logger.error('Supabase getAbsencesForUsers error', error); return []; }
         return (data || []).map(absence => this.decorateAbsence(absence));
     },
 
@@ -1397,7 +1397,7 @@ const Storage = {
             .limit(1)
             .maybeSingle();
         if (error) {
-            console.error('Supabase getAbsenceById error', error);
+            Logger.error('Supabase getAbsenceById error', error);
             return null;
         }
         return data ? this.decorateAbsence(data) : null;
@@ -1466,7 +1466,7 @@ const Storage = {
                     sourceCalendarId
                 };
             } catch (error) {
-                console.warn('[Storage] Ungültiger externer Kalender-Eintrag wurde übersprungen:', error);
+                Logger.warn('[Storage] Ungültiger externer Kalender-Eintrag wurde übersprungen:', error);
                 return null;
             }
         }).filter(Boolean).filter(entry => this.isExternalCalendarEntryWithinSyncRange(entry.date));
@@ -1479,14 +1479,14 @@ const Storage = {
 
             const icalData = await ProxyService.fetch(normalizedUrl);
             if (!icalData || typeof icalData !== 'string' || !icalData.includes('BEGIN:VCALENDAR')) {
-                console.warn('[Storage] Ungültige iCal-Daten für externen Kalender:', normalizedUrl);
+                Logger.warn('[Storage] Ungültige iCal-Daten für externen Kalender:', normalizedUrl);
                 return [];
             }
 
             await new Promise(resolve => setTimeout(resolve, 0));
             return this.parseExternalCalendarEntries(icalData, sourceName, options);
         } catch (error) {
-            console.error('[Storage] Error loading external calendar feed:', error);
+            Logger.error('[Storage] Error loading external calendar feed:', error);
             return [];
         }
     },
@@ -1583,7 +1583,7 @@ const Storage = {
             if (sharedCalendars.length > 0) {
                 throw deleteError;
             }
-            console.warn('[Storage] Alte Busy-Slots konnten nicht entfernt werden:', deleteError);
+            Logger.warn('[Storage] Alte Busy-Slots konnten nicht entfernt werden:', deleteError);
             return [];
         }
 
@@ -1652,10 +1652,10 @@ const Storage = {
 
         if (error) {
             if (this._isMissingExternalCalendarSharingSetupError(error)) {
-                console.warn('[Storage] Shared external calendar slots are not configured yet.');
+                Logger.warn('[Storage] Shared external calendar slots are not configured yet.');
                 return [];
             }
-            console.error('Supabase getSharedExternalCalendarBusySlotsForUsers error', error);
+            Logger.error('Supabase getSharedExternalCalendarBusySlotsForUsers error', error);
             return [];
         }
 
@@ -1705,7 +1705,7 @@ const Storage = {
             .select('id, userId, startDate, endDate, reason, createdAt')
             .in('userId', userIds);
 
-        if (error) { console.error('Supabase getAbsentUsersDuringRange error', error); return []; }
+        if (error) { Logger.error('Supabase getAbsentUsersDuringRange error', error); return []; }
 
         const absences = (data || []).map(absence => this.decorateAbsence(absence));
         const rangeStart = new Date(startDate);
@@ -1748,7 +1748,7 @@ const Storage = {
                     Logger.warn('Netzwerkproblem beim Laden der News');
                     return [];
                 }
-                console.error('Supabase getLatestNews error', error);
+                Logger.error('Supabase getLatestNews error', error);
                 return [];
             }
             return data || [];
@@ -1756,7 +1756,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn('Netzwerkproblem beim Laden der News (Catch)');
             } else {
-                console.error('[Storage] Unexpected error in getLatestNews:', err);
+                Logger.error('[Storage] Unexpected error in getLatestNews:', err);
             }
             return [];
         }
@@ -1860,7 +1860,7 @@ const Storage = {
             if (!match || !match[1]) return null;
             return decodeURIComponent(match[1]);
         } catch (error) {
-            console.warn('[Storage] Could not parse song pdf path:', error);
+            Logger.warn('[Storage] Could not parse song pdf path:', error);
             return null;
         }
     },
@@ -1879,11 +1879,11 @@ const Storage = {
         ]);
 
         if (songsError) {
-            console.warn('[Storage] Song pdf reference lookup failed in songs:', songsError);
+            Logger.warn('[Storage] Song pdf reference lookup failed in songs:', songsError);
         }
 
         if (songpoolError && !this._isMissingSongpoolTableError(songpoolError)) {
-            console.warn('[Storage] Song pdf reference lookup failed in songpool_songs:', songpoolError);
+            Logger.warn('[Storage] Song pdf reference lookup failed in songpool_songs:', songpoolError);
         }
 
         return Boolean((songRefs && songRefs.length) || (songpoolRefs && songpoolRefs.length));
@@ -1904,7 +1904,7 @@ const Storage = {
         const { error } = await sb.storage.from('song-pdfs').remove([storagePath]);
 
         if (error) {
-            console.warn('[Storage] Song pdf cleanup failed:', error);
+            Logger.warn('[Storage] Song pdf cleanup failed:', error);
             return { removed: false, skipped: false, reason: error.message || 'remove-failed' };
         }
 
@@ -2175,7 +2175,7 @@ const Storage = {
             .select('*')
             .eq('eventId', eventId);
 
-        if (error) { console.error('Supabase getEventSongs error', error); return []; }
+        if (error) { Logger.error('Supabase getEventSongs error', error); return []; }
         return (data || []).sort((a, b) => a.order - b.order);
     },
 
@@ -2191,7 +2191,7 @@ const Storage = {
                     Logger.warn('Netzwerkproblem beim Laden der Setlists');
                     return [];
                 }
-                console.error('Supabase getEventSongsForMultipleEvents error', error);
+                Logger.error('Supabase getEventSongsForMultipleEvents error', error);
                 return [];
             }
             return data || [];
@@ -2199,7 +2199,7 @@ const Storage = {
             if (this._isNetworkError(err)) {
                 Logger.warn('Netzwerkproblem beim Laden der Setlists (Catch)');
             } else {
-                console.error('[Storage] Unexpected error in getEventSongsForMultipleEvents:', err);
+                Logger.error('[Storage] Unexpected error in getEventSongsForMultipleEvents:', err);
             }
             return [];
         }
@@ -2212,7 +2212,7 @@ const Storage = {
             .select('*')
             .eq('bandId', bandId);
 
-        if (error) { console.error('Supabase getBandSongs error', error); return []; }
+        if (error) { Logger.error('Supabase getBandSongs error', error); return []; }
         return data || [];
     },
 
@@ -2225,7 +2225,7 @@ const Storage = {
             .order('title', { ascending: true });
 
         if (error) {
-            console.error('Supabase getBandSongChoices error', error);
+            Logger.error('Supabase getBandSongChoices error', error);
             throw new Error(error.message || 'Songs konnten nicht geladen werden.');
         }
 
@@ -2383,7 +2383,7 @@ const Storage = {
             try {
                 externalCandidates = await fetchExternalCandidates();
             } catch (externalError) {
-                console.warn('External song autofill search failed:', externalError);
+                Logger.warn('External song autofill search failed:', externalError);
             }
 
             const ranked = [...localCandidates, ...externalCandidates].map(song => {
@@ -2428,7 +2428,7 @@ const Storage = {
                 ...song
             }) => song);
         } catch (error) {
-            console.error('Song autofill search failed:', error);
+            Logger.error('Song autofill search failed:', error);
             if (this._isNetworkError(error)) {
                 throw new Error('Netzwerkproblem bei der Songsuche.');
             }
@@ -2533,7 +2533,7 @@ const Storage = {
             if (!match || !match[1]) return null;
             return decodeURIComponent(match[1]);
         } catch (error) {
-            console.warn('[Storage] Could not parse chordpro path:', error);
+            Logger.warn('[Storage] Could not parse chordpro path:', error);
             return null;
         }
     },
@@ -2565,7 +2565,7 @@ const Storage = {
             .select('*')
             .maybeSingle();
         if (error) {
-            console.error('Storage.createRundownTemplate error', error);
+            Logger.error('Storage.createRundownTemplate error', error);
             throw new Error(error.message || 'Vorlage konnte nicht gespeichert werden.');
         }
         return data || template;
@@ -2579,7 +2579,7 @@ const Storage = {
             .eq('created_by', userId)
             .order('created_at', { ascending: false });
         if (error) {
-            console.error('Storage.getRundownTemplates error', error);
+            Logger.error('Storage.getRundownTemplates error', error);
             return [];
         }
         return data || [];
@@ -2592,7 +2592,7 @@ const Storage = {
             .delete()
             .eq('id', templateId);
         if (error) {
-            console.error('Storage.deleteRundownTemplate error', error);
+            Logger.error('Storage.deleteRundownTemplate error', error);
             throw new Error(error.message || 'Vorlage konnte nicht gelöscht werden.');
         }
         return true;
@@ -2602,7 +2602,7 @@ const Storage = {
     async getSetting(key) {
         const sb = SupabaseClient.getClient();
         const { data, error } = await sb.from('settings').select('value').eq('key', key).limit(1).maybeSingle();
-        if (error) { console.error('Supabase getSetting error', key, error); return null; }
+        if (error) { Logger.error('Supabase getSetting error', key, error); return null; }
         return data ? data.value : null;
     },
 
@@ -2617,14 +2617,14 @@ const Storage = {
             // Update existing
             const { error } = await sb.from('settings').update({ value, updated_at: new Date().toISOString() }).eq('key', key);
             if (error) {
-                console.error('Supabase setSetting update error', key, error);
+                Logger.error('Supabase setSetting update error', key, error);
                 throw new Error(`Fehler beim Aktualisieren der Einstellung: ${error.message}`);
             }
         } else {
             // Insert new
             const { error } = await sb.from('settings').insert({ id, key, value });
             if (error) {
-                console.error('Supabase setSetting insert error', key, error);
+                Logger.error('Supabase setSetting insert error', key, error);
                 throw new Error(`Fehler beim Speichern der Einstellung: ${error.message}`);
             }
         }
@@ -2684,7 +2684,7 @@ const Storage = {
 
             // Perform deletions in parallel
             if (eventsToDelete.length > 0) {
-                console.log(`[Storage] Clean up: Deleting ${eventsToDelete.length} past events in parallel...`);
+                Logger.info(`[Storage] Clean up: Deleting ${eventsToDelete.length} past events in parallel...`);
                 await Promise.all(eventsToDelete.map(id => this.deleteEvent(id)));
                 deletedEventsCount = eventsToDelete.length - staleArchivedEvents.length;
                 trimmedArchivedEventsCount = staleArchivedEvents.length;
@@ -2779,7 +2779,7 @@ const Storage = {
             .maybeSingle();
 
         if (error) {
-            console.error('Supabase getBandRider error', error);
+            Logger.error('Supabase getBandRider error', error);
             return null;
         }
 
@@ -2810,7 +2810,7 @@ const Storage = {
                 .single();
 
             if (error) {
-                console.error('Supabase createOrUpdateBandRider update error', error);
+                Logger.error('Supabase createOrUpdateBandRider update error', error);
                 throw error;
             }
             return data;
@@ -2826,7 +2826,7 @@ const Storage = {
                 .single();
 
             if (error) {
-                console.error('Supabase createOrUpdateBandRider insert error', error);
+                Logger.error('Supabase createOrUpdateBandRider insert error', error);
                 throw error;
             }
             return data;
@@ -2842,7 +2842,7 @@ const Storage = {
             .eq('bandId', bandId);
 
         if (error) {
-            console.error('Supabase deleteBandRider error', error);
+            Logger.error('Supabase deleteBandRider error', error);
             return false;
         }
         return true;
@@ -2927,7 +2927,7 @@ const Storage = {
 
             return data;
         } catch (error) {
-            console.error('[Storage.getAllCalendars] Fetch error:', error);
+            Logger.error('[Storage.getAllCalendars] Fetch error:', error);
             return [];
         }
     },
@@ -2978,7 +2978,7 @@ const Storage = {
     },
 
     async deleteCalendar(calendarId) {
-        console.log('[Storage.deleteCalendar] Using direct REST API call for:', calendarId);
+        Logger.info('[Storage.deleteCalendar] Using direct REST API call for:', calendarId);
         try {
             const sb = SupabaseClient.getClient();
             const response = await fetch(`${sb.supabaseUrl}/rest/v1/calendars?id=eq.${calendarId}`, {
@@ -2988,21 +2988,21 @@ const Storage = {
                     'Authorization': `Bearer ${sb.supabaseKey}`
                 }
             });
-            console.log('[Storage.deleteCalendar] Response status:', response.status, 'OK:', response.ok);
+            Logger.info('[Storage.deleteCalendar] Response status:', response.status, 'OK:', response.ok);
 
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error('[Storage.deleteCalendar] Error response:', errorText);
+                Logger.error('[Storage.deleteCalendar] Error response:', errorText);
                 throw new Error(`HTTP ${response.status}: ${errorText}`);
             }
 
-            console.log('[Storage.deleteCalendar] Calendar deleted successfully');
+            Logger.info('[Storage.deleteCalendar] Calendar deleted successfully');
 
             this.calendarsCache = null; // Invalidate cache
 
             return response.ok;
         } catch (error) {
-            console.error('[Storage.deleteCalendar] Error:', error);
+            Logger.error('[Storage.deleteCalendar] Error:', error);
             throw error;
         }
     },

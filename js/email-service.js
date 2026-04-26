@@ -33,7 +33,7 @@ const EmailService = {
      */
     async sendEmail(toEmail, toName, subject, message, options = {}) {
         if (!this.isConfigured()) {
-            console.warn('EmailJS not configured. Skipping email send.');
+            Logger.warn('EmailJS not configured. Skipping email send.');
             return {
                 success: false,
                 message: 'EmailJS ist nicht konfiguriert'
@@ -72,7 +72,7 @@ const EmailService = {
             };
 
         } catch (error) {
-            console.error('EmailJS error:', error);
+            Logger.error('EmailJS error:', error);
             return {
                 success: false,
                 message: 'Fehler beim Versenden der E-Mail: ' + error.message
@@ -241,7 +241,7 @@ const EmailService = {
             };
 
         } catch (error) {
-            console.error('EmailJS error:', error);
+            Logger.error('EmailJS error:', error);
             return { success: false, message: error.message };
         }
     },
@@ -340,7 +340,7 @@ const EmailService = {
             };
 
         } catch (error) {
-            console.error('EmailJS error:', error);
+            Logger.error('EmailJS error:', error);
             return { success: false, message: error.message };
         }
     },

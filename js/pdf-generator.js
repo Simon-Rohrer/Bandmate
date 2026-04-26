@@ -1041,7 +1041,7 @@ const PDFGenerator = {
             pdf.save(filename);
             return true;
         } catch (error) {
-            console.error('PDFGenerator renderMarkupToPDF Error:', error);
+            Logger.error('PDFGenerator renderMarkupToPDF Error:', error);
             throw error;
         } finally {
             if (currentElement && currentElement.parentNode) {

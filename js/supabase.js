@@ -157,7 +157,7 @@ const SupabaseClient = {
                 this.client = null;
             }
         } catch (e) {
-            console.error('Failed to init Supabase', e);
+            Logger.error('Failed to init Supabase', e);
             this.client = null;
         }
     },
@@ -208,7 +208,7 @@ const SupabaseClient = {
             if (typeof UI !== 'undefined') {
                 UI.showToast('Supabase Einstellungen gespeichert', 'success');
             } else {
-                console.log('Supabase settings saved');
+                Logger.info('Supabase settings saved');
             }
         });
 

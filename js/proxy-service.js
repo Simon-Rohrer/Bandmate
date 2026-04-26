@@ -59,7 +59,7 @@ const ProxyService = {
                     if (data && data.contents) return data.contents;
                 }
             } catch (error) {
-                console.warn(`Proxy ${proxy.name} failed for ${url}:`, error.message);
+                Logger.warn(`Proxy ${proxy.name} failed for ${url}:`, error.message);
                 lastError = error;
                 continue; // Try next proxy
             }
