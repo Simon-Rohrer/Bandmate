@@ -40,15 +40,23 @@ const LandingPage = {
             if (typeof Auth !== 'undefined') {
                 await Auth.init();
 
-                // Check for verified parameter (from confirm-email.html)
+                // Check for verified parameter (from confirm-email.html) OR fallback hash
                 const urlParams = new URLSearchParams(window.location.search);
-                const isVerifiedRedirect = urlParams.get('verified') === 'true';
+                const hasVerifiedParam = urlParams.get('verified') === 'true';
+                const hasSignupHash = window.location.hash.includes('type=signup');
+                
+                const isVerifiedRedirect = hasVerifiedParam || hasSignupHash;
 
                 if (isVerifiedRedirect) {
                     // Force logout to ensure they see the landing page and have to log in manually
                     await Auth.logout();
                     // Re-init after logout to be clean
                     await Auth.init();
+                    
+                    if (hasSignupHash) {
+                        // Clean up URL to hide the ugly hash from the user
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                    }
                 }
 
                 if (Auth.isAuthenticated() && !isVerifiedRedirect) {
@@ -110,10 +118,18 @@ const LandingPage = {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
                 const targetId = this.getAttribute('href');
-                if (targetId === '#') return;
+                if (targetId === '#') {
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    return;
+                }
                 const target = document.querySelector(targetId);
                 if (target) {
-                    target.scrollIntoView({ behavior: 'smooth' });
+                    // Use exact calculation instead of scrollIntoView for perfect positioning
+                    const targetPosition = target.getBoundingClientRect().top + window.scrollY;
+                    window.scrollTo({
+                        top: targetPosition - 160,
+                        behavior: 'smooth'
+                    });
                 }
             });
         });

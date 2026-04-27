@@ -4470,6 +4470,15 @@ const App = {
         this.isInitializing = true;
         Logger.info('[App.init] Boot sequence started...');
 
+        // If Supabase falls back to app.html (Site URL) after email confirmation
+        // Redirect them back to the landing page so they see the success message
+        if (window.location.hash.includes('type=signup')) {
+            Logger.info('[App.init] Intercepted signup hash, redirecting to landing page.');
+            window.location.replace('../index.html' + window.location.hash);
+            this.isInitializing = false;
+            return;
+        }
+
         if (this.redirectPasswordRecoveryToResetPage()) {
             this.isInitializing = false;
             return;

@@ -308,19 +308,25 @@
                 </div>
                 <div class="grid md:grid-cols-3 gap-8">
                     <div class="p-10 rounded-[2.5rem] bg-[#121C31] border border-white/5 group hover:-translate-y-2 transition-all">
-                        <div class="text-4xl mb-6">🎯</div>
+                        <div class="w-14 h-14 rounded-2xl bg-accent-secondary/10 flex items-center justify-center mb-8">
+                            <i data-lucide="target" class="w-7 h-7 text-accent-secondary"></i>
+                        </div>
                         <h3 class="text-2xl font-black mb-4">Zentrale Übersicht</h3>
-                        <p class="text-slate-400 font-medium">Keine WhatsApp-Gruppen mehr durchforsten. Alle Infos liegen gebündelt an einem Ort.</p>
+                        <p class="text-slate-400 font-medium leading-relaxed">Keine WhatsApp-Gruppen mehr durchforsten. Alle Infos liegen gebündelt an einem Ort.</p>
                     </div>
                     <div class="p-10 rounded-[2.5rem] bg-[#121C31] border border-white/5 group hover:-translate-y-2 transition-all">
-                        <div class="text-4xl mb-6">⚡</div>
+                        <div class="w-14 h-14 rounded-2xl bg-accent-secondary/10 flex items-center justify-center mb-8">
+                            <i data-lucide="zap" class="w-7 h-7 text-accent-secondary"></i>
+                        </div>
                         <h3 class="text-2xl font-black mb-4">Einfache Planung</h3>
-                        <p class="text-slate-400 font-medium">Mit wenigen Klicks Proben erstellen und Verfügbarkeiten einsehen.</p>
+                        <p class="text-slate-400 font-medium leading-relaxed">Mit wenigen Klicks Proben erstellen und Verfügbarkeiten einsehen.</p>
                     </div>
                     <div class="p-10 rounded-[2.5rem] bg-[#121C31] border border-white/5 group hover:-translate-y-2 transition-all">
-                        <div class="text-4xl mb-6">🛡️</div>
+                        <div class="w-14 h-14 rounded-2xl bg-accent-secondary/10 flex items-center justify-center mb-8">
+                            <i data-lucide="shield-check" class="w-7 h-7 text-accent-secondary"></i>
+                        </div>
                         <h3 class="text-2xl font-black mb-4">Sicher & Privat</h3>
-                        <p class="text-slate-400 font-medium">Deine Daten gehören dir. Wir setzen auf höchste Sicherheitsstandards.</p>
+                        <p class="text-slate-400 font-medium leading-relaxed">Deine Daten gehören dir. Wir setzen auf höchste Sicherheitsstandards.</p>
                     </div>
                 </div>
             </section>
@@ -347,8 +353,8 @@
                     <div>
                         <h4 class="font-bold uppercase tracking-widest text-[10px] text-slate-400 mb-6">Social</h4>
                         <ul class="space-y-4 text-xs text-slate-500 font-black uppercase tracking-widest">
-                            <li><a href="https://instagram.com/bandmateapp" target="_blank" class="hover:text-white transition-colors">Instagram</a></li>
-                            <li><a href="https://tiktok.com/@bandmateapp" target="_blank" class="hover:text-white transition-colors">TikTok</a></li>
+                            <li><a href="https://instagram.com/bandmate.studio" target="_blank" class="hover:text-white transition-colors">Instagram</a></li>
+                            <li><a href="https://tiktok.com/@bandmate.studio" target="_blank" class="hover:text-white transition-colors">TikTok</a></li>
                         </ul>
                     </div>
                 </div>
@@ -482,7 +488,8 @@
 
                 sections.forEach(section => {
                     const sectionTop = section.offsetTop;
-                    if (scrollY >= sectionTop - 150) {
+                    // Changed from 150 to 250 to account for the larger scroll-margin-top (160px)
+                    if (scrollY >= sectionTop - 250) {
                         current = section.getAttribute('id');
                     }
                 });
