@@ -169,6 +169,11 @@ const UI = {
         const overlay = document.getElementById('authOverlay');
         if (overlay) {
             if (show) {
+                // Clear any lingering auth status notices
+                if (typeof App !== 'undefined' && typeof App.clearAuthStatusNotice === 'function') {
+                    App.clearAuthStatusNotice();
+                }
+
                 overlay.hidden = false;
                 overlay.setAttribute('aria-hidden', 'false');
                 overlay.classList.add('active');
@@ -506,17 +511,25 @@ const UI = {
         }
 
         toast.textContent = message;
-        toast.className = 'toast show';
-
+        
+        // Remove existing state classes
+        toast.classList.remove('opacity-0', 'pointer-events-none', 'bg-accent-secondary', 'bg-emerald-500', 'bg-red-500');
+        
+        // Add active state
+        toast.classList.add('opacity-100');
+        
         if (type === 'success') {
-            toast.classList.add('success');
+            toast.classList.add('bg-emerald-500');
         } else if (type === 'error') {
-            toast.classList.add('error');
+            toast.classList.add('bg-red-500');
+        } else {
+            toast.classList.add('bg-accent-secondary');
         }
 
         setTimeout(() => {
-            toast.classList.remove('show');
-        }, 3000);
+            toast.classList.remove('opacity-100');
+            toast.classList.add('opacity-0');
+        }, 5000);
     },
 
     // View navigation

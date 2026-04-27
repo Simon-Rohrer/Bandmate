@@ -28,7 +28,7 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="css/style.css?v=20260407-17">
+    <link rel="stylesheet" href="../css/style.css?v=20260407-17">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
@@ -37,8 +37,8 @@
         <div class="landing-content">
             <header class="landing-header" style="padding: 1rem 2rem;">
                 <div class="landing-logo">
-                    <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="logo-light" style="height: 32px !important;">
-                    <img src="images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="logo-dark" style="height: 32px !important;">
+                    <img src="../images/branding/bandmate-logo-short.svg" alt="Bandmate" class="logo-light" style="height: 32px !important;">
+                    <img src="../images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="logo-dark" style="height: 32px !important;">
                 </div>
             </header>
 
@@ -60,7 +60,7 @@
                             Bestätigung wird verarbeitet.
                         </div>
 
-                        <a id="confirmEmailHomeButton" href="index.html" class="btn-submit" style="display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; margin-top: 1.6rem; border: none; border-radius: 16px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #ffffff; font-size: 0.98rem; font-weight: 700; letter-spacing: 0.03em; text-decoration: none; box-shadow: 0 16px 38px rgba(99, 102, 241, 0.28);">
+                        <a id="confirmEmailHomeButton" href="../index.html" class="btn-submit" style="display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; margin-top: 1.6rem; border: none; border-radius: 16px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #ffffff; font-size: 0.98rem; font-weight: 700; letter-spacing: 0.03em; text-decoration: none; box-shadow: 0 16px 38px rgba(99, 102, 241, 0.28);">
                             Zur Startseite
                         </a>
 
@@ -73,7 +73,7 @@
         </div>
     </main>
 
-    <script src="js/supabase.js?v=20260407-17"></script>
+    <script src="../js/supabase.js?v=20260407-17"></script>
     <script>
         document.addEventListener('DOMContentLoaded', async () => {
             const titleEl = document.getElementById('confirmEmailTitle');
@@ -236,10 +236,17 @@
                 setState(
                     'success',
                     'Dein Konto ist jetzt aktiviert',
-                    'Deine E-Mail-Adresse wurde erfolgreich bestätigt. Du kannst dich jetzt in Bandmate einloggen.',
+                    'Deine E-Mail-Adresse wurde erfolgreich bestätigt. Wir leiten dich gleich zum Login weiter...',
                     `Die E-Mail-Bestätigung${confirmedEmail} wurde erfolgreich abgeschlossen.`
                 );
-                hintEl.textContent = 'Mit dem Button unten kommst du direkt zur Startseite und kannst dich dort anmelden.';
+                hintEl.textContent = 'Du wirst in wenigen Sekunden zur Startseite weitergeleitet.';
+                
+                // Auto redirect after 3 seconds
+                setTimeout(() => {
+                    const url = new URL(window.location.href);
+                    const landingUrl = url.origin + url.pathname.replace('html/confirm-email.html', 'index.html') + '?verified=true';
+                    window.location.replace(landingUrl);
+                }, 3000);
             } catch (error) {
                 console.error('[confirm-email] Verification failed:', error);
                 clearAuthUrl();

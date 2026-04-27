@@ -48,23 +48,20 @@
     </script>
 
     <!-- Manifest -->
-    <link rel="manifest" href="manifest.json">
-
-    <!-- Icons -->
-    <link rel="icon" type="image/svg+xml" href="images/branding/bandmate-logo-only.svg" id="faviconSvg">
-    <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
+    <link rel="manifest" href="../manifest.json">
+    <link rel="icon" type="image/svg+xml" href="../images/branding/bandmate-logo-only.svg" id="faviconSvg">
+    <link rel="apple-touch-icon" href="../images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="css/style.css?v=20260409-1">
-    <link rel="stylesheet" href="css/rider.css">
-    <link rel="stylesheet" href="css/sidebar.css?v=20260407-2">
-    <link rel="stylesheet" href="css/calendar.css?v=20260408-4">
-    <!-- <link rel="stylesheet" href="css/loader.css"> Removed: Consolidated into style.css -->
-    <link rel="stylesheet" href="css/settings_modal.css?v=20260408-1">
-    <link rel="stylesheet" href="css/statistics.css">
+    <link rel="stylesheet" href="../css/style.css?v=20260409-1">
+    <link rel="stylesheet" href="../css/rider.css">
+    <link rel="stylesheet" href="../css/sidebar.css?v=20260407-2">
+    <link rel="stylesheet" href="../css/calendar.css?v=20260408-4">
+    <link rel="stylesheet" href="../css/settings_modal.css?v=20260408-1">
+    <link rel="stylesheet" href="../css/statistics.css">
 
     <!-- Quill Rich Text Editor -->
-    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
 
     <!-- Supabase JS (CDN) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -104,12 +101,12 @@
         <div class="loader-panel" role="status" aria-live="polite">
             <div class="loader-spin-shell">
                 <span class="guitar-spinner" aria-hidden="true">
-                    <img src="images/branding/bandmate-logo-only.svg" alt="" id="loaderBrandLogo">
+                    <img src="../images/branding/bandmate-logo-only.svg" alt="" id="loaderBrandLogo">
                 </span>
             </div>
-            <div class="loader-panel-copy">
-                <span class="loader-panel-title">Bandmate lädt</span>
-                <span class="loader-panel-text">Einen Moment bitte</span>
+            <div style="text-align: center;">
+                <p style="font-weight: 900; letter-spacing: -0.025em; font-size: 1.25rem; color: white; margin-bottom: 0.25rem; margin-top: 0;">Bandmate lädt</p>
+                <p style="font-size: 0.875rem; color: #94a3b8; font-weight: 500; margin: 0;">Einen Moment bitte...</p>
             </div>
         </div>
     </div>
@@ -326,8 +323,8 @@
             <aside class="app-sidebar">
                 <div class="sidebar-brand">
                     <div class="sidebar-logo-container">
-                        <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="logo-expanded" id="sidebarLogoExpanded">
-                        <img src="images/branding/bandmate-logo-only.svg" alt="Bandmate" class="logo-collapsed" id="sidebarLogoCollapsed">
+                        <img src="../images/branding/bandmate-logo-short.svg" alt="Bandmate" class="logo-expanded" id="sidebarLogoExpanded">
+                        <img src="../images/branding/bandmate-logo-only.svg" alt="Bandmate" class="logo-collapsed" id="sidebarLogoCollapsed">
                     </div>
                     <button id="toggleSidebarBtn" class="sidebar-toggle-btn" title="Menü ein-/ausklappen">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -688,7 +685,7 @@
                                 <span id="themeToggleIcon" aria-hidden="true"></span>
                             </button>
                             <button id="logoutBtn" class="btn btn-secondary">
-                                <img src="images/logout darkmode.jpg" alt="Abmelden" class="icon-img">
+                                <img src="../images/logout darkmode.jpg" alt="Abmelden" class="icon-img">
                             </button>
                         </div>
                     </div>
@@ -4578,29 +4575,29 @@
     <!-- Scripts -->
 
     <script src="https://cdn.jsdelivr.net/npm/ical.js@1.5.0/build/ical.min.js"></script>
-    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.min.js"></script>
 
-    <script src="js/logger.js?v=20260311"></script>
-    <script src="js/proxy-service.js?v=20260311"></script>
-    <script src="js/config.js?v=20260424-1"></script>
-    <script src="js/supabase.js?v=20260407-17"></script>
-    <script src="js/storage.js?v=20260409-1"></script>
-    <script src="js/auth.js?v=20260407-19"></script>
-    <script src="js/email-service.js?v=20260311"></script>
-    <script src="js/bands.js?v=20260311"></script>
-    <script src="js/pdf-generator.js?v=20260311"></script>
-    <script src="js/events.js?v=20260408-6"></script>
-    <script src="js/rehearsals.js?v=20260408-2"></script>
-    <script src="js/statistics.js?v=20260407-1"></script>
-    <script src="js/calendar.js?v=20260408-2"></script>
-    <script src="js/personal-calendar.js?v=20260407-4"></script>
-    <script src="js/churchtools-api.js?v=20260311"></script>
-    <script src="js/musikpool.js?v=20260311"></script>
-    <script src="js/ui.js?v=20260408-1"></script>
-    <script src="js/feedback-service.js?v=20260311"></script>
-    <script src="js/chordpro-converter.js?v=20260407-8"></script>
-    <script src="js/notifications.js?v=20260328"></script>
-    <script src="js/app.js?v=20260409-1"></script>
+    <script src="../js/logger.js?v=20260311"></script>
+    <script src="../js/proxy-service.js?v=20260311"></script>
+    <script src="../js/config.js?v=20260424-1"></script>
+    <script src="../js/supabase.js?v=20260407-17"></script>
+    <script src="../js/storage.js?v=20260409-1"></script>
+    <script src="../js/auth.js?v=20260407-19"></script>
+    <script src="../js/email-service.js?v=20260311"></script>
+    <script src="../js/bands.js?v=20260311"></script>
+    <script src="../js/pdf-generator.js?v=20260311"></script>
+    <script src="../js/events.js?v=20260408-6"></script>
+    <script src="../js/rehearsals.js?v=20260408-2"></script>
+    <script src="../js/statistics.js?v=20260407-1"></script>
+    <script src="../js/calendar.js?v=20260408-2"></script>
+    <script src="../js/personal-calendar.js?v=20260407-4"></script>
+    <script src="../js/churchtools-api.js?v=20260311"></script>
+    <script src="../js/musikpool.js?v=20260311"></script>
+    <script src="../js/ui.js?v=20260408-1"></script>
+    <script src="../js/feedback-service.js?v=20260311"></script>
+    <script src="../js/chordpro-converter.js?v=20260407-8"></script>
+    <script src="../js/notifications.js?v=20260328"></script>
+    <script src="../js/app.js?v=20260409-1"></script>
 
     <!-- Skip duplicated pdf.js block -->
 
@@ -4632,7 +4629,7 @@
                     return;
                 }
 
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('../js/sw.js', { scope: '/' })
                     .catch((error) => {
                         console.error('Service Worker registration failed:', error);
                     });
@@ -4648,7 +4645,7 @@
         // Dynamically load capacitor.js only if likely in a native environment to avoid 404s in browser
         if (window.location.protocol === 'file:' || window.location.protocol === 'capacitor:') {
             var script = document.createElement('script');
-            script.src = 'capacitor.js';
+            script.src = '../capacitor.js';
             script.onerror = function () { 
                 if (typeof Logger !== 'undefined' && Logger.debugMode) {
                     if(typeof Logger!=="undefined" && Logger.debugMode) console.log('Capacitor not available (running in browser mode)'); 

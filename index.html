@@ -1,353 +1,500 @@
 <!DOCTYPE html>
-<html lang="de">
-
+<html lang="de" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Bandmate | Organisiere deine Band wie ein Profi</title>
+    
     <meta name="description" content="Bandmate hilft Bands, Proben, Auftritte, Mitglieder, Songs und Organisation an einem Ort klar und einfach zu planen.">
     <meta name="theme-color" content="#08111F" id="themeColorMeta">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="appleStatusBarMeta">
     <meta name="apple-mobile-web-app-title" content="Bandmate">
-
-    <script>
-        (function () {
-            const STORAGE_KEY = 'theme';
-            const DARK_THEME_COLOR = '#08111F';
-            const LIGHT_THEME_COLOR = '#F6F8FC';
-
-            let resolvedTheme = 'dark';
-
-            try {
-                const storedTheme = localStorage.getItem(STORAGE_KEY);
-                if (storedTheme === 'light' || storedTheme === 'dark') {
-                    resolvedTheme = storedTheme;
-                }
-            } catch (error) {
-                resolvedTheme = 'dark';
-            }
-
-            document.documentElement.dataset.theme = resolvedTheme;
-            document.documentElement.classList.toggle('theme-dark', resolvedTheme === 'dark');
-            document.documentElement.style.colorScheme = resolvedTheme;
-            window.__bandmateTheme = resolvedTheme;
-
-            const themeColorMeta = document.getElementById('themeColorMeta');
-            if (themeColorMeta) {
-                themeColorMeta.setAttribute('content', resolvedTheme === 'dark' ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
-            }
-
-            const appleStatusBarMeta = document.getElementById('appleStatusBarMeta');
-            if (appleStatusBarMeta) {
-                appleStatusBarMeta.setAttribute('content', resolvedTheme === 'dark' ? 'black-translucent' : 'default');
-            }
-        })();
-    </script>
-
+    
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="images/branding/bandmate-logo-only.svg" id="faviconSvg">
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
-
-    <link rel="stylesheet" href="css/landing.css">
-
+    
+    <!-- External Dependencies -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Custom Design System & Styles -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        background: '#08111F',
+                        accent: { secondary: '#5b8cff' }
+                    },
+                    animation: {
+                        'orbit': 'orbit var(--duration) linear infinite',
+                    },
+                    keyframes: {
+                        'orbit': {
+                            '0%': { transform: 'rotate(0deg) translateY(var(--radius)) rotate(0deg)' },
+                            '100%': { transform: 'rotate(360deg) translateY(var(--radius)) rotate(-360deg)' },
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <link rel="stylesheet" href="css/landing.css">
 </head>
+<body class="text-slate-200">
 
-<body class="landing-active">
-    <div id="toast" class="toast"></div>
-
+    <!-- Global Loading Overlay -->
     <div class="loader-container" id="globalLoadingOverlay">
-        <div class="loader-panel" role="status" aria-live="polite">
+        <div class="loader-panel">
             <div class="loader-spin-shell">
-                <span class="guitar-spinner" aria-hidden="true">
-                    <img src="images/branding/bandmate-logo-only.svg" alt="" id="loaderBrandLogo">
-                </span>
+                <div class="guitar-spinner">
+                    <img src="images/branding/bandmate-logo-only.svg" alt="Logo">
+                </div>
             </div>
-            <div class="loader-panel-copy">
-                <span class="loader-panel-title">Bandmate lädt</span>
-                <span class="loader-panel-text">Einen Moment bitte</span>
+            <div class="text-center">
+                <p class="font-black tracking-tight text-xl text-white mb-1">Bandmate lädt</p>
+                <p class="text-sm text-slate-500 font-medium">Einen Moment bitte...</p>
             </div>
         </div>
     </div>
 
-    <div id="landingPage" class="landing-page active">
-        <div class="landing-scene">
-            <header class="landing-header">
-                <div class="landing-logo">
-                    <div class="landing-logo-mark">
-                        <img src="images/branding/bandmate-logo-only.svg" alt="Bandmate" id="landingBrandLogo">
-                    </div>
-                    <div class="landing-brand-copy">
-                        <span class="landing-brand-title">Bandmate</span>
-                        <span class="landing-brand-subtitle">Proben, Auftritte und Organisation an einem Ort</span>
+    <div id="landingPage" class="landing-page opacity-0 transition-opacity duration-500">
+        <!-- Header -->
+        <header class="fixed top-0 left-0 right-0 z-50 h-24 px-6 flex items-center justify-center pointer-events-none transition-all duration-300" id="mainHeader">
+            <div class="max-w-7xl mx-auto w-full glass rounded-[2rem] h-16 flex items-center justify-between px-8 pointer-events-auto shadow-2xl shadow-black/50">
+                <div class="flex items-center gap-10">
+                    <a href="#" class="flex items-center gap-2">
+                        <img src="images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="h-8 w-auto">
+                    </a>
+                    <nav class="hidden md:flex items-center gap-8" id="mainNav">
+                        <a href="#hero" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all active-link">Home</a>
+                        <a href="#stats" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Statistik</a>
+                        <a href="#features" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Funktionen</a>
+                        <a href="#reasons" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Vorteile</a>
+                    </nav>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="UI.toggleAuthOverlay(true, 'login')" class="text-[10px] font-black uppercase tracking-[0.2em] px-5 py-2 text-slate-400 hover:text-white transition-all">Anmelden</button>
+                    <button onclick="UI.toggleAuthOverlay(true, 'register')" class="text-[10px] font-black uppercase tracking-[0.2em] px-6 py-2.5 rounded-full bg-accent-secondary text-white hover:brightness-110 transition-all shadow-lg shadow-accent-secondary/20">Jetzt Starten</button>
+                </div>
+            </div>
+        </header>
+
+        <main>
+            <!-- Hero -->
+            <section id="hero" class="relative pt-40 pb-20 px-6 min-h-screen flex flex-col items-center justify-center text-center overflow-hidden">
+                <div class="absolute top-1/4 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-accent-secondary/10 blur-[120px] rounded-full pointer-events-none"></div>
+                <div class="max-w-4xl relative z-10">
+                    <div class="inline-block px-4 py-1.5 rounded-full bg-accent-secondary/10 border border-accent-secondary/20 text-accent-secondary text-xs font-bold tracking-widest uppercase mb-8">Bandplanung ohne Chaos</div>
+                    <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-8 leading-[1.1] text-gradient">Plane Proben und Auftritte, <br> organisiere deine Band.</h1>
+                    <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">Bandmate bündelt Termine, Abstimmungen, Songs, Orte und News in einer klaren Arbeitsfläche für Bands und Leitungsteams.</p>
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                        <button onclick="UI.toggleAuthOverlay(true, 'register')" class="w-full sm:w-auto px-10 py-5 rounded-2xl bg-accent-secondary text-white font-black text-lg hover:bg-accent-secondary/90 transition-all shadow-2xl shadow-accent-secondary/30">Jetzt kostenlos starten</button>
+                        <a href="#features" class="w-full sm:w-auto px-10 py-5 rounded-2xl bg-white/5 border border-white/10 font-bold text-lg hover:bg-white/10 transition-all flex items-center justify-center">Funktionen entdecken</a>
                     </div>
                 </div>
-                <nav class="landing-nav" aria-label="Startaktionen">
-                    <button type="button" class="landing-nav-action landing-nav-login"
-                        onclick="UI.toggleAuthOverlay(true, 'login')">Login</button>
-                    <button type="button" class="landing-nav-action landing-nav-register"
-                        onclick="UI.toggleAuthOverlay(true, 'register')">Registrieren</button>
-                </nav>
-            </header>
+            </section>
 
-            <main class="landing-main">
-                <section class="landing-hero-grid">
-                    <div class="landing-copy-column">
-                        <div class="landing-hero-eyebrow">Bandplanung ohne Chaos</div>
-                        <h1 class="landing-hero-title">Plane Proben und Auftritte, organisiere deine Band an einem Ort.</h1>
-                        <p class="hero-sub">
-                            Bandmate bündelt Termine, Abstimmungen, Songs, Orte und News in einer klaren
-                            Arbeitsfläche für Bands und Leitungsteams.
-                        </p>
-                        <div class="landing-hero-features" aria-label="Kernvorteile">
-                            <span>Abstimmungen</span>
-                            <span class="dot"></span>
-                            <span>Kalender</span>
-                            <span class="dot"></span>
-                            <span>Songs &amp; PDFs</span>
+            <!-- Image App Slider -->
+            <section class="py-32 border-y border-white/5 bg-black/20 overflow-hidden">
+                <div class="max-w-[1400px] mx-auto px-6 mb-16 text-center">
+                    <p class="text-xs font-bold uppercase tracking-[0.3em] text-slate-500 mb-4">Ein Einblick in dein neues Dashboard</p>
+                    <h2 class="text-3xl md:text-4xl font-black tracking-tight">Einfach. Klar. Intuitiv.</h2>
+                </div>
+                <div class="flex animate-loop-scroll">
+                    <!-- Original set -->
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=1200&auto=format&fit=crop" alt="Kalender" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop" alt="Songpool" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop" alt="Mitglieder" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1200&auto=format&fit=crop" alt="Locations" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1200&auto=format&fit=crop" alt="Dashboard" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=1200&auto=format&fit=crop" alt="Mobile App" class="slider-img"></div>
+                    <!-- Duplicate for infinite scroll -->
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1506784983877-45594efa4cbe?q=80&w=1200&auto=format&fit=crop" alt="Kalender" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?q=80&w=1200&auto=format&fit=crop" alt="Songpool" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1511379938547-c1f69419868d?q=80&w=1200&auto=format&fit=crop" alt="Mitglieder" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1524661135-423995f22d0b?q=80&w=1200&auto=format&fit=crop" alt="Locations" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1200&auto=format&fit=crop" alt="Dashboard" class="slider-img"></div>
+                    <div class="slider-img-container"><img src="https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?q=80&w=1200&auto=format&fit=crop" alt="Mobile App" class="slider-img"></div>
+                </div>
+            </section>
+
+            <!-- Facts Section -->
+            <section id="stats" class="py-32 px-6 max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center">
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="p-8 rounded-[2rem] bg-accent-secondary/5 border border-accent-secondary/10 flex flex-col items-center justify-center text-center">
+                        <span class="text-6xl font-black text-accent-secondary mb-2 counter" data-target="1200">0</span>
+                        <span class="text-sm font-bold uppercase tracking-widest text-slate-400">Mitglieder</span>
+                    </div>
+                    <div class="p-8 rounded-[2rem] bg-accent-secondary/5 border border-accent-secondary/10 flex flex-col items-center justify-center text-center">
+                        <span class="text-6xl font-black text-accent-secondary mb-2 counter" data-target="85">0</span>
+                        <span class="text-sm font-bold uppercase tracking-widest text-slate-400">Bands</span>
+                    </div>
+                    <div class="p-8 rounded-[2rem] bg-accent-secondary/5 border border-accent-secondary/10 flex flex-col items-center justify-center text-center">
+                        <span class="text-6xl font-black text-accent-secondary mb-2 counter" data-target="4500">0</span>
+                        <span class="text-sm font-bold uppercase tracking-widest text-slate-400">Events</span>
+                    </div>
+                    <div class="p-8 rounded-[2rem] bg-accent-secondary/5 border border-accent-secondary/10 flex flex-col items-center justify-center text-center">
+                        <span class="text-6xl font-black text-accent-secondary mb-2 counter" data-target="99">0</span>
+                        <span class="text-sm font-bold uppercase tracking-widest text-slate-400">Uptime %</span>
+                    </div>
+                </div>
+                <div class="flex flex-col gap-8">
+                    <h2 class="text-4xl font-black tracking-tight">Einfachheit trifft auf Profi-Tools.</h2>
+                    <p class="text-slate-400 leading-relaxed font-medium">Wir haben Bandmate so entwickelt, dass du weniger Zeit mit Organisation und mehr Zeit mit Musik verbringst.</p>
+                    <div class="grid gap-4">
+                        <div class="p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+                            <h3 class="font-bold text-lg mb-1">Echtzeit-Synchronisierung</h3>
+                            <p class="text-sm text-slate-500 font-medium">Alle Änderungen sind sofort für jedes Bandmitglied sichtbar.</p>
                         </div>
-                        <p class="landing-hero-tagline">Für Bands, Leitungen und Teams, die ihre Planung verlässlich organisieren wollen.</p>
+                        <div class="p-6 rounded-2xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+                            <h3 class="font-bold text-lg mb-1">Mobile Optimierung</h3>
+                            <p class="text-sm text-slate-500 font-medium">Nutze alle Funktionen bequem von unterwegs auf deinem Smartphone.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Features Section -->
+            <section id="features" class="py-32 px-6 bg-black/40 overflow-hidden">
+                <div class="max-w-7xl mx-auto">
+                    <div class="text-center mb-20">
+                        <div class="inline-block px-4 py-1.5 rounded-full bg-accent-secondary/10 border border-accent-secondary/20 text-accent-secondary text-xs font-bold tracking-widest uppercase mb-8">Features</div>
+                        <h2 class="text-4xl md:text-5xl font-black tracking-tight mb-6 text-gradient">Alles was deine Band braucht.</h2>
+                        <p class="text-slate-400 text-lg font-medium max-w-2xl mx-auto">Vom Probenplaner bis zur Songverwaltung – Bandmate ist die zentrale Anlaufstelle.</p>
                     </div>
 
-                    <div class="landing-showcase landing-showcase-visual" aria-hidden="true">
-                        <div class="landing-showcase-glow"></div>
-                        <div class="landing-hero-image-frame">
-                            <img src="images/landing/bandmate-landing-hero.png" alt="" class="landing-hero-image">
+                    <div class="grid lg:grid-cols-[0.8fr_1.2fr] gap-10 lg:gap-20 items-center">
+                        <!-- Left Side: Spinning Wheel -->
+                        <div class="relative h-[600px] flex items-center justify-center order-2 lg:order-1">
+                            <div class="z-10 w-24 h-24 bg-accent-secondary/10 rounded-[2rem] p-5 border border-accent-secondary/20 backdrop-blur-xl">
+                                <img src="images/branding/bandmate-logo-only-dark.svg" alt="Logo" class="w-full h-full object-contain">
+                            </div>
+                            <div class="absolute w-[300px] h-[300px] border border-white/5 rounded-full"></div>
+                            <div class="absolute w-[450px] h-[450px] border border-white/5 rounded-full"></div>
+                            
+                            <!-- Orbiting Icons (7 Icons) -->
+                            <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 150px; animation-delay: 0s;">
+                                <i data-lucide="users" class="w-6 h-6 text-accent-secondary"></i>
+                            </div>
+                            <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 150px; animation-delay: -3.57s;">
+                                <i data-lucide="calendar" class="w-6 h-6 text-accent-secondary"></i>
+                            </div>
+                            <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 150px; animation-delay: -7.14s;">
+                                <i data-lucide="music" class="w-6 h-6 text-accent-secondary"></i>
+                            </div>
+                            <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 200px; animation-delay: -10.71s;">
+                                <i data-lucide="mic-2" class="w-6 h-6 text-accent-secondary"></i>
+                            </div>
+                            <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 200px; animation-delay: -14.28s;">
+                                <i data-lucide="map-pin" class="w-6 h-6 text-accent-secondary"></i>
+                            </div>
+                            <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 225px; animation-delay: -17.85s;">
+                                <i data-lucide="bell" class="w-6 h-6 text-accent-secondary"></i>
+                            </div>
+                            <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 225px; animation-delay: -21.42s;">
+                                <i data-lucide="settings" class="w-6 h-6 text-accent-secondary"></i>
+                            </div>
+                        </div>
+
+                        <!-- Right Side: Accordion -->
+                        <div class="space-y-4 order-1 lg:order-2 w-full max-w-2xl mx-auto lg:mx-0">
+                            <!-- Item 1 -->
+                            <details name="features" class="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 open:bg-white/[0.08] open:scale-[1.02] transition-all cursor-pointer" open>
+                                <summary class="flex items-center justify-between list-none">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-accent-secondary/10 flex items-center justify-center">
+                                            <i data-lucide="calendar" class="w-6 h-6 text-accent-secondary"></i>
+                                        </div>
+                                        <h3 class="text-xl font-bold tracking-tight">Probenplaner</h3>
+                                    </div>
+                                    <span class="transition-transform group-open:rotate-180">
+                                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-500"></i>
+                                    </span>
+                                </summary>
+                                <div class="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-500 ease-in-out overflow-hidden">
+                                    <div class="min-h-0">
+                                        <div class="pt-6 text-slate-400 text-base leading-relaxed">
+                                            Plane Proben mit Zu- und Absagen in Echtzeit. Automatische Terminerinnerungen sorgen dafür, dass alle vorbereitet sind. Behalte den Überblick über den Status jedes Mitglieds.
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <!-- Item 2 -->
+                            <details name="features" class="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 open:bg-white/[0.08] open:scale-[1.02] transition-all cursor-pointer">
+                                <summary class="flex items-center justify-between list-none">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-accent-secondary/10 flex items-center justify-center">
+                                            <i data-lucide="mic-2" class="w-6 h-6 text-accent-secondary"></i>
+                                        </div>
+                                        <h3 class="text-xl font-bold tracking-tight">Gig Management</h3>
+                                    </div>
+                                    <span class="transition-transform group-open:rotate-180">
+                                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-500"></i>
+                                    </span>
+                                </summary>
+                                <div class="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-500 ease-in-out overflow-hidden">
+                                    <div class="min-h-0">
+                                        <div class="pt-6 text-slate-400 text-base leading-relaxed">
+                                            Von der ersten Anfrage bis zum Applaus. Verwalte Setlisten, Technik-Rider, Ansprechpartner und Locations an einem zentralen Ort.
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <!-- Item 3 -->
+                            <details name="features" class="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 open:bg-white/[0.08] open:scale-[1.02] transition-all cursor-pointer">
+                                <summary class="flex items-center justify-between list-none">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-accent-secondary/10 flex items-center justify-center">
+                                            <i data-lucide="music" class="w-6 h-6 text-accent-secondary"></i>
+                                        </div>
+                                        <h3 class="text-xl font-bold tracking-tight">Songpool</h3>
+                                    </div>
+                                    <span class="transition-transform group-open:rotate-180">
+                                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-500"></i>
+                                    </span>
+                                </summary>
+                                <div class="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-500 ease-in-out overflow-hidden">
+                                    <div class="min-h-0">
+                                        <div class="pt-6 text-slate-400 text-base leading-relaxed">
+                                            Deine digitale Notenmappe. Hinterlege PDFs, Audio-Files und ChordPro-Texte. Erstelle Setlisten per Drag & Drop für deine nächsten Shows.
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <!-- Item 4 -->
+                            <details name="features" class="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 open:bg-white/[0.08] open:scale-[1.02] transition-all cursor-pointer">
+                                <summary class="flex items-center justify-between list-none">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-accent-secondary/10 flex items-center justify-center">
+                                            <i data-lucide="users" class="w-6 h-6 text-accent-secondary"></i>
+                                        </div>
+                                        <h3 class="text-xl font-bold tracking-tight">Mitglieder & Team</h3>
+                                    </div>
+                                    <span class="transition-transform group-open:rotate-180">
+                                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-500"></i>
+                                    </span>
+                                </summary>
+                                <div class="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-500 ease-in-out overflow-hidden">
+                                    <div class="min-h-0">
+                                        <div class="pt-6 text-slate-400 text-base leading-relaxed">
+                                            Verwalte Kontaktdaten, Instrumente und Rollen. Lade neue Musiker einfach per Einladungscode ein und baue deine Band-Community auf.
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
                         </div>
                     </div>
-                </section>
-                
-                <div class="landing-divider-wrap">
-                    <svg class="landing-divider" viewBox="0 0 1200 120" preserveAspectRatio="none">
-                        <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5,73.84-4.36,147.54,16.88,218.2,35.26,69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113,2.04,1200,0V0Z" style="fill: var(--landing-refresh-panel); opacity: 0.15;"></path>
-                        <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z" style="fill: var(--landing-refresh-panel); opacity: 0.1;"></path>
-                    </svg>
+                </div>
+            </section>
+
+            <!-- Reasons Grid -->
+            <section id="reasons" class="py-32 px-6 max-w-7xl mx-auto">
+                <div class="text-center mb-20">
+                    <h2 class="text-4xl md:text-5xl font-black tracking-tight mb-6">Warum Bandmate?</h2>
+                    <p class="text-slate-400 max-w-xl mx-auto font-medium">Überzeugt euch selbst von den Vorteilen.</p>
+                </div>
+                <div class="grid md:grid-cols-3 gap-8">
+                    <div class="p-10 rounded-[2.5rem] bg-[#121C31] border border-white/5 group hover:-translate-y-2 transition-all">
+                        <div class="text-4xl mb-6">🎯</div>
+                        <h3 class="text-2xl font-black mb-4">Zentrale Übersicht</h3>
+                        <p class="text-slate-400 font-medium">Keine WhatsApp-Gruppen mehr durchforsten. Alle Infos liegen gebündelt an einem Ort.</p>
+                    </div>
+                    <div class="p-10 rounded-[2.5rem] bg-[#121C31] border border-white/5 group hover:-translate-y-2 transition-all">
+                        <div class="text-4xl mb-6">⚡</div>
+                        <h3 class="text-2xl font-black mb-4">Einfache Planung</h3>
+                        <p class="text-slate-400 font-medium">Mit wenigen Klicks Proben erstellen und Verfügbarkeiten einsehen.</p>
+                    </div>
+                    <div class="p-10 rounded-[2.5rem] bg-[#121C31] border border-white/5 group hover:-translate-y-2 transition-all">
+                        <div class="text-4xl mb-6">🛡️</div>
+                        <h3 class="text-2xl font-black mb-4">Sicher & Privat</h3>
+                        <p class="text-slate-400 font-medium">Deine Daten gehören dir. Wir setzen auf höchste Sicherheitsstandards.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="py-20 px-6 border-t border-white/5 bg-black/40">
+            <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start gap-12">
+                <div class="max-w-sm">
+                    <div class="flex items-center gap-3 mb-6">
+                        <img src="images/branding/bandmate-logo-only-dark.svg" alt="Logo" class="w-8 h-8">
+                        <span class="text-xl font-black tracking-widest uppercase text-white">Bandmate</span>
+                    </div>
+                    <p class="text-sm text-slate-500 font-medium leading-relaxed">Die Komplettlösung für die Organisation deiner Band. Plane Proben, Auftritte und verwalte deine Songs an einem zentralen Ort.</p>
+                </div>
+                <div class="flex flex-wrap gap-16 md:gap-24">
+                    <div>
+                        <h4 class="font-bold uppercase tracking-widest text-[10px] text-slate-400 mb-6">Rechtliches</h4>
+                        <ul class="space-y-4 text-xs text-slate-500 font-black uppercase tracking-widest">
+                            <li><a href="html/privacy.html" class="hover:text-white transition-colors">Datenschutz</a></li>
+                            <li><a href="html/impressum.html" class="hover:text-white transition-colors">Impressum</a></li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-bold uppercase tracking-widest text-[10px] text-slate-400 mb-6">Social</h4>
+                        <ul class="space-y-4 text-xs text-slate-500 font-black uppercase tracking-widest">
+                            <li><a href="https://instagram.com/bandmateapp" target="_blank" class="hover:text-white transition-colors">Instagram</a></li>
+                            <li><a href="https://tiktok.com/@bandmateapp" target="_blank" class="hover:text-white transition-colors">TikTok</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 text-[10px] text-slate-600 font-black uppercase tracking-widest">
+                © 2026 Bandmate App. Alle Rechte vorbehalten.
+            </div>
+        </footer>
+
+        <!-- Auth Overlay -->
+        <div id="authOverlay" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-xl transition-all" aria-hidden="true" hidden>
+            <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-2xl bg-accent-secondary text-white font-bold shadow-2xl opacity-0 pointer-events-none transition-all"></div>
+            
+            <div class="auth-white-card relative w-full max-w-2xl bg-[#0D1527] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col auth-mode-login">
+                <div class="p-8 border-b border-white/5 flex items-start justify-between">
+                    <div>
+                        <span class="text-[10px] font-black uppercase tracking-[0.3em] text-accent-secondary mb-1 block">Bandmate</span>
+                        <h2 class="text-3xl font-black tracking-tight" id="authCardTitle">Anmelden</h2>
+                        <p class="text-slate-400 text-sm font-medium" id="authCardSubtitle">Greife direkt wieder auf Proben, Auftritte, Bands und Planung zu.</p>
+                    </div>
+                    <button onclick="UI.toggleAuthOverlay(false)" class="p-2 rounded-full hover:bg-white/5 transition-colors">
+                        <i data-lucide="x" class="w-6 h-6 text-slate-400"></i>
+                    </button>
                 </div>
 
-                <section class="landing-feature-strip" aria-label="Kernfunktionen">
-                    <article class="landing-feature-card">
-                        <div class="feature-content">
-                            <span class="landing-feature-label">Bands</span>
-                            <h2>Mitglieder, Rollen und Zuständigkeiten</h2>
-                            <p>Halte Bands, Verantwortlichkeiten und Zugänge sauber organisiert.</p>
-                        </div>
-                    </article>
-                    <article class="landing-feature-card">
-                        <div class="feature-content">
-                            <span class="landing-feature-label">Planung</span>
-                            <h2>Proben und Auftritte koordinieren</h2>
-                            <p>Plane Termine, prüfe Orte und sammle Zusagen ohne Listenchaos.</p>
-                        </div>
-                    </article>
-                    <article class="landing-feature-card">
-                        <div class="feature-content">
-                            <span class="landing-feature-label">Organisation</span>
-                            <h2>Songs, PDFs und News griffbereit</h2>
-                            <p>Alle Inhalte bleiben dort, wo dein Team sie für den Alltag wirklich braucht.</p>
-                        </div>
-                    </article>
-                </section>
-
-                <div class="landing-divider-wrap footer-sep">
-                    <div class="divider-glow"></div>
+                <div class="flex p-1 bg-black/20 mx-8 mt-6 rounded-2xl">
+                    <button type="button" class="auth-tab active flex-1 py-3 text-sm font-bold rounded-xl transition-all" data-tab="login">Login</button>
+                    <button type="button" class="auth-tab flex-1 py-3 text-sm font-bold rounded-xl transition-all" data-tab="register">Registrieren</button>
                 </div>
 
-                <footer class="landing-footer">
-                    <div class="landing-footer-brand">
-                        <div class="landing-footer-brandline">
-                            <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="landing-footer-logo" id="landingFooterBrandLogo">
+                <div class="p-8 flex-1 overflow-y-auto">
+                    <!-- Forms are handled by UI.js and App.js -->
+                    <form id="loginForm" class="auth-form active space-y-5">
+                        <div id="loginConfirmationNotice" class="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm hidden"></div>
+                        <div class="space-y-2">
+                            <label for="loginUsername" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Benutzername oder E-Mail</label>
+                            <input type="text" id="loginUsername" placeholder="dein@name.de" required class="w-full px-6 py-4 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50 font-medium">
                         </div>
-                    </div>
-                    <div class="landing-footer-links">
-                        <div class="landing-footer-link-group">
-                            <span class="landing-footer-link-label">Social</span>
-                            <a href="https://instagram.com/bandmateapp" target="_blank" rel="noopener noreferrer">Instagram</a>
-                            <a href="https://tiktok.com/@bandmateapp" target="_blank" rel="noopener noreferrer">TikTok</a>
+                        <div class="space-y-2">
+                            <label for="loginPassword" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Passwort</label>
+                            <input type="password" id="loginPassword" placeholder="••••••••" required class="w-full px-6 py-4 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50">
                         </div>
-                        <div class="landing-footer-link-group">
-                            <span class="landing-footer-link-label">Rechtliches</span>
-                            <a href="privacy.html">Datenschutz</a>
-                            <a href="impressum.html">Impressum</a>
+                        <div class="flex items-center justify-between px-1">
+                            <label class="flex items-center gap-2 cursor-pointer text-sm text-slate-400 font-medium">
+                                <input type="checkbox" id="loginRememberMe" class="w-4 h-4 rounded border-white/10 bg-black/20">
+                                <span>Angemeldet bleiben</span>
+                            </label>
+                            <button type="button" onclick="UI.showForgotPassword(); return false;" class="text-sm font-bold text-accent-secondary hover:underline">Passwort vergessen?</button>
                         </div>
-                    </div>
-                </footer>
-            </main>
-        </div>
+                        <button type="submit" class="w-full py-5 rounded-2xl bg-accent-secondary text-white font-black text-lg shadow-xl shadow-accent-secondary/20 hover:translate-y-[-2px] transition-all">Anmelden</button>
+                        <p class="text-center text-sm text-slate-500 pt-4 font-medium">Noch kein Konto? <button type="button" onclick="UI.switchAuthTab('register'); return false;" class="text-accent-secondary font-bold hover:underline">Jetzt registrieren</button></p>
+                    </form>
 
-        <div id="authOverlay" class="landing-auth-overlay" hidden aria-hidden="true">
-            <div class="auth-white-card auth-mode-login">
-                <div class="auth-card-head">
-                    <div class="auth-card-copy">
-                        <span class="auth-card-kicker">Bandmate</span>
-                        <h2 class="auth-card-title" id="authCardTitle">Anmelden</h2>
-                        <p class="auth-card-subtitle" id="authCardSubtitle">Greife direkt wieder auf Proben, Auftritte, Bands und Planung zu.</p>
-                    </div>
-                    <button type="button" onclick="UI.toggleAuthOverlay(false)" class="auth-close-btn"
-                        aria-label="Schließen">&times;</button>
-                </div>
-
-                <div class="auth-tabs" role="tablist" aria-label="Authentifizierung">
-                    <button type="button" class="auth-tab active" data-tab="login">Login</button>
-                    <button type="button" class="auth-tab" data-tab="register">Registrieren</button>
-                </div>
-
-                <form id="loginForm" class="auth-form active">
-                    <div id="loginConfirmationNotice" class="auth-status-notice" hidden></div>
-
-                    <div class="form-group">
-                        <label for="loginUsername">Benutzername oder E-Mail</label>
-                        <input type="text" id="loginUsername" placeholder="dein@name.de" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="loginPassword">Passwort</label>
-                        <input type="password" id="loginPassword" placeholder="••••••••" required>
-                    </div>
-
-                    <div class="auth-actions-row">
-                        <label class="auth-checkbox-label">
-                            <input type="checkbox" id="loginRememberMe">
-                            <span>Angemeldet bleiben</span>
-                        </label>
-                        <a href="#" onclick="UI.showForgotPassword(); return false;" class="auth-forgot-password-link">Passwort vergessen?</a>
-                    </div>
-
-                    <button type="submit" class="btn-submit">Anmelden</button>
-
-                    <div class="auth-form-footer">
-                        <a href="privacy.html" class="auth-inline-link">Datenschutzerklärung</a>
-                        <span>Noch keinen Account?
-                            <a href="#" onclick="UI.switchAuthTab('register'); return false;"
-                                class="auth-inline-link strong">Jetzt registrieren</a>
-                        </span>
-                    </div>
-                </form>
-
-                <form id="forgotPasswordForm" class="auth-form auth-forgot-form" style="display: none;">
-                    <div class="auth-form-header auth-forgot-header">
-                        <span class="auth-form-eyebrow">Zugang</span>
-                        <h3>Passwort zurücksetzen</h3>
-                        <p>Gib deine E-Mail-Adresse ein. Wir senden dir einen sicheren Link, mit dem du dein Passwort direkt neu setzen kannst.</p>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="forgotPasswordEmail">E-Mail Adresse</label>
-                        <input type="email" id="forgotPasswordEmail" placeholder="dein@name.de" required>
-                    </div>
-
-                    <button type="submit" class="btn-submit">Link anfordern</button>
-
-                    <div class="auth-form-footer">
-                        <span>Zurück zum
-                            <a href="#" onclick="UI.switchAuthTab('login'); return false;"
-                                class="auth-inline-link strong">Anmelden</a>
-                        </span>
-                    </div>
-                </form>
-
-                <form id="registerForm" class="auth-form">
-                    <div class="auth-grid auth-grid-2">
-                        <div class="form-group">
-                            <label for="registerFirstName">Vorname</label>
-                            <input type="text" id="registerFirstName" placeholder="Max" required>
+                    <form id="forgotPasswordForm" class="auth-form space-y-5" style="display: none;">
+                        <div class="space-y-2">
+                            <label for="forgotPasswordEmail" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">E-Mail Adresse</label>
+                            <input type="email" id="forgotPasswordEmail" placeholder="dein@name.de" required class="w-full px-6 py-4 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50 font-medium">
                         </div>
-                        <div class="form-group">
-                            <label for="registerLastName">Nachname</label>
-                            <input type="text" id="registerLastName" placeholder="Mustermann" required>
-                        </div>
-                    </div>
+                        <button type="submit" class="w-full py-5 rounded-2xl bg-accent-secondary text-white font-black text-lg shadow-xl shadow-accent-secondary/20 transition-all">Link anfordern</button>
+                        <button type="button" onclick="UI.switchAuthTab('login'); return false;" class="w-full text-sm font-bold text-slate-400 hover:text-white transition-colors">Zurück zum Login</button>
+                    </form>
 
-                    <div class="auth-grid auth-grid-3">
-                        <div class="form-group">
-                            <label for="registerUsername">Benutzername</label>
-                            <input type="text" id="registerUsername" placeholder="max.music" required>
-                            <div id="usernameFeedback" aria-live="polite"></div>
+                    <form id="registerForm" class="auth-form space-y-5">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label for="registerFirstName" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Vorname</label>
+                                <input type="text" id="registerFirstName" placeholder="Max" required class="w-full px-5 py-3.5 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50 font-medium">
+                            </div>
+                            <div class="space-y-2">
+                                <label for="registerLastName" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Nachname</label>
+                                <input type="text" id="registerLastName" placeholder="Mustermann" required class="w-full px-5 py-3.5 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50 font-medium">
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="registerEmail">E-Mail</label>
-                            <input type="email" id="registerEmail" placeholder="max@mustermann.de" required>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label for="registerUsername" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Benutzername</label>
+                                <input type="text" id="registerUsername" placeholder="max.music" required class="w-full px-5 py-3.5 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50 font-medium">
+                                <div id="usernameFeedback" class="text-[10px] ml-1 font-bold"></div>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="registerEmail" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">E-Mail</label>
+                                <input type="email" id="registerEmail" placeholder="max@mustermann.de" required class="w-full px-5 py-3.5 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50 font-medium">
+                            </div>
                         </div>
-                        <div class="form-group instrument-group">
-                            <label>Instrumente</label>
-                            <div class="instrument-selector" id="registerInstrumentSelector"></div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Instrumente</label>
+                            <div id="registerInstrumentSelector"></div>
                             <input type="hidden" id="registerInstrument" value="">
                         </div>
-                    </div>
-
-                    <div class="auth-grid auth-grid-2">
-                        <div class="form-group">
-                            <label for="registerPassword">Passwort</label>
-                            <input type="password" id="registerPassword" placeholder="••••••••" required>
-                            <small id="registerPasswordHint" class="auth-field-hint">Mindestens 6 Zeichen erforderlich</small>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="space-y-2">
+                                <label for="registerPassword" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Passwort</label>
+                                <input type="password" id="registerPassword" placeholder="••••••••" required class="w-full px-5 py-3.5 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50">
+                                <div id="registerPasswordHint" class="text-[10px] ml-1 font-bold text-slate-500">Mindestens 6 Zeichen erforderlich</div>
+                            </div>
+                            <div class="space-y-2">
+                                <label for="registerPasswordConfirm" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Bestätigen</label>
+                                <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required class="w-full px-5 py-3.5 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50">
+                                <div id="registerPasswordConfirmHint" class="text-[10px] ml-1 font-bold text-slate-500">Passwörter müssen übereinstimmen</div>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label for="registerPasswordConfirm">Bestätigen</label>
-                            <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required>
-                            <small id="registerPasswordConfirmHint" class="auth-field-hint">Passwörter müssen übereinstimmen</small>
+                        <div class="space-y-2">
+                            <label for="registerProfileImage" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Profilbild (optional)</label>
+                            <input type="file" id="registerProfileImage" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-white/5 file:text-white hover:file:bg-white/10 cursor-pointer">
                         </div>
-                    </div>
-
-                    <div class="form-group auth-upload-field">
-                        <label for="registerProfileImage">Profilbild (optional)</label>
-                        <input type="file" id="registerProfileImage" accept="image/*">
-                    </div>
-
-                    <button type="submit" class="btn-submit">Kostenlos registrieren</button>
-
-                    <div class="auth-form-footer">
-                        <a href="privacy.html" class="auth-inline-link">Datenschutzerklärung</a>
-                        <span>Bereits registriert?
-                            <a href="#" onclick="UI.switchAuthTab('login'); return false;"
-                                class="auth-inline-link strong">Zum Login</a>
-                        </span>
-                    </div>
-                </form>
+                        <button type="submit" class="w-full py-5 rounded-2xl bg-accent-secondary text-white font-black text-lg shadow-xl shadow-accent-secondary/20 hover:translate-y-[-2px] transition-all">Kostenlos registrieren</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 
+    <!-- Core Logic -->
+    <script src="js/logger.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/supabase.js"></script>
+    <script src="js/storage.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/landing.js"></script>
+    <!-- Scroll Spy Script -->
     <script>
-        (function () {
-            const resolvedTheme = window.__bandmateTheme === 'light' ? 'light' : 'dark';
-            const logoOnlySrc = resolvedTheme === 'dark'
-                ? 'images/branding/bandmate-logo-only-dark.svg'
-                : 'images/branding/bandmate-logo-only.svg';
-            const logoShortSrc = resolvedTheme === 'dark'
-                ? 'images/branding/bandmate-logo-short-dark.svg'
-                : 'images/branding/bandmate-logo-short.svg';
+        document.addEventListener('DOMContentLoaded', () => {
+            const sections = document.querySelectorAll('section[id]');
+            const navLinks = document.querySelectorAll('#mainNav .nav-link');
 
-            [
-                ['loaderBrandLogo', logoOnlySrc],
-                ['landingBrandLogo', logoOnlySrc],
-                ['landingFooterBrandLogo', logoShortSrc]
-            ].forEach(([id, src]) => {
-                const el = document.getElementById(id);
-                if (el) {
-                    el.setAttribute('src', src);
-                }
-            });
+            const observerOptions = {
+                root: null,
+                rootMargin: '-10% 0px -70% 0px',
+                threshold: 0
+            };
 
-            const favicon = document.getElementById('faviconSvg');
-            if (favicon) {
-                favicon.setAttribute('href', logoOnlySrc);
-            }
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const id = entry.target.getAttribute('id');
+                        navLinks.forEach(link => {
+                            link.classList.remove('text-white');
+                            link.classList.add('text-slate-400');
+                            if (link.getAttribute('href') === `#${id}`) {
+                                link.classList.remove('text-slate-400');
+                                link.classList.add('text-white');
+                            }
+                        });
+                    }
+                });
+            }, observerOptions);
 
-            const appleTouchIcon = document.getElementById('appleTouchIcon');
-            if (appleTouchIcon) {
-                appleTouchIcon.setAttribute('href', logoOnlySrc);
-            }
-        })();
+            sections.forEach(section => observer.observe(section));
+        });
     </script>
-
-    <script src="js/logger.js?v=20260311"></script>
-    <script src="js/config.js?v=20260424-1"></script>
-    <script src="js/supabase.js?v=20260407-17"></script>
-    <script src="js/storage.js?v=20260409-1"></script>
-    <script src="js/auth.js?v=20260407-19"></script>
-    <script src="js/ui.js?v=20260408-1"></script>
-    <script src="js/app.js?v=20260409-1"></script>
-    <script src="js/landing.js?v=20260422-1"></script>
 </body>
-
 </html>

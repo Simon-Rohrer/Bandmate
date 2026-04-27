@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="de">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Bandmate | Organisiere deine Band wie ein Profi</title>
+    <meta name="description" content="Bandmate hilft Bands, Proben, Auftritte, Mitglieder, Songs und Organisation an einem Ort klar und einfach zu planen.">
+    <meta name="theme-color" content="#08111F" id="themeColorMeta">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="appleStatusBarMeta">
+    <meta name="apple-mobile-web-app-title" content="Bandmate">
+
+    <script>
+        (function () {
+            const STORAGE_KEY = 'theme';
+            const DARK_THEME_COLOR = '#08111F';
+            const LIGHT_THEME_COLOR = '#F6F8FC';
+
+            let resolvedTheme = 'dark';
+
+            try {
+                const storedTheme = localStorage.getItem(STORAGE_KEY);
+                if (storedTheme === 'light' || storedTheme === 'dark') {
+                    resolvedTheme = storedTheme;
+                }
+            } catch (error) {
+                resolvedTheme = 'dark';
+            }
+
+            document.documentElement.dataset.theme = resolvedTheme;
+            document.documentElement.classList.toggle('theme-dark', resolvedTheme === 'dark');
+            document.documentElement.style.colorScheme = resolvedTheme;
+            window.__bandmateTheme = resolvedTheme;
+
+            const themeColorMeta = document.getElementById('themeColorMeta');
+            if (themeColorMeta) {
+                themeColorMeta.setAttribute('content', resolvedTheme === 'dark' ? DARK_THEME_COLOR : LIGHT_THEME_COLOR);
+            }
+
+            const appleStatusBarMeta = document.getElementById('appleStatusBarMeta');
+            if (appleStatusBarMeta) {
+                appleStatusBarMeta.setAttribute('content', resolvedTheme === 'dark' ? 'black-translucent' : 'default');
+            }
+        })();
+    </script>
+
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="images/branding/bandmate-logo-only.svg" id="faviconSvg">
+    <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
+
+    <link rel="stylesheet" href="css/landing.css">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+
+<body class="landing-active">
+    <div id="toast" class="toast"></div>
+
+    <div class="loader-container" id="globalLoadingOverlay">
+        <div class="loader-panel" role="status" aria-live="polite">
+            <div class="loader-spin-shell">
+                <span class="guitar-spinner" aria-hidden="true">
+                    <img src="images/branding/bandmate-logo-only.svg" alt="" id="loaderBrandLogo">
+                </span>
+            </div>
+            <div class="loader-panel-copy">
+                <span class="loader-panel-title">Bandmate lädt</span>
+                <span class="loader-panel-text">Einen Moment bitte</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="landingPage" class="landing-page active">
+        <div class="landing-scene">
+            <header class="landing-header">
+                <div class="landing-logo">
+                    <div class="landing-logo-mark">
+                        <img src="images/branding/bandmate-logo-only.svg" alt="Bandmate" id="landingBrandLogo">
+                    </div>
+                    <div class="landing-brand-copy">
+                        <span class="landing-brand-title">Bandmate</span>
+                        <span class="landing-brand-subtitle">Proben, Auftritte und Organisation an einem Ort</span>
+                    </div>
+                </div>
+                <nav class="landing-nav" aria-label="Startaktionen">
+                    <button type="button" class="landing-nav-action landing-nav-login"
+                        onclick="UI.toggleAuthOverlay(true, 'login')">Login</button>
+                    <button type="button" class="landing-nav-action landing-nav-register"
+                        onclick="UI.toggleAuthOverlay(true, 'register')">Registrieren</button>
+                </nav>
+            </header>
+
+            <main class="landing-main">
+                <section class="landing-hero-grid">
+                    <div class="landing-copy-column">
+                        <div class="landing-hero-eyebrow">Bandplanung ohne Chaos</div>
+                        <h1 class="landing-hero-title">Plane Proben und Auftritte, organisiere deine Band an einem Ort.</h1>
+                        <p class="hero-sub">
+                            Bandmate bündelt Termine, Abstimmungen, Songs, Orte und News in einer klaren
+                            Arbeitsfläche für Bands und Leitungsteams.
+                        </p>
+                        <div class="landing-hero-features" aria-label="Kernvorteile">
+                            <span>Abstimmungen</span>
+                            <span class="dot"></span>
+                            <span>Kalender</span>
+                            <span class="dot"></span>
+                            <span>Songs &amp; PDFs</span>
+                        </div>
+                        <p class="landing-hero-tagline">Für Bands, Leitungen und Teams, die ihre Planung verlässlich organisieren wollen.</p>
+                    </div>
+
+                    <div class="landing-showcase landing-showcase-visual" aria-hidden="true">
+                        <div class="landing-showcase-glow"></div>
+                        <div class="landing-hero-image-frame">
+                            <img src="images/landing/bandmate-landing-hero.png" alt="" class="landing-hero-image">
+                        </div>
+                    </div>
+                </section>
+                
+                <div class="landing-divider-wrap">
+                    <svg class="landing-divider" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                        <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5,73.84-4.36,147.54,16.88,218.2,35.26,69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113,2.04,1200,0V0Z" style="fill: var(--landing-refresh-panel); opacity: 0.15;"></path>
+                        <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-49.24V0Z" style="fill: var(--landing-refresh-panel); opacity: 0.1;"></path>
+                    </svg>
+                </div>
+
+                <section class="landing-feature-strip" aria-label="Kernfunktionen">
+                    <article class="landing-feature-card">
+                        <div class="feature-content">
+                            <span class="landing-feature-label">Bands</span>
+                            <h2>Mitglieder, Rollen und Zuständigkeiten</h2>
+                            <p>Halte Bands, Verantwortlichkeiten und Zugänge sauber organisiert.</p>
+                        </div>
+                    </article>
+                    <article class="landing-feature-card">
+                        <div class="feature-content">
+                            <span class="landing-feature-label">Planung</span>
+                            <h2>Proben und Auftritte koordinieren</h2>
+                            <p>Plane Termine, prüfe Orte und sammle Zusagen ohne Listenchaos.</p>
+                        </div>
+                    </article>
+                    <article class="landing-feature-card">
+                        <div class="feature-content">
+                            <span class="landing-feature-label">Organisation</span>
+                            <h2>Songs, PDFs und News griffbereit</h2>
+                            <p>Alle Inhalte bleiben dort, wo dein Team sie für den Alltag wirklich braucht.</p>
+                        </div>
+                    </article>
+                </section>
+
+                <div class="landing-divider-wrap footer-sep">
+                    <div class="divider-glow"></div>
+                </div>
+
+                <footer class="landing-footer">
+                    <div class="landing-footer-brand">
+                        <div class="landing-footer-brandline">
+                            <img src="images/branding/bandmate-logo-short.svg" alt="Bandmate" class="landing-footer-logo" id="landingFooterBrandLogo">
+                        </div>
+                    </div>
+                    <div class="landing-footer-links">
+                        <div class="landing-footer-link-group">
+                            <span class="landing-footer-link-label">Social</span>
+                            <a href="https://instagram.com/bandmateapp" target="_blank" rel="noopener noreferrer">Instagram</a>
+                            <a href="https://tiktok.com/@bandmateapp" target="_blank" rel="noopener noreferrer">TikTok</a>
+                        </div>
+                        <div class="landing-footer-link-group">
+                            <span class="landing-footer-link-label">Rechtliches</span>
+                            <a href="privacy.html">Datenschutz</a>
+                            <a href="impressum.html">Impressum</a>
+                        </div>
+                    </div>
+                </footer>
+            </main>
+        </div>
+
+        <div id="authOverlay" class="landing-auth-overlay" hidden aria-hidden="true">
+            <div class="auth-white-card auth-mode-login">
+                <div class="auth-card-head">
+                    <div class="auth-card-copy">
+                        <span class="auth-card-kicker">Bandmate</span>
+                        <h2 class="auth-card-title" id="authCardTitle">Anmelden</h2>
+                        <p class="auth-card-subtitle" id="authCardSubtitle">Greife direkt wieder auf Proben, Auftritte, Bands und Planung zu.</p>
+                    </div>
+                    <button type="button" onclick="UI.toggleAuthOverlay(false)" class="auth-close-btn"
+                        aria-label="Schließen">&times;</button>
+                </div>
+
+                <div class="auth-tabs" role="tablist" aria-label="Authentifizierung">
+                    <button type="button" class="auth-tab active" data-tab="login">Login</button>
+                    <button type="button" class="auth-tab" data-tab="register">Registrieren</button>
+                </div>
+
+                <form id="loginForm" class="auth-form active">
+                    <div id="loginConfirmationNotice" class="auth-status-notice" hidden></div>
+
+                    <div class="form-group">
+                        <label for="loginUsername">Benutzername oder E-Mail</label>
+                        <input type="text" id="loginUsername" placeholder="dein@name.de" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loginPassword">Passwort</label>
+                        <input type="password" id="loginPassword" placeholder="••••••••" required>
+                    </div>
+
+                    <div class="auth-actions-row">
+                        <label class="auth-checkbox-label">
+                            <input type="checkbox" id="loginRememberMe">
+                            <span>Angemeldet bleiben</span>
+                        </label>
+                        <a href="#" onclick="UI.showForgotPassword(); return false;" class="auth-forgot-password-link">Passwort vergessen?</a>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Anmelden</button>
+
+                    <div class="auth-form-footer">
+                        <a href="privacy.html" class="auth-inline-link">Datenschutzerklärung</a>
+                        <span>Noch keinen Account?
+                            <a href="#" onclick="UI.switchAuthTab('register'); return false;"
+                                class="auth-inline-link strong">Jetzt registrieren</a>
+                        </span>
+                    </div>
+                </form>
+
+                <form id="forgotPasswordForm" class="auth-form auth-forgot-form" style="display: none;">
+                    <div class="auth-form-header auth-forgot-header">
+                        <span class="auth-form-eyebrow">Zugang</span>
+                        <h3>Passwort zurücksetzen</h3>
+                        <p>Gib deine E-Mail-Adresse ein. Wir senden dir einen sicheren Link, mit dem du dein Passwort direkt neu setzen kannst.</p>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="forgotPasswordEmail">E-Mail Adresse</label>
+                        <input type="email" id="forgotPasswordEmail" placeholder="dein@name.de" required>
+                    </div>
+
+                    <button type="submit" class="btn-submit">Link anfordern</button>
+
+                    <div class="auth-form-footer">
+                        <span>Zurück zum
+                            <a href="#" onclick="UI.switchAuthTab('login'); return false;"
+                                class="auth-inline-link strong">Anmelden</a>
+                        </span>
+                    </div>
+                </form>
+
+                <form id="registerForm" class="auth-form">
+                    <div class="auth-grid auth-grid-2">
+                        <div class="form-group">
+                            <label for="registerFirstName">Vorname</label>
+                            <input type="text" id="registerFirstName" placeholder="Max" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerLastName">Nachname</label>
+                            <input type="text" id="registerLastName" placeholder="Mustermann" required>
+                        </div>
+                    </div>
+
+                    <div class="auth-grid auth-grid-3">
+                        <div class="form-group">
+                            <label for="registerUsername">Benutzername</label>
+                            <input type="text" id="registerUsername" placeholder="max.music" required>
+                            <div id="usernameFeedback" aria-live="polite"></div>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerEmail">E-Mail</label>
+                            <input type="email" id="registerEmail" placeholder="max@mustermann.de" required>
+                        </div>
+                        <div class="form-group instrument-group">
+                            <label>Instrumente</label>
+                            <div class="instrument-selector" id="registerInstrumentSelector"></div>
+                            <input type="hidden" id="registerInstrument" value="">
+                        </div>
+                    </div>
+
+                    <div class="auth-grid auth-grid-2">
+                        <div class="form-group">
+                            <label for="registerPassword">Passwort</label>
+                            <input type="password" id="registerPassword" placeholder="••••••••" required>
+                            <small id="registerPasswordHint" class="auth-field-hint">Mindestens 6 Zeichen erforderlich</small>
+                        </div>
+                        <div class="form-group">
+                            <label for="registerPasswordConfirm">Bestätigen</label>
+                            <input type="password" id="registerPasswordConfirm" placeholder="••••••••" required>
+                            <small id="registerPasswordConfirmHint" class="auth-field-hint">Passwörter müssen übereinstimmen</small>
+                        </div>
+                    </div>
+
+                    <div class="form-group auth-upload-field">
+                        <label for="registerProfileImage">Profilbild (optional)</label>
+                        <input type="file" id="registerProfileImage" accept="image/*">
+                    </div>
+
+                    <button type="submit" class="btn-submit">Kostenlos registrieren</button>
+
+                    <div class="auth-form-footer">
+                        <a href="privacy.html" class="auth-inline-link">Datenschutzerklärung</a>
+                        <span>Bereits registriert?
+                            <a href="#" onclick="UI.switchAuthTab('login'); return false;"
+                                class="auth-inline-link strong">Zum Login</a>
+                        </span>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function () {
+            const resolvedTheme = window.__bandmateTheme === 'light' ? 'light' : 'dark';
+            const logoOnlySrc = resolvedTheme === 'dark'
+                ? 'images/branding/bandmate-logo-only-dark.svg'
+                : 'images/branding/bandmate-logo-only.svg';
+            const logoShortSrc = resolvedTheme === 'dark'
+                ? 'images/branding/bandmate-logo-short-dark.svg'
+                : 'images/branding/bandmate-logo-short.svg';
+
+            [
+                ['loaderBrandLogo', logoOnlySrc],
+                ['landingBrandLogo', logoOnlySrc],
+                ['landingFooterBrandLogo', logoShortSrc]
+            ].forEach(([id, src]) => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.setAttribute('src', src);
+                }
+            });
+
+            const favicon = document.getElementById('faviconSvg');
+            if (favicon) {
+                favicon.setAttribute('href', logoOnlySrc);
+            }
+
+            const appleTouchIcon = document.getElementById('appleTouchIcon');
+            if (appleTouchIcon) {
+                appleTouchIcon.setAttribute('href', logoOnlySrc);
+            }
+        })();
+    </script>
+
+    <script src="js/logger.js?v=20260311"></script>
+    <script src="js/config.js?v=20260424-1"></script>
+    <script src="js/supabase.js?v=20260407-17"></script>
+    <script src="js/storage.js?v=20260409-1"></script>
+    <script src="js/auth.js?v=20260407-19"></script>
+    <script src="js/ui.js?v=20260408-1"></script>
+    <script src="js/app.js?v=20260409-1"></script>
+    <script src="js/landing.js?v=20260422-1"></script>
+</body>
+
+</html>

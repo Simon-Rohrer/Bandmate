@@ -547,6 +547,19 @@ const RichTextEditor = {
 };
 
 const App = {
+    // Helper to get correct path for assets based on current directory depth
+    getAssetPath(relativeSrc) {
+        if (!relativeSrc) return '';
+        if (relativeSrc.startsWith('http') || relativeSrc.startsWith('/') || relativeSrc.startsWith('data:')) {
+            return relativeSrc;
+        }
+        const path = window.location.pathname;
+        // Check if we are in a subfolder like /html/ or /legacy/
+        if (path.includes('/html/') || path.includes('/legacy/')) {
+            return `../${relativeSrc}`;
+        }
+        return relativeSrc;
+    },
     currentView: null,
     navigationStateStorageKey: 'bandmate.app.navigationState',
     statePersistenceBound: false,
@@ -643,7 +656,7 @@ const App = {
             return false;
         }
 
-        const baseUrl = SupabaseClient.buildProjectPageUrl('reset-password.html');
+        const baseUrl = SupabaseClient.buildProjectPageUrl('html/reset-password.html');
         const targetUrl = `${baseUrl}${window.location.hash || ''}`;
 
         Logger.info('[App] Password recovery link detected before app boot. Redirecting to reset-password page.');
@@ -1206,12 +1219,12 @@ const App = {
 
     syncThemeBrandAssets(mode = this.getResolvedThemeMode()) {
         const resolvedMode = mode === 'dark' ? 'dark' : 'light';
-        const logoOnlySrc = resolvedMode === 'dark'
+        const logoOnlySrc = this.getAssetPath(resolvedMode === 'dark'
             ? 'images/branding/bandmate-logo-only-dark.svg'
-            : 'images/branding/bandmate-logo-only.svg';
-        const logoShortSrc = resolvedMode === 'dark'
+            : 'images/branding/bandmate-logo-only.svg');
+        const logoShortSrc = this.getAssetPath(resolvedMode === 'dark'
             ? 'images/branding/bandmate-logo-short-dark.svg'
-            : 'images/branding/bandmate-logo-short.svg';
+            : 'images/branding/bandmate-logo-short.svg');
 
         const updateImage = (id, src) => {
             const el = document.getElementById(id);
@@ -1281,7 +1294,8 @@ const App = {
         try {
             const logoutImg = document.querySelector('#logoutBtn img.icon-img') || document.querySelector('#logoutBtn img');
             if (logoutImg) {
-                logoutImg.src = mode === 'dark' ? 'images/logout darkmode.jpg' : 'images/logout whitemode.jpg';
+                const logoutPath = mode === 'dark' ? 'images/logout darkmode.jpg' : 'images/logout whitemode.jpg';
+                logoutImg.src = this.getAssetPath(logoutPath);
                 logoutImg.alt = mode === 'dark' ? 'Abmelden im Dunkelmodus' : 'Abmelden im Hellmodus';
             }
         } catch (error) {
@@ -6724,15 +6738,24 @@ const App = {
         if (!notice) return;
         notice.textContent = message;
         notice.dataset.type = type;
-        notice.hidden = false;
+        
+        // Remove existing color classes
+        notice.classList.remove('bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-400', 'bg-amber-500/10', 'border-amber-500/20', 'text-amber-400', 'bg-red-500/10', 'border-red-500/20', 'text-red-400', 'hidden');
+        
+        if (type === 'success') {
+            notice.classList.add('bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-400');
+        } else if (type === 'warning') {
+            notice.classList.add('bg-amber-500/10', 'border-amber-500/20', 'text-amber-400');
+        } else if (type === 'error') {
+            notice.classList.add('bg-red-500/10', 'border-red-500/20', 'text-red-400');
+        }
+        
+        notice.classList.remove('hidden');
     },
 
     clearAuthStatusNotice() {
         const notice = document.getElementById('loginConfirmationNotice');
-        if (!notice) return;
-        notice.hidden = true;
-        notice.textContent = '';
-        delete notice.dataset.type;
+        if (notice) notice.classList.add('hidden');
     },
 
     // Helper: Compress Image (Client-Side)
@@ -14541,7 +14564,7 @@ const App = {
         this.clearPersistedNavigationState();
 
         if (!lPage) {
-            window.location.href = SupabaseClient.buildProjectPageUrl('index.html');
+            window.location.href = '../index.html';
             return;
         }
 
@@ -14628,7 +14651,7 @@ const App = {
         const mainApp = document.getElementById('mainApp');
 
         if (!mainApp) {
-            window.location.href = SupabaseClient.buildProjectPageUrl('app.html');
+            window.location.href = SupabaseClient.buildProjectPageUrl('html/app.html');
             return;
         }
 

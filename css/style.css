@@ -15596,125 +15596,67 @@ html[data-theme="light"] .modal-import-songs .modal-content.import-songs-modal,
 }
 
 /* Global Loader (moved from loader.css) */
-.loader-container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background:
-        radial-gradient(circle at 50% 30%, var(--bg-accent), transparent 20%),
-        radial-gradient(circle at 18% 18%, var(--bg-glow-primary), transparent 28%),
-        radial-gradient(circle at 82% 14%, var(--bg-glow-secondary), transparent 24%),
-        linear-gradient(180deg, var(--bg-top-sheen) 0%, transparent 28%),
-        radial-gradient(circle at 50% 100%, var(--bg-depth-shadow), transparent 52%),
-        var(--bg-base);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    transition: opacity 0.4s ease-out;
+/* Global Loader - Unified with Landing Page */
+.loader-container { 
+    position: fixed; 
+    inset: 0; 
+    z-index: 9999; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    background: #08111F; 
+    transition: opacity 0.35s ease-out; 
 }
 
-.loader-panel {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 18px;
-    padding: 26px 30px;
-    border-radius: 26px;
-    border: 1px solid var(--border);
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0)), var(--surface-elevated);
-    box-shadow: var(--shadow-lg);
+.loader-panel { 
+    display: flex; 
+    flex-direction: column; 
+    align-items: center; 
+    gap: 24px; 
+    padding: 40px; 
+    border-radius: 40px; 
+    background: #0D1527; 
+    border: 1px solid rgba(255,255,255,0.1); 
+    box-shadow: 0 30px 60px rgba(0,0,0,0.5); 
 }
 
-.loader-panel-brand {
-    display: flex;
-    align-items: center;
-    gap: 14px;
+.loader-spin-shell { 
+    width: 100px; 
+    height: 100px; 
+    border-radius: 50%; 
+    background: rgba(91, 140, 255, 0.1); 
+    border: 1px solid rgba(91, 140, 255, 0.2); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
 }
 
-.loader-panel-mark {
-    width: 46px;
-    height: 46px;
-    border-radius: 14px;
-    border: 1px solid var(--border);
-    background: var(--surface-secondary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: var(--shadow-xs);
+.guitar-spinner { 
+    animation: guitarSpin 2s linear infinite; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
 }
 
-.loader-panel-mark img {
-    width: 70%;
-    height: 70%;
-    object-fit: contain;
-}
-
-.loader-panel-copy {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.loader-panel-title {
-    font-size: 1rem;
-    line-height: 1.1;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    color: var(--text-primary);
-}
-
-.loader-panel-text {
-    font-size: 0.84rem;
-    line-height: 1.45;
-    color: var(--text-muted);
-}
-
-.loader-spin-shell {
-    width: 96px;
-    height: 96px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: var(--accent-soft);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.guitar-spinner {
-    font-size: 3rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transform-origin: center center;
-    will-change: transform;
-    backface-visibility: hidden;
-    animation: guitarSpin 2s infinite linear;
+.guitar-spinner img { 
+    width: 60px; 
+    height: 60px; 
 }
 
 @keyframes guitarSpin {
-    0% {
-        transform: rotate(0deg) scale(1);
-    }
-
-    50% {
-        transform: rotate(180deg) scale(1.2);
-    }
-
-    100% {
-        transform: rotate(360deg) scale(1);
-    }
+    0% { transform: rotate(0deg) scale(1); }
+    50% { transform: rotate(180deg) scale(1.1); }
+    100% { transform: rotate(360deg) scale(1); }
 }
 
 html[data-theme="light"] .loader-container,
 :root:not(.theme-dark) .loader-container {
-    background:
-        radial-gradient(circle at 50% 30%, rgba(91, 140, 255, 0.12), transparent 20%),
-        radial-gradient(circle at 18% 18%, var(--bg-glow-primary), transparent 30%),
-        radial-gradient(circle at 82% 12%, var(--bg-glow-secondary), transparent 24%),
-        linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(241, 245, 249, 0.98));
+    background: #F1F5F9;
+}
+html[data-theme="light"] .loader-panel,
+:root:not(.theme-dark) .loader-panel {
+    background: white;
+    border-color: rgba(0,0,0,0.05);
 }
 
 /* Landing Footer - Stats Bar */

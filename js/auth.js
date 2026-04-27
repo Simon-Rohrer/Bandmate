@@ -166,7 +166,7 @@ const Auth = {
                         const isResetPasswordPage = /reset-password\.html$/i.test(currentPath);
 
                         if (!isResetPasswordPage) {
-                            const resetPasswordUrl = SupabaseClient.buildProjectPageUrl('reset-password.html');
+                            const resetPasswordUrl = SupabaseClient.buildProjectPageUrl('html/reset-password.html');
                             const targetUrl = `${resetPasswordUrl}${window.location.hash || ''}`;
                             window.location.replace(targetUrl);
                             return;
@@ -263,7 +263,7 @@ const Auth = {
             email,
             password,
             options: {
-                emailRedirectTo: SupabaseClient.buildProjectPageUrl('confirm-email.html'),
+                emailRedirectTo: SupabaseClient.buildProjectPageUrl('html/confirm-email.html'),
                 data: {
                     username,
                     first_name: firstName,
@@ -647,7 +647,7 @@ const Auth = {
         const sb = SupabaseClient.getClient();
         if (!sb) throw new Error('Supabase client missing');
 
-        const redirectTo = SupabaseClient.buildProjectPageUrl('reset-password.html');
+        const redirectTo = SupabaseClient.buildProjectPageUrl('html/reset-password.html');
 
         const { data, error } = await sb.auth.resetPasswordForEmail(email, {
             redirectTo: redirectTo
