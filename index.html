@@ -64,22 +64,27 @@
 
     <div id="landingPage" class="landing-page opacity-0 transition-opacity duration-500">
         <!-- Header -->
-        <header class="fixed top-0 left-0 right-0 z-50 h-24 px-6 flex items-center justify-center pointer-events-none transition-all duration-300" id="mainHeader">
-            <div class="max-w-7xl mx-auto w-full glass rounded-[2rem] h-16 flex items-center justify-between px-8 pointer-events-auto shadow-2xl shadow-black/50">
-                <div class="flex items-center gap-10">
+        <header class="fixed top-0 left-0 right-0 z-50 h-24 px-6 md:px-12 flex items-center justify-center pointer-events-none transition-all duration-500" id="mainHeader">
+            <div id="headerInner" class="w-full h-16 flex items-center justify-between px-8 pointer-events-auto transition-all duration-500 max-w-full bg-transparent border-transparent shadow-none rounded-none">
+                <!-- Left: Logo -->
+                <div class="flex-1 flex items-center justify-start">
                     <a href="#" class="flex items-center gap-2">
                         <img src="images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="h-8 w-auto">
                     </a>
-                    <nav class="hidden md:flex items-center gap-8" id="mainNav">
-                        <a href="#hero" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all active-link">Home</a>
-                        <a href="#stats" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Statistik</a>
-                        <a href="#features" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Funktionen</a>
-                        <a href="#reasons" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Vorteile</a>
-                    </nav>
                 </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="UI.toggleAuthOverlay(true, 'login')" class="text-[10px] font-black uppercase tracking-[0.2em] px-5 py-2 text-slate-400 hover:text-white transition-all">Anmelden</button>
-                    <button onclick="UI.toggleAuthOverlay(true, 'register')" class="text-[10px] font-black uppercase tracking-[0.2em] px-6 py-2.5 rounded-full bg-accent-secondary text-white hover:brightness-110 transition-all shadow-lg shadow-accent-secondary/20">Jetzt Starten</button>
+
+                <!-- Center: Nav -->
+                <nav class="hidden md:flex flex-none items-center justify-center gap-8" id="mainNav">
+                    <a href="#hero" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all active-link">Home</a>
+                    <a href="#stats" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Statistik</a>
+                    <a href="#features" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Funktionen</a>
+                    <a href="#reasons" class="nav-link text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 hover:text-white transition-all">Vorteile</a>
+                </nav>
+
+                <!-- Right: Buttons -->
+                <div class="flex-1 flex items-center justify-end gap-3 pl-8">
+                    <button onclick="UI.toggleAuthOverlay(true, 'login')" class="text-[10px] font-black uppercase tracking-[0.2em] px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 transition-all whitespace-nowrap">Anmelden</button>
+                    <button onclick="UI.toggleAuthOverlay(true, 'register')" class="text-[10px] font-black uppercase tracking-[0.2em] px-6 py-2.5 rounded-full bg-accent-secondary text-white hover:brightness-110 transition-all shadow-lg shadow-accent-secondary/20 whitespace-nowrap">Jetzt Starten</button>
                 </div>
             </div>
         </header>
@@ -93,8 +98,8 @@
                     <h1 class="text-5xl md:text-7xl font-black tracking-tight mb-8 leading-[1.1] text-gradient">Plane Proben und Auftritte, <br> organisiere deine Band.</h1>
                     <p class="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">Bandmate bündelt Termine, Abstimmungen, Songs, Orte und News in einer klaren Arbeitsfläche für Bands und Leitungsteams.</p>
                     <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
-                        <button onclick="UI.toggleAuthOverlay(true, 'register')" class="w-full sm:w-auto px-10 py-5 rounded-2xl bg-accent-secondary text-white font-black text-lg hover:bg-accent-secondary/90 transition-all shadow-2xl shadow-accent-secondary/30">Jetzt kostenlos starten</button>
-                        <a href="#features" class="w-full sm:w-auto px-10 py-5 rounded-2xl bg-white/5 border border-white/10 font-bold text-lg hover:bg-white/10 transition-all flex items-center justify-center">Funktionen entdecken</a>
+                        <button onclick="UI.toggleAuthOverlay(true, 'register')" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-accent-secondary text-white font-bold text-base hover:bg-accent-secondary/90 transition-all shadow-xl shadow-accent-secondary/30">Jetzt kostenlos starten</button>
+                        <a href="#features" class="w-full sm:w-auto px-8 py-4 rounded-2xl bg-white/5 border border-white/10 font-bold text-base hover:bg-white/10 transition-all flex items-center justify-center">Funktionen entdecken</a>
                     </div>
                 </div>
             </section>
@@ -468,32 +473,38 @@
     <!-- Scroll Spy Script -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const sections = document.querySelectorAll('section[id]');
+            const sections = Array.from(document.querySelectorAll('section[id]'));
             const navLinks = document.querySelectorAll('#mainNav .nav-link');
 
-            const observerOptions = {
-                root: null,
-                rootMargin: '-10% 0px -70% 0px',
-                threshold: 0
-            };
+            const updateSpy = () => {
+                let current = '';
+                const scrollY = window.scrollY;
 
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const id = entry.target.getAttribute('id');
-                        navLinks.forEach(link => {
-                            link.classList.remove('text-white');
-                            link.classList.add('text-slate-400');
-                            if (link.getAttribute('href') === `#${id}`) {
-                                link.classList.remove('text-slate-400');
-                                link.classList.add('text-white');
-                            }
-                        });
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop;
+                    if (scrollY >= sectionTop - 150) {
+                        current = section.getAttribute('id');
                     }
                 });
-            }, observerOptions);
 
-            sections.forEach(section => observer.observe(section));
+                // Force last section if scrolled to very bottom
+                if ((window.innerHeight + scrollY) >= document.body.offsetHeight - 50) {
+                    current = sections[sections.length - 1].getAttribute('id');
+                }
+
+                navLinks.forEach(link => {
+                    link.classList.remove('text-white', 'active-link');
+                    link.classList.add('text-slate-400');
+                    if (current && link.getAttribute('href') === `#${current}`) {
+                        link.classList.remove('text-slate-400');
+                        link.classList.add('text-white', 'active-link');
+                    }
+                });
+            };
+
+            window.addEventListener('scroll', updateSpy, { passive: true });
+            // Initial call
+            updateSpy();
         });
     </script>
 </body>

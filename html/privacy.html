@@ -1,124 +1,135 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" class="scroll-smooth">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Datenschutzerklärung - Bandmate</title>
     <meta name="description" content="Hier findest du die Datenschutzerklärung von Bandmate mit allen Infos zur Verarbeitung personenbezogener Daten.">
-    <link rel="stylesheet" href="../css/style.css">
-    <style>
-        body {
-            background: var(--color-bg-main);
-            color: var(--color-text);
-            overflow-y: auto;
-            /* Allow scrolling */
-            position: static;
-            /* Override fixed body from app */
+    <link rel="stylesheet" href="../css/landing.css">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'accent-secondary': '#3d63ff',
+                    },
+                    fontFamily: {
+                        'inter': ['Inter', 'sans-serif'],
+                    }
+                }
+            }
         }
-
-        .privacy-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 2rem;
-            background: var(--color-surface);
-            min-height: 100vh;
-            box-shadow: var(--shadow-xl);
-        }
-
-        h1 {
-            color: var(--color-primary);
-            margin-bottom: 2rem;
-        }
-
-        h2 {
-            margin-top: 2rem;
-            margin-bottom: 1rem;
-            border-bottom: 1px solid var(--color-border);
-            padding-bottom: 0.5rem;
-        }
-
-        p,
-        ul {
-            margin-bottom: 1rem;
-            line-height: 1.6;
-        }
-
-        ul {
-            padding-left: 1.5rem;
-        }
-
-        .back-link {
-            display: inline-block;
-            margin-bottom: 2rem;
-            color: var(--color-text-secondary);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        .back-link:hover {
-            color: var(--color-primary);
-        }
-    </style>
+    </script>
 </head>
 
-<body>
+<body class="bg-[#08111F] text-slate-400 font-inter antialiased selection:bg-accent-secondary/30 selection:text-white min-h-screen flex flex-col">
 
-    <div class="privacy-container">
-        <a href="../index.html" class="back-link">← Zurück zur App</a>
+    <!-- Simple Header -->
+    <header class="fixed top-0 left-0 right-0 z-50 h-24 px-6 flex items-center justify-center pointer-events-none transition-all duration-500">
+        <div class="w-full h-16 flex items-center justify-between px-8 pointer-events-auto max-w-7xl glass rounded-[2rem] shadow-2xl">
+            <div class="flex-1 flex items-center justify-start">
+                <a href="../index.html" class="flex items-center gap-2">
+                    <img src="../images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="h-8 w-auto">
+                </a>
+            </div>
+            <div class="flex-1 flex items-center justify-end">
+                <a href="../index.html" class="text-[10px] font-black uppercase tracking-[0.2em] px-6 py-2.5 rounded-full bg-white/5 border border-white/10 text-slate-300 hover:text-white hover:bg-white/10 transition-all whitespace-nowrap">← Zurück</a>
+            </div>
+        </div>
+    </header>
 
-        <h1>Datenschutzerklärung</h1>
+    <main class="flex-1 pt-32 pb-20 px-6 max-w-4xl mx-auto w-full">
+        <div class="p-10 md:p-16 rounded-[2rem] bg-white/5 border border-white/10 shadow-2xl relative overflow-hidden">
+            <!-- Glow effect -->
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-accent-secondary/5 blur-[100px] rounded-full pointer-events-none"></div>
 
-        <p>Stand: 07. April 2026</p>
+            <div class="relative z-10">
+                <h1 class="text-4xl md:text-5xl font-black text-white mb-4 tracking-tight">Datenschutzerklärung</h1>
+                <p class="text-sm font-bold uppercase tracking-widest text-slate-500 mb-12">Stand: 07. April 2026</p>
 
-        <h2>1. Verantwortlicher</h2>
-        <p>Verantwortlich für die Datenverarbeitung ist:</p>
-        <p>
-            <strong>Simon Rohrer</strong><br>
-            <strong>Karl-Bohn-Str. 41</strong><br>
-            <strong>72280 Dornstetten</strong><br>
-            E-Mail: <strong>Simon.rohrer04@web.de</strong>
-        </p>
+                <div class="space-y-12">
+                    <section>
+                        <h2 class="text-xl font-black text-white mb-4 tracking-tight">1. Verantwortlicher</h2>
+                        <div class="p-6 rounded-2xl bg-black/20 border border-white/5">
+                            <p class="leading-relaxed">
+                                Verantwortlich für die Datenverarbeitung ist:<br><br>
+                                <strong class="text-white">Simon Rohrer</strong><br>
+                                Karl-Bohn-Str. 41<br>
+                                72280 Dornstetten<br>
+                                E-Mail: <a href="mailto:Simon.rohrer04@web.de" class="text-accent-secondary hover:text-white transition-colors font-bold">Simon.rohrer04@web.de</a>
+                            </p>
+                        </div>
+                    </section>
 
-        <h2>2. Erhebung und Speicherung personenbezogener Daten</h2>
-        <p>Wenn Sie unsere App nutzen, erheben wir folgende Daten:</p>
-        <ul>
-            <li><strong>Registrierungsdaten:</strong> E-Mail-Adresse, Benutzername, Name (zur Erstellung Ihres
-                Accounts).</li>
-            <li><strong>Nutzungsdaten:</strong> Informationen über erstellte Bands, Termine und Songs, die Sie in der
-                App speichern.</li>
-            <li><strong>Technische Daten:</strong> IP-Adresse, Gerätetyp, Browser-Version (automatisch durch Server-Logs
-                zur Sicherheit und Fehleranalyse).</li>
-        </ul>
+                    <section>
+                        <h2 class="text-xl font-black text-white mb-4 tracking-tight">2. Erhebung und Speicherung personenbezogener Daten</h2>
+                        <div class="p-6 rounded-2xl bg-black/20 border border-white/5">
+                            <p class="mb-4">Wenn Sie unsere App nutzen, erheben wir folgende Daten:</p>
+                            <ul class="list-disc pl-5 space-y-2 text-slate-300">
+                                <li><strong class="text-white">Registrierungsdaten:</strong> E-Mail-Adresse, Benutzername, Name (zur Erstellung Ihres Accounts).</li>
+                                <li><strong class="text-white">Nutzungsdaten:</strong> Informationen über erstellte Bands, Termine und Songs, die Sie in der App speichern.</li>
+                                <li><strong class="text-white">Technische Daten:</strong> IP-Adresse, Gerätetyp, Browser-Version (automatisch durch Server-Logs zur Sicherheit und Fehleranalyse).</li>
+                            </ul>
+                        </div>
+                    </section>
 
-        <h2>3. Zweck der Datenverarbeitung</h2>
-        <p>Wir verarbeiten Ihre Daten zu folgenden Zwecken:</p>
-        <ul>
-            <li>Bereitstellung der Funktionen der Band-Management-App.</li>
-            <li>Sicherstellung der Netzwerksicherheit.</li>
-            <li>Kommunikation mit Ihnen (z.B. bei Support-Anfragen).</li>
-        </ul>
+                    <section>
+                        <h2 class="text-xl font-black text-white mb-4 tracking-tight">3. Zweck der Datenverarbeitung</h2>
+                        <div class="p-6 rounded-2xl bg-black/20 border border-white/5">
+                            <p class="mb-4">Wir verarbeiten Ihre Daten zu folgenden Zwecken:</p>
+                            <ul class="list-disc pl-5 space-y-2 text-slate-300">
+                                <li>Bereitstellung der Funktionen der Band-Management-App.</li>
+                                <li>Sicherstellung der Netzwerksicherheit.</li>
+                                <li>Kommunikation mit Ihnen (z.B. bei Support-Anfragen).</li>
+                            </ul>
+                        </div>
+                    </section>
 
-        <h2>4. Weitergabe von Daten</h2>
-        <p>Eine Übermittlung Ihrer persönlichen Daten an Dritte zu anderen als den im Folgenden aufgeführten Zwecken
-            findet nicht statt.</p>
-        <p>Wir nutzen für das Hosting und die Datenbank den Dienstleister <strong>Supabase</strong>. Die
-            Datenverarbeitung findet auf Servern in der EU (Frankfurt) statt, sofern nicht anders konfiguriert.</p>
+                    <section>
+                        <h2 class="text-xl font-black text-white mb-4 tracking-tight">4. Weitergabe von Daten</h2>
+                        <div class="p-6 rounded-2xl bg-black/20 border border-white/5 space-y-4">
+                            <p class="leading-relaxed">
+                                Eine Übermittlung Ihrer persönlichen Daten an Dritte zu anderen als den im Folgenden aufgeführten Zwecken findet nicht statt.
+                            </p>
+                            <p class="leading-relaxed">
+                                Wir nutzen für das Hosting und die Datenbank den Dienstleister <strong class="text-white">Supabase</strong>. Die Datenverarbeitung findet auf Servern in der EU (Frankfurt) statt, sofern nicht anders konfiguriert.
+                            </p>
+                        </div>
+                    </section>
 
-        <h2>5. Ihre Rechte</h2>
-        <p>Sie haben das Recht:</p>
-        <ul>
-            <li>Auskunft über Ihre bei uns gespeicherten Daten zu verlangen.</li>
-            <li>Berichtigung unrichtiger Daten zu fordern.</li>
-            <li>Löschung Ihrer bei uns gespeicherten Daten zu verlangen.</li>
-            <li>Einschränkung der Datenverarbeitung zu verlangen.</li>
-            <li>Widerspruch gegen die Verarbeitung einzulegen.</li>
-        </ul>
+                    <section>
+                        <h2 class="text-xl font-black text-white mb-4 tracking-tight">5. Ihre Rechte</h2>
+                        <div class="p-6 rounded-2xl bg-black/20 border border-white/5">
+                            <p class="mb-4">Sie haben das Recht:</p>
+                            <ul class="list-disc pl-5 space-y-2 text-slate-300">
+                                <li>Auskunft über Ihre bei uns gespeicherten Daten zu verlangen.</li>
+                                <li>Berichtigung unrichtiger Daten zu fordern.</li>
+                                <li>Löschung Ihrer bei uns gespeicherten Daten zu verlangen.</li>
+                                <li>Einschränkung der Datenverarbeitung zu verlangen.</li>
+                                <li>Widerspruch gegen die Verarbeitung einzulegen.</li>
+                            </ul>
+                        </div>
+                    </section>
 
-        <h2>6. Kontakt</h2>
-        <p>Bei Fragen zum Datenschutz wenden Sie sich bitte an die oben genannte E-Mail-Adresse.</p>
-    </div>
+                    <section>
+                        <h2 class="text-xl font-black text-white mb-4 tracking-tight">6. Kontakt</h2>
+                        <div class="p-6 rounded-2xl bg-black/20 border border-white/5">
+                            <p class="leading-relaxed">
+                                Bei Fragen zum Datenschutz wenden Sie sich bitte an die oben genannte E-Mail-Adresse.
+                            </p>
+                        </div>
+                    </section>
+                </div>
+            </div>
+        </div>
+    </main>
 
+    <!-- Simple Footer -->
+    <footer class="py-8 text-center text-slate-500 text-sm font-medium border-t border-white/5">
+        &copy; 2026 Bandmate. Alle Rechte vorbehalten.
+    </footer>
 </body>
 
 </html>

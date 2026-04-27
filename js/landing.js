@@ -32,6 +32,9 @@ const LandingPage = {
         // Setup smooth scroll for internal links
         this.setupSmoothScroll();
 
+        // Setup dynamic header animation
+        this.setupHeaderAnimation();
+
         // Check authentication
         try {
             if (typeof Auth !== 'undefined') {
@@ -114,6 +117,30 @@ const LandingPage = {
                 }
             });
         });
+    },
+
+    setupHeaderAnimation() {
+        const header = document.getElementById('mainHeader');
+        const inner = document.getElementById('headerInner');
+        if (!header || !inner) return;
+
+        const updateHeaderState = () => {
+            if (window.scrollY > 50) {
+                // Scrolled state: Floating Pill
+                inner.classList.remove('max-w-full', 'bg-transparent', 'border-transparent', 'shadow-none', 'rounded-none');
+                inner.classList.add('max-w-7xl', 'glass', 'rounded-[2rem]', 'shadow-2xl');
+                header.classList.remove('md:px-12');
+            } else {
+                // Top state: Expanded
+                inner.classList.remove('max-w-7xl', 'glass', 'rounded-[2rem]', 'shadow-2xl');
+                inner.classList.add('max-w-full', 'bg-transparent', 'border-transparent', 'shadow-none', 'rounded-none');
+                header.classList.add('md:px-12');
+            }
+        };
+
+        // Initial check and scroll listener
+        updateHeaderState();
+        window.addEventListener('scroll', updateHeaderState, { passive: true });
     }
 };
 
