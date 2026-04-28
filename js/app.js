@@ -1,6 +1,53 @@
 // Main Application Controller
 window.APP_START_TIME = performance.now();
 
+/* ===== Security & Obfuscation Helper ===== */
+const Security = {
+    init() {
+        // Only run protection if debug mode is off
+        if (typeof Logger !== 'undefined' && Logger.debugMode) {
+            Logger.info('[Security] Protection bypassed (debugMode is active)');
+            return;
+        }
+
+        // 1. Disable Right-Click (Prevents "Inspect")
+        document.addEventListener('contextmenu', e => e.preventDefault());
+
+        // 2. Disable common shortcuts (F12, Ctrl+Shift+I, Ctrl+U, etc.)
+        document.addEventListener('keydown', e => {
+            // F12
+            if (e.keyCode === 123) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+Shift+C (Inspect, Console, Elements)
+            if (e.ctrlKey && e.shiftKey && [73, 74, 67].includes(e.keyCode)) {
+                e.preventDefault();
+                return false;
+            }
+            // Cmd+Option+I, Cmd+Option+J (Mac)
+            if (e.metaKey && e.altKey && [73, 74].includes(e.keyCode)) {
+                e.preventDefault();
+                return false;
+            }
+            // Ctrl+U (View Source)
+            if (e.ctrlKey && e.keyCode === 85) {
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // 3. Clear Console
+        try {
+            console.clear();
+        } catch (e) {}
+
+        // 4. Repeated clear (optional, very aggressive)
+        // setInterval(() => { if(!Logger.debugMode) console.clear(); }, 2000);
+    }
+};
+
+
 if (typeof Quill !== 'undefined') {
     const BaseImageBlot = Quill.import('formats/image');
 
@@ -4548,6 +4595,10 @@ const App = {
 
         const startTime = performance.now();
         this.isInitializing = true;
+        
+        // Initialize security/protection
+        if (typeof Security !== 'undefined') Security.init();
+        
         Logger.info('[App.init] Boot sequence started...');
 
         // If Supabase falls back to app.html (Site URL) after email confirmation

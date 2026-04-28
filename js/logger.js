@@ -6,7 +6,7 @@
 
 const Logger = {
     // Config
-    debugMode: true, // Set to false in production to suppress debug logs
+    debugMode: window.location.search.includes('debug=true'), // Set to false in production or activate via ?debug=true
 
     /**
      * Log a user interaction or clear action.

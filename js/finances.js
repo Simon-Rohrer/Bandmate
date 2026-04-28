@@ -7,6 +7,7 @@ const Finances = {
     currentContext: null, // 'band' or 'private'
     currentBandId: null,
     entries: [],
+    userCache: {},
     splitItems: [],
     receiptFile: null,
     currentView: 'list', // 'list' or 'settlement'
@@ -60,11 +61,23 @@ const Finances = {
             Logger.warn(`[Finances] Container ${containerId} not found in DOM`);
             return;
         }
-        
+
+        this.userCache = {};
         container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Lade Finanzen...</p></div>';
         
         try {
             await this.loadData();
+            
+            if (context === 'band') {
+                const members = await Storage.getBandMembers(this.currentBandId);
+                const userPromises = members.map(m => Storage.getById('users', m.userId));
+                const users = await Promise.all(userPromises);
+                this.userCache = users.reduce((acc, u) => {
+                    if (u) acc[u.id] = u;
+                    return acc;
+                }, {});
+            }
+            
             Logger.info(`[Finances] Data loaded: ${this.entries.length} entries`);
             
             this.renderLayout(container);
@@ -245,6 +258,7 @@ const Finances = {
                     <thead>
                         <tr>
                             <th>Datum</th>
+                            ${this.currentContext === 'band' ? '<th>Person</th>' : ''}
                             <th>Kategorie</th>
                             <th class="text-center">Beleg</th>
                             <th>Beschreibung</th>
@@ -257,6 +271,7 @@ const Finances = {
                         ${filteredEntries.map(entry => `
                             <tr class="finance-row type-${entry.type}" onclick="Finances.openEntryModal(null, '${entry.id}')">
                                 <td class="cell-date">${this.formatDate(entry.date)}</td>
+                                ${this.currentContext === 'band' ? `<td class="cell-user"><span class="text-xs font-medium">${this.getUserName(entry.user_id)}</span></td>` : ''}
                                 <td class="cell-category">
                                     <span class="badge badge-outline">${entry.category}</span>
                                 </td>
@@ -299,6 +314,13 @@ const Finances = {
         `;
         
         if (window.lucide) lucide.createIcons();
+    },
+
+    getUserName(userId) {
+        if (!userId) return 'System';
+        const user = this.userCache[userId];
+        if (!user) return 'Unbekannt';
+        return UI.getUserDisplayName(user);
     },
 
     getFilteredEntries() {
@@ -515,10 +537,10 @@ const Finances = {
         
         const entryData = {
             context_type: this.currentContext,
-            band_id: this.currentBandId,
+            band_id: this.currentContext === 'band' ? this.currentBandId : null,
             user_id: user.id,
             type,
-            amount,
+            amount: amount || 0,
             date,
             category,
             description,
