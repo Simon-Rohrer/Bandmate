@@ -3940,7 +3940,9 @@ input:checked+.slider:before {
 /* Modals that can open on top of others */
 #timeSuggestionModal,
 #locationConflictModal,
-#confirmDeleteModal {
+#confirmDeleteModal,
+#absenceEditModal,
+#editLocationModal {
     z-index: 2000;
 }
 
@@ -9377,16 +9379,93 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
 
 /* Abwesenheit*/
 #absenceStartSettings,
-#absenceSeriesStartSettings,
 #absenceEndSettings,
-#absenceSeriesEndSettings,
 #absenceStartTimeSettings,
 #absenceEndTimeSettings,
-#absenceSeriesStartTimeSettings,
-#absenceSeriesEndTimeSettings,
-#absenceSeriesWeekdaySettings,
+#absenceSeriesTypeSettings,
+#absenceCustomWeekdaysSettings,
 #absenceReasonSettings {
     width: 100%;
+}
+
+.absence-full-day-row {
+    margin: 0.5rem 0;
+}
+
+.absence-full-day-toggle-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.85rem 1.15rem;
+    background: rgba(15, 23, 42, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    transition: all 0.2s ease;
+}
+
+.absence-full-day-toggle-wrapper:hover {
+    background: rgba(15, 23, 42, 0.45);
+    border-color: rgba(99, 102, 241, 0.2);
+}
+
+.absence-full-day-label {
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 0.95rem;
+}
+
+.absence-full-day-label {
+    font-weight: 600;
+    color: var(--color-text-primary);
+    font-size: 0.9rem;
+}
+
+.absence-custom-days {
+    margin: 0.75rem 0;
+    padding: 0.9rem 1rem;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.34);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.absence-custom-days-label {
+    display: block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.absence-weekday-selector {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: space-between;
+}
+
+.absence-weekday-btn {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 10px;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    background: rgba(0, 0, 0, 0.2);
+    color: var(--color-text-secondary);
+    font-weight: 700;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.absence-weekday-btn:hover {
+    border-color: rgba(91, 140, 255, 0.5);
+    color: var(--color-text-primary);
+}
+
+.absence-weekday-btn.is-active {
+    background: rgba(91, 140, 255, 0.2);
+    border-color: #5b8cff;
+    color: #5b8cff;
 }
 
 .absence-mode-toggle {
@@ -36868,48 +36947,57 @@ body:not(.landing-active) #dashboardView .dashboard-view-shell {
 }
 
 #dashboardView .dashboard-shortcut {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
     align-items: center;
-    gap: 0.9rem;
-    min-height: 88px;
-    padding: 1rem 1.05rem;
+    gap: 1.25rem;
+    min-height: 94px;
+    padding: 1.25rem 1.5rem;
     text-align: left;
 }
 
 #dashboardView .dashboard-shortcut-copy {
-    display: grid;
-    gap: 0.22rem;
-    padding-left: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+    min-width: 0;
 }
 
 #dashboardView .dashboard-shortcut-label {
     color: var(--text-primary);
-    font-size: 0.98rem;
+    font-size: 1.05rem;
     font-weight: 700;
     letter-spacing: -0.02em;
 }
 
 #dashboardView .dashboard-shortcut-meta {
     color: var(--text-secondary);
-    font-size: 0.82rem;
+    font-size: 0.86rem;
     line-height: 1.48;
 }
 
 #dashboardView .dashboard-shortcut-arrow {
-    width: 40px;
-    min-width: 40px;
-    height: 40px;
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
     padding: 0;
-    border-radius: 14px;
+    margin-left: auto;
+    border-radius: 12px;
     border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
     background: color-mix(in srgb, var(--surface) 84%, transparent);
     color: var(--text-secondary);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.92rem;
+    font-size: 1rem;
     font-weight: 700;
+    transition: all 0.25s ease;
+}
+
+#dashboardView .dashboard-shortcut:hover .dashboard-shortcut-arrow {
+    background: var(--dashboard-shortcut-accent);
+    border-color: var(--dashboard-shortcut-accent);
+    color: white;
 }
 
 #dashboardView .upcoming-card-action {
@@ -38161,4 +38249,181 @@ html[data-theme="light"] #bandRiderModal .bandrider-field-textarea:focus,
 :root:not(.theme-dark) #bandRiderModal .bandrider-field-textarea:focus {
     border-color: rgba(59, 130, 246, 0.68);
     background: rgba(59, 130, 246, 0.06);
+}
+
+/* Form Validation Utilities */
+.is-invalid {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.15) !important;
+}
+
+/* --- Quick Access Edit Modal Styles --- */
+.quick-access-edit-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.65rem 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    cursor: default;
+}
+
+.quick-access-edit-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.quick-access-edit-item.is-checked {
+    background: rgba(56, 189, 248, 0.06);
+    border-color: rgba(56, 189, 248, 0.25);
+}
+
+.quick-access-edit-drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: none !important;
+    color: rgba(255, 255, 255, 0.3);
+    cursor: grab;
+    padding: 2px;
+    transition: color 0.2s ease;
+}
+
+.quick-access-edit-drag-handle:hover {
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.quick-access-edit-drag-handle:active {
+    cursor: grabbing;
+}
+
+.quick-access-edit-icon-box {
+    width: 34px !important;
+    height: 34px !important;
+    min-width: 34px;
+    flex: none !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    color: var(--color-primary);
+}
+
+.quick-access-edit-item.is-checked .quick-access-edit-icon-box {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+}
+
+.quick-access-edit-label {
+    flex: 1;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: #ffffff;
+    padding-right: 0.5rem;
+}
+
+.quick-access-edit-checkbox {
+    position: relative;
+    width: 20px !important;
+    height: 20px !important;
+    flex: none !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.quick-access-edit-checkbox input {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+}
+
+.quick-access-edit-checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.quick-access-edit-checkbox:hover input ~ .quick-access-edit-checkmark {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.quick-access-edit-checkbox input:checked ~ .quick-access-edit-checkmark {
+    background: #38bdf8;
+    border-color: #38bdf8;
+}
+
+.quick-access-edit-checkmark:after {
+    content: "";
+    position: absolute;
+    display: none;
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.quick-access-edit-checkbox input:checked ~ .quick-access-edit-checkmark:after {
+    display: block;
+}
+
+.absence-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: flex-start;
+    gap: var(--spacing-sm);
+}
+
+.absence-actions-btns {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.absence-series-pill {
+    /* Existing style exists, but ensuring it stacks correctly */
+    margin-bottom: 2px;
+}
+
+.quick-access-edit-item.drag-over {
+    border-color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-shortcut-icon {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 14px;
+    color: var(--dashboard-shortcut-accent);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-shortcut:hover .dashboard-shortcut-icon {
+    background: var(--dashboard-shortcut-accent);
+    color: white;
+    transform: scale(1.05);
 }

@@ -6,7 +6,7 @@
 
 const Logger = {
     // Config
-    debugMode: false, // Set to false in production to suppress debug logs
+    debugMode: true, // Set to false in production to suppress debug logs
 
     /**
      * Log a user interaction or clear action.

@@ -998,13 +998,13 @@ const App = {
         const optionsDiv = document.getElementById('quickAccessOptions');
         const cancelBtn = document.getElementById('cancelQuickAccessBtn');
         const quickLinks = [
-            { key: 'kalender', label: 'Meine Termine', view: 'kalender' },
-            { key: 'news', label: 'Neuigkeiten', view: 'news' },
-            { key: 'musikpool', label: 'Musikerpool', view: 'musikpool' },
-            { key: 'bands', label: 'Meine Bands', view: 'bands' },
-            { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals' },
-            { key: 'events', label: 'Auftritte', view: 'events' },
-            { key: 'statistics', label: 'Statistiken', view: 'statistics' },
+            { key: 'kalender', label: 'Meine Termine', view: 'kalender', icon: 'calendar', accent: '#38bdf8' },
+            { key: 'news', label: 'Neuigkeiten', view: 'news', icon: 'bell', accent: '#5b8cff' },
+            { key: 'musikpool', label: 'Musikerpool', view: 'musikpool', icon: 'search', accent: '#f59e0b' },
+            { key: 'bands', label: 'Meine Bands', view: 'bands', icon: 'users', accent: '#8b5cf6' },
+            { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals', icon: 'calendar-days', accent: '#14b8a6' },
+            { key: 'events', label: 'Auftritte', view: 'events', icon: 'mic-2', accent: '#ec4899' },
+            { key: 'statistics', label: 'Statistiken', view: 'statistics', icon: 'trending-up', accent: '#22c55e' },
         ];
         if (!editBtn || !modal || !form || !optionsDiv || !cancelBtn) return;
         editBtn.onclick = (e) => {
@@ -1017,37 +1017,117 @@ const App = {
                 selected = ['kalender', 'news', 'musikpool'];
             }
             optionsDiv.innerHTML = quickLinks.map(l =>
-                `<label style="display:flex;align-items:center;gap:0.5em;">
-                    <input type="checkbox" name="quickAccess" value="${l.key}" ${selected.includes(l.key) ? 'checked' : ''}>
-                    <span>${l.label}</span>
-                </label>`
+                `<div class="quick-access-edit-item" data-key="${l.key}">
+                    <label class="quick-access-edit-checkbox">
+                        <input type="checkbox" name="quickAccess" value="${l.key}" ${selected.includes(l.key) ? 'checked' : ''}>
+                        <span class="quick-access-edit-checkmark"></span>
+                    </label>
+                    <div class="quick-access-edit-icon-box" style="color: ${l.accent}; background: ${l.accent}15;">
+                        <i data-lucide="${l.icon}"></i>
+                    </div>
+                    <div class="quick-access-edit-label">${l.label}</div>
+                    <div class="quick-access-edit-drag-handle" title="Ziehen zum Verschieben">
+                        <i data-lucide="grip-vertical"></i>
+                    </div>
+                </div>`
             ).join('');
-            const optionLabels = Array.from(optionsDiv.querySelectorAll('label'));
+            
+            if (window.lucide) {
+                setTimeout(() => {
+                    lucide.createIcons({
+                        root: optionsDiv
+                    });
+                }, 150);
+            }
+            
+            const optionItems = Array.from(optionsDiv.querySelectorAll('.quick-access-edit-item'));
             const syncOptionStates = () => {
-                optionLabels.forEach(label => {
-                    const input = label.querySelector('input');
-                    label.classList.toggle('is-checked', Boolean(input && input.checked));
+                optionItems.forEach(item => {
+                    const input = item.querySelector('input');
+                    item.classList.toggle('is-checked', Boolean(input && input.checked));
                 });
             };
-            optionLabels.forEach(label => {
-                const input = label.querySelector('input');
+            optionItems.forEach(item => {
+                const input = item.querySelector('input');
                 if (input) {
                     input.addEventListener('change', syncOptionStates);
                 }
             });
             syncOptionStates();
             modal.classList.add('active');
+
+            // Drag and Drop Reordering
+            let draggedItem = null;
+
+            optionItems.forEach(item => {
+                item.setAttribute('draggable', 'true');
+                
+                item.addEventListener('dragstart', (e) => {
+                    draggedItem = item;
+                    item.style.opacity = '0.4';
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                item.addEventListener('dragend', () => {
+                    draggedItem = null;
+                    item.style.opacity = '1';
+                    optionItems.forEach(it => it.classList.remove('drag-over'));
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                    const targetItem = e.target.closest('.quick-access-edit-item');
+                    if (targetItem && targetItem !== draggedItem) {
+                        targetItem.classList.add('drag-over');
+                    }
+                });
+
+                item.addEventListener('dragleave', (e) => {
+                    const targetItem = e.target.closest('.quick-access-edit-item');
+                    if (targetItem) targetItem.classList.remove('drag-over');
+                });
+
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const targetItem = e.target.closest('.quick-access-edit-item');
+                    if (targetItem && targetItem !== draggedItem) {
+                        const allItems = Array.from(optionsDiv.querySelectorAll('.quick-access-edit-item'));
+                        const draggedIdx = allItems.indexOf(draggedItem);
+                        const targetIdx = allItems.indexOf(targetItem);
+
+                        if (draggedIdx < targetIdx) {
+                            targetItem.after(draggedItem);
+                        } else {
+                            targetItem.before(draggedItem);
+                        }
+                    }
+                    optionItems.forEach(it => it.classList.remove('drag-over'));
+                });
+            });
         };
+        const cancelBtnCross = document.getElementById('cancelQuickAccessBtnCross');
+        if (cancelBtnCross) {
+            cancelBtnCross.onclick = (e) => {
+                e.preventDefault();
+                modal.classList.remove('active');
+            };
+        }
         cancelBtn.onclick = (e) => {
             e.preventDefault();
             modal.classList.remove('active');
         };
         form.onsubmit = (e) => {
             e.preventDefault();
-            const checked = Array.from(form.querySelectorAll('input[name="quickAccess"]:checked')).map(i => i.value);
-            localStorage.setItem('quickAccessLinks', JSON.stringify(checked));
+            // Save order and selection
+            const allItems = Array.from(form.querySelectorAll('.quick-access-edit-item'));
+            const orderedSelection = allItems
+                .filter(item => item.querySelector('input[name="quickAccess"]').checked)
+                .map(item => item.dataset.key);
+            
+            localStorage.setItem('quickAccessLinks', JSON.stringify(orderedSelection));
             modal.classList.remove('active');
-            App.updateDashboard();
+            this.updateDashboard();
         };
         if (modal && modal.dataset.hasStandaloneBackdropClose !== 'true') {
             modal.addEventListener('mousedown', (event) => {
@@ -15424,6 +15504,36 @@ const App = {
         }
         this.setupAbsenceSettingsControls();
 
+        // Listeners for the new Absence Modal
+        const btnNewAbsence = document.getElementById('btnNewAbsenceSettings');
+        const absenceModal = document.getElementById('absenceEditModal');
+        const closeModalBtn = document.getElementById('closeAbsenceEditModal');
+        const cancelModalBtn = document.getElementById('cancelAbsenceModalBtn');
+
+        if (btnNewAbsence && absenceModal) {
+            btnNewAbsence.onclick = () => {
+                this.resetAbsenceFormSettings();
+                const titleEl = document.getElementById('absenceEditModalTitle');
+                if (titleEl) titleEl.textContent = 'Abwesenheit planen';
+                absenceModal.classList.add('active');
+            };
+        }
+
+        [closeModalBtn, cancelModalBtn].forEach(btn => {
+            if (btn && absenceModal) {
+                btn.onclick = () => {
+                    absenceModal.classList.remove('active');
+                };
+            }
+        });
+
+        if (absenceModal && !absenceModal._boundClose) {
+            absenceModal.addEventListener('click', (e) => {
+                if (e.target === absenceModal) absenceModal.classList.remove('active');
+            });
+            absenceModal._boundClose = true;
+        }
+
         // Always render absences list when settings open
         this.renderAbsencesListSettings();
 
@@ -15733,11 +15843,16 @@ const App = {
     },
 
     parseAbsenceDateInputValue(value) {
-        if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        if (typeof value !== 'string' || !value) return null;
+        
+        // Handle full ISO or DB timestamp strings (e.g. "2026-04-28T00:00:00" or "2026-04-28 00:00:00")
+        const datePart = value.includes('T') ? value.split('T')[0] : (value.includes(' ') ? value.split(' ')[0] : value);
+        
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
             return null;
         }
 
-        const [year, month, day] = value.split('-').map(Number);
+        const [year, month, day] = datePart.split('-').map(Number);
         const date = new Date(year, month - 1, day);
         return Number.isNaN(date.getTime()) ? null : date;
     },
@@ -15794,18 +15909,27 @@ const App = {
 
     buildAbsenceDateTimeValue(dateValue, timeValue = '') {
         if (!dateValue) return '';
-        if (!timeValue) return dateValue;
+        
+        let hours = 0;
+        let minutes = 0;
 
-        const date = this.parseAbsenceDateInputValue(dateValue);
-        if (!date) return '';
-
-        const [hours, minutes] = String(timeValue).split(':').map(Number);
-        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-            return dateValue;
+        if (timeValue && typeof timeValue === 'string' && timeValue.includes(':')) {
+            const [h, m] = timeValue.split(':').map(Number);
+            hours = Number.isFinite(h) ? h : 0;
+            minutes = Number.isFinite(m) ? m : 0;
         }
 
+        const date = this.parseAbsenceDateInputValue(dateValue);
+        if (!date) return dateValue;
+
         date.setHours(hours, minutes, 0, 0);
-        return date.toISOString();
+        
+        const Y = date.getFullYear();
+        const M = String(date.getMonth() + 1).padStart(2, '0');
+        const D = String(date.getDate()).padStart(2, '0');
+        const hStr = String(date.getHours()).padStart(2, '0');
+        const mStr = String(date.getMinutes()).padStart(2, '0');
+        return `${Y}-${M}-${D} ${hStr}:${mStr}:00`;
     },
 
     formatAbsenceTimeRangeLabel(startValue, endValue, absenceOrMeta = null) {
@@ -15826,24 +15950,20 @@ const App = {
         return `bis ${normalizedEnd} Uhr`;
     },
 
-    getAbsenceWeekdayLabel(weekdayValue) {
-        const labels = {
-            0: 'Sonntag',
-            1: 'Montag',
-            2: 'Dienstag',
-            3: 'Mittwoch',
-            4: 'Donnerstag',
-            5: 'Freitag',
-            6: 'Samstag'
+    getAbsenceWeekdayLabel(weekdayValue, short = false) {
+        const labels = short ? {
+            0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa'
+        } : {
+            0: 'Sonntag', 1: 'Montag', 2: 'Dienstag', 3: 'Mittwoch', 4: 'Donnerstag', 5: 'Freitag', 6: 'Samstag'
         };
-        return labels[Number(weekdayValue)] || 'Wochentag';
+        return labels[Number(weekdayValue)] || (short ? 'Wt' : 'Wochentag');
     },
 
     getAbsenceSeriesEntries(absences = [], seriesId = '') {
         return (Array.isArray(absences) ? absences : [])
             .filter(absence => {
                 const meta = Storage.getAbsenceRecurrenceMeta(absence);
-                return meta?.type === 'series' && meta.seriesId === seriesId;
+                return meta?.type === 'series' && String(meta.seriesId) === String(seriesId);
             })
             .sort((left, right) => new Date(left.startDate) - new Date(right.startDate));
     },
@@ -15898,7 +16018,9 @@ const App = {
                     ? firstDateLabel
                     : `${firstDateLabel} - ${lastDateLabel}`,
                 timeLabel: metaTimeLabel || itemTimeLabel,
-                weekdayLabel: this.getAbsenceWeekdayLabel(group.meta?.weekday ?? new Date(firstItem.startDate).getDay()),
+                weekdayLabel: group.meta?.frequency === 'custom' && group.meta?.customWeekdays 
+                    ? group.meta.customWeekdays.map(d => this.getAbsenceWeekdayLabel(d, true)).join(', ')
+                    : this.getAbsenceWeekdayLabel(group.meta?.weekday ?? this.parseAbsenceDateInputValue(firstItem.startDate)?.getDay()),
                 countLabel: items.length === 1 ? '1 Termin' : `${items.length} Termine`,
                 sortDate: latestStart?.startDate || firstItem.startDate
             };
@@ -15906,62 +16028,19 @@ const App = {
     },
 
     getAbsenceSettingsMode() {
-        return document.getElementById('absenceModeSettings')?.value === 'series' ? 'series' : 'single';
+        const seriesType = document.getElementById('absenceSeriesTypeSettings')?.value;
+        return seriesType ? 'series' : 'single';
     },
 
     setAbsenceSettingsMode(mode = 'single') {
-        const normalizedMode = mode === 'series' ? 'series' : 'single';
-        const modeInput = document.getElementById('absenceModeSettings');
-        const singlePanel = document.querySelector('[data-absence-mode-panel="single"]');
-        const seriesPanel = document.querySelector('[data-absence-mode-panel="series"]');
-        const modeButtons = document.querySelectorAll('[data-absence-mode]');
-        const singleStartInput = document.getElementById('absenceStartSettings');
-        const seriesStartInput = document.getElementById('absenceSeriesStartSettings');
-        const seriesEndInput = document.getElementById('absenceSeriesEndSettings');
-        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
-
-        if (modeInput) {
-            modeInput.value = normalizedMode;
-        }
-
-        modeButtons.forEach(button => {
-            const isActive = button.dataset.absenceMode === normalizedMode;
-            button.classList.toggle('is-active', isActive);
-            button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        });
-
-        if (singlePanel) {
-            singlePanel.hidden = normalizedMode !== 'single';
-        }
-
-        if (seriesPanel) {
-            seriesPanel.hidden = normalizedMode !== 'series';
-        }
-
-        if (singleStartInput) {
-            singleStartInput.required = normalizedMode === 'single';
-        }
-
-        if (seriesStartInput) {
-            seriesStartInput.required = normalizedMode === 'series';
-            if (normalizedMode === 'series' && !seriesStartInput.value && singleStartInput?.value) {
-                seriesStartInput.value = singleStartInput.value;
+        // Legacy-Funktion - wird nicht mehr benötigt, aber für Kompatibilität behalten
+        const seriesTypeSelect = document.getElementById('absenceSeriesTypeSettings');
+        if (seriesTypeSelect) {
+            if (mode === 'series') {
+                seriesTypeSelect.value = 'weekly';
+            } else {
+                seriesTypeSelect.value = '';
             }
-        }
-
-        if (seriesEndInput) {
-            seriesEndInput.required = normalizedMode === 'series';
-            if (normalizedMode === 'series' && !seriesEndInput.value) {
-                seriesEndInput.value = seriesStartInput?.value || singleStartInput?.value || '';
-            }
-        }
-
-        if (seriesWeekdayInput) {
-            seriesWeekdayInput.required = normalizedMode === 'series';
-        }
-
-        if (normalizedMode === 'series') {
-            this.setAbsenceSettingsQuickDuration(0);
         }
     },
 
@@ -16026,24 +16105,166 @@ const App = {
         return entries;
     },
 
+    buildDailyAbsenceEntries(startValue, endValue, options = {}) {
+        const startDate = this.parseAbsenceDateInputValue(startValue);
+        const endDate = this.parseAbsenceDateInputValue(endValue);
+
+        if (!startDate || !endDate || startDate > endDate) {
+            return [];
+        }
+
+        const cursor = new Date(startDate.getTime());
+        const entries = [];
+        while (cursor <= endDate) {
+            const dateValue = this.formatAbsenceDateInputValue(cursor);
+            entries.push({
+                startDate: this.buildAbsenceDateTimeValue(dateValue, options.startTime || ''),
+                endDate: this.buildAbsenceDateTimeValue(dateValue, options.endTime || '')
+            });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        return entries;
+    },
+
+    buildMonthlyAbsenceEntries(startValue, endValue, options = {}) {
+        const startDate = this.parseAbsenceDateInputValue(startValue);
+        const endDate = this.parseAbsenceDateInputValue(endValue);
+
+        if (!startDate || !endDate || startDate > endDate) {
+            return [];
+        }
+
+        const dayOfMonth = startDate.getDate();
+        const cursor = new Date(startDate.getTime());
+        const entries = [];
+        while (cursor <= endDate) {
+            // Find same day in month
+            const targetDate = new Date(cursor.getFullYear(), cursor.getMonth(), dayOfMonth);
+            if (targetDate <= endDate) {
+                const dateValue = this.formatAbsenceDateInputValue(targetDate);
+                entries.push({
+                    startDate: this.buildAbsenceDateTimeValue(dateValue, options.startTime || ''),
+                    endDate: this.buildAbsenceDateTimeValue(dateValue, options.endTime || '')
+                });
+            }
+            cursor.setMonth(cursor.getMonth() + 1);
+        }
+
+        return entries;
+    },
+
+    buildYearlyAbsenceEntries(startValue, endValue, options = {}) {
+        const startDate = this.parseAbsenceDateInputValue(startValue);
+        const endDate = this.parseAbsenceDateInputValue(endValue);
+
+        if (!startDate || !endDate || startDate > endDate) {
+            return [];
+        }
+
+        const dayOfMonth = startDate.getDate();
+        const month = startDate.getMonth();
+        const cursor = new Date(startDate.getTime());
+        const entries = [];
+        while (cursor <= endDate) {
+            const targetDate = new Date(cursor.getFullYear(), month, dayOfMonth);
+            if (targetDate <= endDate) {
+                const dateValue = this.formatAbsenceDateInputValue(targetDate);
+                entries.push({
+                    startDate: this.buildAbsenceDateTimeValue(dateValue, options.startTime || ''),
+                    endDate: this.buildAbsenceDateTimeValue(dateValue, options.endTime || '')
+                });
+            }
+            cursor.setFullYear(cursor.getFullYear() + 1);
+        }
+
+        return entries;
+    },
+
+    buildCustomAbsenceEntries(startValue, endValue, weekdays, options = {}) {
+        const startDate = this.parseAbsenceDateInputValue(startValue);
+        const endDate = this.parseAbsenceDateInputValue(endValue);
+
+        if (!startDate || !endDate || !weekdays || weekdays.length === 0 || startDate > endDate) {
+            return [];
+        }
+
+        const weekdaySet = new Set(weekdays);
+        const cursor = new Date(startDate.getTime());
+        const entries = [];
+        while (cursor <= endDate) {
+            if (weekdaySet.has(cursor.getDay())) {
+                const dateValue = this.formatAbsenceDateInputValue(cursor);
+                entries.push({
+                    startDate: this.buildAbsenceDateTimeValue(dateValue, options.startTime || ''),
+                    endDate: this.buildAbsenceDateTimeValue(dateValue, options.endTime || '')
+                });
+            }
+            cursor.setDate(cursor.getDate() + 1);
+        }
+
+        return entries;
+    },
+
     setupAbsenceSettingsControls() {
         const form = document.getElementById('createAbsenceFormSettings');
         if (!form || form.dataset.absenceControlsBound === 'true') return;
 
-        const singleStartInput = document.getElementById('absenceStartSettings');
-        const singleEndInput = document.getElementById('absenceEndSettings');
-        const seriesStartInput = document.getElementById('absenceSeriesStartSettings');
-        const seriesEndInput = document.getElementById('absenceSeriesEndSettings');
-        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
+        const startInput = document.getElementById('absenceStartSettings');
+        const endInput = document.getElementById('absenceEndSettings');
+        const startTimeInput = document.getElementById('absenceStartTimeSettings');
+        const endTimeInput = document.getElementById('absenceEndTimeSettings');
+        const fullDayCheckbox = document.getElementById('absenceFullDaySettings');
+        const seriesTypeSelect = document.getElementById('absenceSeriesTypeSettings');
+        const customDaysDiv = document.getElementById('absenceCustomDaysSettings');
+        const customWeekdaysInput = document.getElementById('absenceCustomWeekdaysSettings');
         const quickInput = document.getElementById('absenceQuickDurationSettings');
+        const weekdayButtons = form.querySelectorAll('.absence-weekday-btn');
 
-        form.querySelectorAll('[data-absence-mode]').forEach(button => {
-            button.addEventListener('click', () => {
-                if (button.disabled) return;
-                this.setAbsenceSettingsMode(button.dataset.absenceMode);
+        // Ganztägig-Checkbox
+        if (fullDayCheckbox) {
+            fullDayCheckbox.addEventListener('change', () => {
+                if (fullDayCheckbox.checked) {
+                    // Ganztägig: 00:00 bis 23:59
+                    if (startTimeInput) startTimeInput.value = '00:00';
+                    if (endTimeInput) endTimeInput.value = '23:59';
+                } else {
+                    // Zeiten zurücksetzen wenn Ganztägig deaktiviert
+                    if (startTimeInput) startTimeInput.value = '';
+                    if (endTimeInput) endTimeInput.value = '';
+                }
+            });
+        }
+
+        // Serie-Dropdown
+        if (seriesTypeSelect) {
+            seriesTypeSelect.addEventListener('change', () => {
+                const isCustom = seriesTypeSelect.value === 'custom';
+                if (customDaysDiv) {
+                    customDaysDiv.hidden = !isCustom;
+                }
+                if (isCustom && !customWeekdaysInput?.value) {
+                    // Standard: Keine Tage vorauswählen
+                    weekdayButtons.forEach(btn => btn.classList.remove('is-active'));
+                    customWeekdaysInput.value = '';
+                }
+            });
+        }
+
+        // Wochentags-Buttons für "Eigene"
+        weekdayButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btn.classList.toggle('is-active');
+                const selected = Array.from(form.querySelectorAll('.absence-weekday-btn.is-active'))
+                    .map(b => b.dataset.weekday)
+                    .sort();
+                if (customWeekdaysInput) {
+                    customWeekdaysInput.value = selected.join(',');
+                }
             });
         });
 
+        // Schnellauswahl
         form.querySelectorAll('[data-absence-quick-days]').forEach(button => {
             button.addEventListener('click', () => {
                 const days = Number(button.dataset.absenceQuickDays);
@@ -16052,9 +16273,10 @@ const App = {
             });
         });
 
-        if (singleStartInput && singleEndInput) {
-            singleStartInput.addEventListener('change', () => {
-                singleEndInput.min = singleStartInput.value || '';
+        // Datum-Änderungen
+        if (startInput && endInput) {
+            startInput.addEventListener('change', () => {
+                endInput.min = startInput.value || '';
 
                 const activeQuickDays = Number(quickInput?.value || 0);
                 if (activeQuickDays > 0) {
@@ -16062,227 +16284,229 @@ const App = {
                 }
             });
 
-            singleEndInput.addEventListener('change', () => {
+            endInput.addEventListener('change', () => {
                 const activeQuickDays = Number(quickInput?.value || 0);
-                if (!activeQuickDays || !singleStartInput.value || !singleEndInput.value) return;
+                if (!activeQuickDays || !startInput.value || !endInput.value) return;
 
-                const expectedEnd = this.shiftAbsenceDateInputValue(singleStartInput.value, activeQuickDays - 1);
-                if (singleEndInput.value !== expectedEnd) {
+                const expectedEnd = this.shiftAbsenceDateInputValue(startInput.value, activeQuickDays - 1);
+                if (endInput.value !== expectedEnd) {
                     this.setAbsenceSettingsQuickDuration(0);
                 }
             });
         }
 
-        if (seriesStartInput && seriesEndInput) {
-            seriesStartInput.addEventListener('change', () => {
-                seriesEndInput.min = seriesStartInput.value || '';
-
-                if (seriesWeekdayInput && !seriesWeekdayInput.dataset.userSet && seriesStartInput.value) {
-                    const parsed = this.parseAbsenceDateInputValue(seriesStartInput.value);
-                    if (parsed) {
-                        seriesWeekdayInput.value = String(parsed.getDay());
-                    }
+        // Dirty tracking
+        if (!form.dataset.dirtyTracking) {
+            form.addEventListener('input', (e) => { 
+                window.isAbsenceFormDirty = true; 
+                if (e.target && e.target.classList.contains('is-invalid')) {
+                    e.target.classList.remove('is-invalid');
                 }
             });
-        }
-
-        if (seriesWeekdayInput) {
-            seriesWeekdayInput.addEventListener('change', () => {
-                seriesWeekdayInput.dataset.userSet = 'true';
-            });
-        }
-
-        // Dirty tracking for absence form
-        if (!form.dataset.dirtyTracking) {
-            form.addEventListener('input', () => { window.isAbsenceFormDirty = true; });
             form.addEventListener('change', () => { window.isAbsenceFormDirty = true; });
             form.dataset.dirtyTracking = 'true';
         }
 
-        this.setAbsenceSettingsMode('single');
         this.setAbsenceSettingsQuickDuration(0);
         form.dataset.absenceControlsBound = 'true';
     },
 
     async handleCreateAbsenceFromSettings() {
-        const startInput = document.getElementById('absenceStartSettings');
-        const endInput = document.getElementById('absenceEndSettings');
-        const startTimeInput = document.getElementById('absenceStartTimeSettings');
-        const endTimeInput = document.getElementById('absenceEndTimeSettings');
-        const seriesStartInput = document.getElementById('absenceSeriesStartSettings');
-        const seriesEndInput = document.getElementById('absenceSeriesEndSettings');
-        const seriesStartTimeInput = document.getElementById('absenceSeriesStartTimeSettings');
-        const seriesEndTimeInput = document.getElementById('absenceSeriesEndTimeSettings');
-        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
-        const reasonInput = document.getElementById('absenceReasonSettings');
-        const editIdInput = document.getElementById('editAbsenceIdSettings');
-        const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
-        const quickDurationInput = document.getElementById('absenceQuickDurationSettings');
+        try {
+            const startInput = document.getElementById('absenceStartSettings');
+            const endInput = document.getElementById('absenceEndSettings');
+            const startTimeInput = document.getElementById('absenceStartTimeSettings');
+            const endTimeInput = document.getElementById('absenceEndTimeSettings');
+            const fullDayCheckbox = document.getElementById('absenceFullDaySettings');
+            const seriesTypeSelect = document.getElementById('absenceSeriesTypeSettings');
+            const customWeekdaysInput = document.getElementById('absenceCustomWeekdaysSettings');
+            const reasonInput = document.getElementById('absenceReasonSettings');
+            const editIdInput = document.getElementById('editAbsenceIdSettings');
+            const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
+            const quickDurationInput = document.getElementById('absenceQuickDurationSettings');
 
-        const reason = reasonInput.value.trim();
-        const editId = editIdInput.value;
-        const editSeriesId = editSeriesIdInput?.value || '';
-        const user = Auth.getCurrentUser();
-        if (!user) return;
+            const reason = reasonInput.value.trim();
+            const editId = editIdInput.value;
+            const editSeriesId = editSeriesIdInput?.value || '';
+            const user = Auth.getCurrentUser();
+            if (!user) return;
 
-        // Force cache invalidation early to prevent stale reads during/after process
-        this.absencesCache = null;
+            // Force cache invalidation early
+            this.absencesCache = null;
 
-        const mode = editId ? 'single' : (editSeriesId ? 'series' : this.getAbsenceSettingsMode());
+            const mode = editId ? 'single' : (editSeriesId ? 'series' : this.getAbsenceSettingsMode());
+            const seriesType = seriesTypeSelect?.value || '';
 
-        if (mode === 'series') {
-            const seriesStart = seriesStartInput?.value || '';
-            const seriesEnd = seriesEndInput?.value || '';
-            const seriesStartTime = seriesStartTimeInput?.value || '';
-            const seriesEndTime = seriesEndTimeInput?.value || '';
-            const weekday = seriesWeekdayInput?.value;
+            Logger.action('[Absence] Starting creation process', { mode, seriesType, editId, editSeriesId });
 
-            if (!seriesStart || !seriesEnd) {
-                UI.showToast('Bitte gib den Zeitraum fuer die Serie vollstaendig ein.', 'error');
-                return;
+            // Handle Ganztägig
+            if (fullDayCheckbox?.checked) {
+                if (startTimeInput) startTimeInput.value = '00:00';
+                if (endTimeInput) endTimeInput.value = '23:59';
             }
 
-            if ((seriesStartTime && !seriesEndTime) || (!seriesStartTime && seriesEndTime)) {
-                UI.showToast('Bitte gib fuer die Serie Start- und Endzeit gemeinsam an.', 'error');
-                return;
-            }
+            if (mode === 'series') {
+                const seriesStart = startInput?.value || '';
+                const seriesEnd = endInput?.value || '';
+                const seriesStartTime = startTimeInput?.value || '';
+                const seriesEndTime = endTimeInput?.value || '';
+                const customWeekdays = customWeekdaysInput?.value || '';
 
-            const recurringEntries = this.buildRecurringAbsenceEntries(seriesStart, seriesEnd, weekday, {
-                startTime: seriesStartTime,
-                endTime: seriesEndTime
-            });
-            if (recurringEntries.length === 0) {
-                UI.showToast('Im gewaehlten Zeitraum wurde kein passender Wochentag gefunden.', 'error');
-                return;
-            }
+                if (!seriesStart || !seriesEnd) {
+                    if (!seriesStart && startInput) startInput.classList.add('is-invalid');
+                    if (!seriesEnd && endInput) endInput.classList.add('is-invalid');
+                    UI.showToast('Bitte gib den Zeitraum für die Serie vollständig ein (Von & Bis).', 'error');
+                    return;
+                }
 
-            const existingAbsences = await Storage.getUserAbsences(user.id) || [];
-            const existingKeys = new Set(existingAbsences
-                .filter(absence => {
-                    const meta = Storage.getAbsenceRecurrenceMeta(absence);
-                    const sid = meta?.seriesId ? String(meta.seriesId).trim() : '';
-                    return sid !== String(editSeriesId).trim();
-                })
-                .map(absence => {
-                    return `${absence.startDate || ''}__${absence.endDate || ''}`;
-                }));
+                if (this.parseAbsenceDateInputValue(seriesStart) > this.parseAbsenceDateInputValue(seriesEnd)) {
+                    UI.showToast('Das Bis-Datum der Serie muss nach dem Von-Datum liegen.', 'error');
+                    return;
+                }
 
-            const entriesToCreate = recurringEntries.filter(entry => !existingKeys.has(`${entry.startDate || ''}__${entry.endDate || ''}`));
+                if ((seriesStartTime && !seriesEndTime) || (!seriesStartTime && seriesEndTime)) {
+                    UI.showToast('Bitte gib für die Serie Start- und Endzeit gemeinsam an.', 'error');
+                    return;
+                }
 
-            if (entriesToCreate.length === 0) {
-                UI.showToast(editSeriesId
-                    ? 'Die neue Serie überschneidet sich vollständig mit bereits vorhandenen Abwesenheiten.'
-                    : 'Diese Serien-Abwesenheiten sind bereits eingetragen.', 'info');
-                return;
-            }
+                let recurringEntries = [];
+                const weekdays = customWeekdays.split(',').map(Number).filter(n => !isNaN(n));
 
-            if (editSeriesId) {
-                const currentSeriesEntries = this.getAbsenceSeriesEntries(existingAbsences, editSeriesId);
-                if (currentSeriesEntries.length > 0) {
-                    await Promise.all(currentSeriesEntries.map(absence => Storage.deleteAbsence(absence.id)));
+                switch (seriesType) {
+                    case 'daily':
+                        recurringEntries = this.buildDailyAbsenceEntries(seriesStart, seriesEnd, { startTime: seriesStartTime, endTime: seriesEndTime });
+                        break;
+                    case 'weekly':
+                        const startDate = this.parseAbsenceDateInputValue(seriesStart);
+                        const weekday = startDate?.getDay() ?? 0;
+                        recurringEntries = this.buildRecurringAbsenceEntries(seriesStart, seriesEnd, weekday, { startTime: seriesStartTime, endTime: seriesEndTime });
+                        break;
+                    case 'monthly':
+                        recurringEntries = this.buildMonthlyAbsenceEntries(seriesStart, seriesEnd, { startTime: seriesStartTime, endTime: seriesEndTime });
+                        break;
+                    case 'yearly':
+                        recurringEntries = this.buildYearlyAbsenceEntries(seriesStart, seriesEnd, { startTime: seriesStartTime, endTime: seriesEndTime });
+                        break;
+                    case 'custom':
+                        if (weekdays.length === 0) {
+                            UI.showToast('Bitte wähle mindestens einen Wochentag aus.', 'error');
+                            return;
+                        }
+                        recurringEntries = this.buildCustomAbsenceEntries(seriesStart, seriesEnd, weekdays, { startTime: seriesStartTime, endTime: seriesEndTime });
+                        break;
+                    default:
+                        UI.showToast('Bitte wähle eine Wiederholungsart aus.', 'error');
+                        return;
+                }
+
+                if (recurringEntries.length === 0) {
+                    UI.showToast('Im gewählten Zeitraum wurde kein passender Termin gefunden.', 'error');
+                    return;
+                }
+
+                const existingAbsences = await Storage.getUserAbsences(user.id) || [];
+                const existingKeys = new Set(existingAbsences
+                    .filter(absence => {
+                        const meta = Storage.getAbsenceRecurrenceMeta(absence);
+                        const sid = meta?.seriesId ? String(meta.seriesId).trim() : '';
+                        return sid !== String(editSeriesId).trim();
+                    })
+                    .map(absence => `${absence.startDate || ''}__${absence.endDate || ''}`));
+
+                const entriesToCreate = recurringEntries.filter(entry => !existingKeys.has(`${entry.startDate || ''}__${entry.endDate || ''}`));
+
+                if (entriesToCreate.length === 0) {
+                    UI.showToast(editSeriesId ? 'Die neue Serie überschneidet sich vollständig mit bereits vorhandenen Abwesenheiten.' : 'Diese Serien-Abwesenheiten sind bereits eingetragen.', 'info');
+                    return;
+                }
+
+                if (editSeriesId) {
+                    const currentSeriesEntries = this.getAbsenceSeriesEntries(existingAbsences, editSeriesId);
+                    if (currentSeriesEntries.length > 0) {
+                        await Promise.all(currentSeriesEntries.map(absence => Storage.deleteAbsence(absence.id)));
+                    }
+                }
+
+                const seriesId = editSeriesId || Storage.generateId();
+                const createdAt = new Date().toISOString();
+                const seriesMeta = { type: 'series', seriesId, frequency: seriesType, weekday: seriesType === 'weekly' ? (this.parseAbsenceDateInputValue(seriesStart)?.getDay() ?? null) : null, customWeekdays: seriesType === 'custom' ? weekdays : null, startTime: seriesStartTime, endTime: seriesEndTime };
+
+                for (const entry of entriesToCreate) {
+                    await Storage.createAbsence(user.id, entry.startDate, entry.endDate, reason, { meta: seriesMeta, createdAt });
+                }
+
+                UI.showToast(editSeriesId ? 'Serie aktualisiert' : `${entriesToCreate.length} Serien-Abwesenheiten eingetragen`, 'success');
+
+            } else {
+                const start = startInput.value;
+                const startTime = startTimeInput?.value || '';
+                const endTime = endTimeInput?.value || '';
+                const quickDuration = Number(quickDurationInput?.value || 0);
+                if (!start) {
+                    UI.showToast('Bitte wähle mindestens ein Startdatum aus.', 'error');
+                    return;
+                }
+
+                if (!endInput.value && quickDuration === 0) endInput.value = start;
+                const end = endInput.value || (quickDuration > 0 ? this.shiftAbsenceDateInputValue(start, quickDuration - 1) : start);
+
+                if (!end) {
+                    UI.showToast('Bitte gib ein Enddatum an.', 'error');
+                    return;
+                }
+
+                if ((startTime && !endTime) || (!startTime && endTime)) {
+                    UI.showToast('Bitte gib Start- und Endzeit gemeinsam an.', 'error');
+                    return;
+                }
+
+                const startDate = this.parseAbsenceDateInputValue(start);
+                const endDate = this.parseAbsenceDateInputValue(end);
+                if (!startDate || !endDate) {
+                    UI.showToast('Bitte prüfe die Datumsangaben.', 'error');
+                    return;
+                }
+
+                if (startDate > endDate) {
+                    UI.showToast('Das Bis-Datum muss nach dem Von-Datum liegen.', 'error');
+                    return;
+                }
+
+                const startValue = this.buildAbsenceDateTimeValue(start, startTime);
+                const endValue = this.buildAbsenceDateTimeValue(end, endTime);
+
+                if (new Date(startValue) > new Date(endValue)) {
+                    UI.showToast('Das Ende muss nach dem Beginn liegen.', 'error');
+                    return;
+                }
+
+                const singleMeta = (startTime || endTime) ? { startTime, endTime } : null;
+
+                if (editId) {
+                    await Storage.update('absences', editId, { startDate: startValue, endDate: endValue, reason: Storage.buildAbsenceReasonPayload(reason, singleMeta) });
+                    UI.showToast('Abwesenheit aktualisiert', 'success');
+                } else {
+                    await Storage.createAbsence(user.id, startValue, endValue, reason, { meta: singleMeta });
+                    UI.showToast('Abwesenheit eingetragen', 'success');
                 }
             }
 
-            const seriesId = editSeriesId || Storage.generateId();
-            const createdAt = new Date().toISOString();
-            const seriesMeta = {
-                type: 'series',
-                seriesId,
-                frequency: 'weekly',
-                weekday: Number(weekday),
-                startTime: seriesStartTime,
-                endTime: seriesEndTime
-            };
+            this.resetAbsenceFormSettings();
+            await Promise.all([this.updateAbsenceIndicator(), this.refreshPersonalCalendarAfterAbsenceChange()]);
+            window.isAbsenceFormDirty = false;
 
-            for (const entry of entriesToCreate) {
-                await Storage.createAbsence(user.id, entry.startDate, entry.endDate, reason, {
-                    meta: seriesMeta,
-                    createdAt
-                });
-            }
+            const modal = document.getElementById('absenceEditModal');
+            if (modal) modal.classList.remove('active');
 
-            const skippedCount = recurringEntries.length - entriesToCreate.length;
-            const successText = editSeriesId
-                ? 'Serie aktualisiert'
-                : (entriesToCreate.length === 1
-                    ? '1 Serien-Abwesenheit eingetragen'
-                    : `${entriesToCreate.length} Serien-Abwesenheiten eingetragen`);
-            UI.showToast(successText, 'success');
+            setTimeout(async () => {
+                this.absencesCache = null;
+                await this.renderAbsencesListSettings();
+            }, 300);
 
-            if (skippedCount > 0) {
-                UI.showToast(`${skippedCount} bereits vorhandene Termine wurden uebersprungen.`, 'info');
-            }
-        } else {
-            const start = startInput.value;
-            const startTime = startTimeInput?.value || '';
-            const endTime = endTimeInput?.value || '';
-            const quickDuration = Number(quickDurationInput?.value || 0);
-            const end = endInput.value || (quickDuration > 0 ? this.shiftAbsenceDateInputValue(start, quickDuration - 1) : start);
-
-            if (!start) {
-                UI.showToast('Bitte waehle mindestens ein Startdatum aus.', 'error');
-                return;
-            }
-
-            if ((startTime && !endTime) || (!startTime && endTime)) {
-                UI.showToast('Bitte gib Start- und Endzeit gemeinsam an.', 'error');
-                return;
-            }
-
-            const startDate = this.parseAbsenceDateInputValue(start);
-            const endDate = this.parseAbsenceDateInputValue(end);
-            if (!startDate || !endDate) {
-                UI.showToast('Bitte pruefe die Datumsangaben.', 'error');
-                return;
-            }
-
-            if (startDate > endDate) {
-                UI.showToast('Das Bis-Datum muss nach dem Von-Datum liegen.', 'error');
-                return;
-            }
-
-            const startValue = this.buildAbsenceDateTimeValue(start, startTime);
-            const endValue = this.buildAbsenceDateTimeValue(end, endTime);
-
-            if (new Date(startValue) > new Date(endValue)) {
-                UI.showToast('Das Ende muss nach dem Beginn liegen.', 'error');
-                return;
-            }
-
-            // Save single absence with time in meta for redundancy (DATE columns might truncate time)
-            const singleMeta = (startTime || endTime) ? { startTime, endTime } : null;
-
-            if (editId) {
-                await Storage.update('absences', editId, {
-                    startDate: startValue,
-                    endDate: endValue,
-                    reason: Storage.buildAbsenceReasonPayload(reason, singleMeta)
-                });
-                UI.showToast('Abwesenheit aktualisiert', 'success');
-            } else {
-                await Storage.createAbsence(user.id, startValue, endValue, reason, {
-                    meta: singleMeta
-                });
-                UI.showToast('Abwesenheit eingetragen', 'success');
-            }
+        } catch (error) {
+            Logger.error('[Absence] Error during save:', error);
+            UI.showToast('Ein Fehler ist aufgetreten.', 'error');
         }
-
-        this.resetAbsenceFormSettings();
-
-        // Update markers and calendars
-        await Promise.all([
-            this.updateAbsenceIndicator(),
-            this.refreshPersonalCalendarAfterAbsenceChange()
-        ]);
-
-        // Reset dirty flag
-        window.isAbsenceFormDirty = false;
-
-        // Refresh list with a tiny delay to ensure database consistency on read
-        setTimeout(async () => {
-            this.absencesCache = null;
-            await this.renderAbsencesListSettings();
-        }, 300);
     },
 
     resetAbsenceFormSettings() {
@@ -16294,6 +16518,11 @@ const App = {
         const reasonInput = document.getElementById('absenceReasonSettings');
         const saveBtn = document.getElementById('saveAbsenceBtnSettings');
         const cancelBtn = document.getElementById('cancelEditAbsenceBtnSettings');
+        const fullDayCheckbox = document.getElementById('absenceFullDaySettings');
+        const seriesTypeSelect = document.getElementById('absenceSeriesTypeSettings');
+        const customDaysDiv = document.getElementById('absenceCustomDaysSettings');
+        const customWeekdaysInput = document.getElementById('absenceCustomWeekdaysSettings');
+        const weekdayButtons = document.querySelectorAll('.absence-weekday-btn');
 
         if (editIdInput) editIdInput.value = '';
         if (editSeriesIdInput) editSeriesIdInput.value = '';
@@ -16304,10 +16533,12 @@ const App = {
             cancelBtn.onclick = null;
         }
 
-        const seriesWeekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
-        if (seriesWeekdayInput) {
-            delete seriesWeekdayInput.dataset.userSet;
-        }
+        // Reset new form elements
+        if (fullDayCheckbox) fullDayCheckbox.checked = false;
+        if (seriesTypeSelect) seriesTypeSelect.value = '';
+        if (customDaysDiv) customDaysDiv.hidden = true;
+        if (customWeekdaysInput) customWeekdaysInput.value = '';
+        weekdayButtons.forEach(btn => btn.classList.remove('is-active'));
 
         window.isAbsenceFormDirty = false;
 
@@ -16346,10 +16577,9 @@ const App = {
                 <div class="absence-info">
                     <div class="absence-card-header">
                         <div class="absence-card-title">${group.reason ? Bands.escapeHtml(group.reason) : Bands.escapeHtml(group.dateLabel)}</div>
-                        ${group.kind === 'series' ? '<span class="absence-series-pill">Serie</span>' : ''}
                     </div>
                     <div class="absence-date-row">
-                        <div class="absence-date-range">${Bands.escapeHtml(group.dateLabel)}</div>
+                        ${group.reason ? `<div class="absence-card-sub">${Bands.escapeHtml(group.dateLabel)}</div>` : ''}
                         ${group.timeLabel ? `<div class="absence-time-range">${Bands.escapeHtml(group.timeLabel)}</div>` : ''}
                     </div>
                     ${group.kind === 'series' ? `
@@ -16360,8 +16590,11 @@ const App = {
                     ` : ''}
                 </div>
                 <div class="absence-actions">
-                    <button class="btn btn-sm btn-icon edit-absence-settings"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`} title="Bearbeiten" aria-label="Abwesenheit bearbeiten">${this.getRundownInlineIcon('edit')}</button>
-                    <button class="btn btn-sm btn-icon delete-absence-settings"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`} title="Löschen" aria-label="Abwesenheit löschen">${this.getRundownInlineIcon('trash')}</button>
+                    ${group.kind === 'series' ? '<span class="absence-series-pill">Serie</span>' : ''}
+                    <div class="absence-actions-btns">
+                        <button class="btn btn-sm btn-icon edit-absence-settings"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`} title="Bearbeiten" aria-label="Abwesenheit bearbeiten">${this.getRundownInlineIcon('edit')}</button>
+                        <button class="btn btn-sm btn-icon delete-absence-settings"${group.kind === 'series' ? ` data-absence-series-id="${group.seriesId}"` : ` data-absence-id="${group.firstItem.id}"`} title="Löschen" aria-label="Abwesenheit löschen">${this.getRundownInlineIcon('trash')}</button>
+                    </div>
                 </div>
             </div>
     `).join('');
@@ -16401,12 +16634,32 @@ const App = {
         this.setAbsenceSettingsMode('single');
         this.setAbsenceSettingsModeLocked(true);
         this.setAbsenceSettingsQuickDuration(0);
+        
+        const modal = document.getElementById('absenceEditModal');
+        const titleEl = document.getElementById('absenceEditModalTitle');
+        if (titleEl) titleEl.textContent = 'Abwesenheit bearbeiten';
+        if (modal) modal.classList.add('active');
         document.getElementById('absenceStartSettings').value = this.extractAbsenceDateInputValue(absence.startDate || absence.start || '');
         document.getElementById('absenceEndSettings').value = this.extractAbsenceDateInputValue(absence.endDate || absence.end || '');
         const startTimeInput = document.getElementById('absenceStartTimeSettings');
         const endTimeInput = document.getElementById('absenceEndTimeSettings');
         if (startTimeInput) startTimeInput.value = this.extractAbsenceTimeInputValue(absence.startDate || '', absence, 'start');
         if (endTimeInput) endTimeInput.value = this.extractAbsenceTimeInputValue(absence.endDate || '', absence, 'end');
+
+        // Set full day checkbox if applicable
+        const fullDayCheckbox = document.getElementById('absenceFullDaySettings');
+        if (fullDayCheckbox) {
+            const startTime = startTimeInput?.value || '';
+            const endTime = endTimeInput?.value || '';
+            fullDayCheckbox.checked = (startTime === '00:00' && endTime === '23:59');
+        }
+
+        // Reset series elements
+        const seriesTypeSelect = document.getElementById('absenceSeriesTypeSettings');
+        const customDaysDiv = document.getElementById('absenceCustomDaysSettings');
+        if (seriesTypeSelect) seriesTypeSelect.value = '';
+        if (customDaysDiv) customDaysDiv.hidden = true;
+
         document.getElementById('absenceReasonSettings').value = Storage.getAbsenceDisplayReason(absence);
         document.getElementById('editAbsenceIdSettings').value = absenceId;
         const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
@@ -16433,26 +16686,60 @@ const App = {
         const firstEntry = seriesEntries[0];
         const lastEntry = seriesEntries[seriesEntries.length - 1];
         const meta = Storage.getAbsenceRecurrenceMeta(firstEntry) || {};
+        const frequency = meta.frequency || 'weekly';
 
         this.setAbsenceSettingsMode('series');
         this.setAbsenceSettingsModeLocked(true);
         this.setAbsenceSettingsQuickDuration(0);
 
-        document.getElementById('absenceSeriesStartSettings').value = this.extractAbsenceDateInputValue(firstEntry.startDate || '');
-        document.getElementById('absenceSeriesEndSettings').value = this.extractAbsenceDateInputValue(lastEntry.endDate || '');
-        const weekdayInput = document.getElementById('absenceSeriesWeekdaySettings');
-        if (weekdayInput) {
-            weekdayInput.value = String(Number.isFinite(Number(meta.weekday)) ? Number(meta.weekday) : new Date(firstEntry.startDate).getDay());
-            weekdayInput.dataset.userSet = 'true';
+        const modal = document.getElementById('absenceEditModal');
+        const titleEl = document.getElementById('absenceEditModalTitle');
+        if (titleEl) titleEl.textContent = 'Serie bearbeiten';
+        if (modal) modal.classList.add('active');
+
+        // Set dates
+        document.getElementById('absenceStartSettings').value = this.extractAbsenceDateInputValue(firstEntry.startDate || '');
+        document.getElementById('absenceEndSettings').value = this.extractAbsenceDateInputValue(lastEntry.endDate || '');
+
+        // Set times
+        const startTimeInput = document.getElementById('absenceStartTimeSettings');
+        const endTimeInput = document.getElementById('absenceEndTimeSettings');
+        if (startTimeInput) {
+            startTimeInput.value = meta.startTime || this.extractAbsenceTimeInputValue(firstEntry.startDate || '');
         }
-        const seriesStartTimeInput = document.getElementById('absenceSeriesStartTimeSettings');
-        const seriesEndTimeInput = document.getElementById('absenceSeriesEndTimeSettings');
-        if (seriesStartTimeInput) {
-            seriesStartTimeInput.value = meta.startTime || this.extractAbsenceTimeInputValue(firstEntry.startDate || '');
+        if (endTimeInput) {
+            endTimeInput.value = meta.endTime || this.extractAbsenceTimeInputValue(firstEntry.endDate || '');
         }
-        if (seriesEndTimeInput) {
-            seriesEndTimeInput.value = meta.endTime || this.extractAbsenceTimeInputValue(firstEntry.endDate || '');
+
+        // Set full day if applicable
+        const fullDayCheckbox = document.getElementById('absenceFullDaySettings');
+        if (fullDayCheckbox) {
+            const startTime = startTimeInput?.value || '';
+            const endTime = endTimeInput?.value || '';
+            fullDayCheckbox.checked = (startTime === '00:00' && endTime === '23:59');
         }
+
+        // Set series type
+        const seriesTypeSelect = document.getElementById('absenceSeriesTypeSettings');
+        if (seriesTypeSelect) {
+            seriesTypeSelect.value = frequency;
+        }
+
+        // Set custom weekdays if custom
+        if (frequency === 'custom' && meta.customWeekdays) {
+            const customDaysDiv = document.getElementById('absenceCustomDaysSettings');
+            const customWeekdaysInput = document.getElementById('absenceCustomWeekdaysSettings');
+            const weekdayButtons = document.querySelectorAll('.absence-weekday-btn');
+
+            if (customDaysDiv) customDaysDiv.hidden = false;
+            if (customWeekdaysInput) customWeekdaysInput.value = meta.customWeekdays.join(',');
+
+            weekdayButtons.forEach(btn => {
+                const day = Number(btn.dataset.weekday);
+                btn.classList.toggle('is-active', meta.customWeekdays.includes(day));
+            });
+        }
+
         document.getElementById('absenceReasonSettings').value = Storage.getAbsenceDisplayReason(firstEntry);
         document.getElementById('editAbsenceIdSettings').value = '';
         const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
@@ -18478,13 +18765,13 @@ const App = {
             const quickLinksDiv = document.getElementById('dashboardQuickLinks');
             if (quickLinksDiv) {
                 const quickLinks = [
-                    { key: 'kalender', label: 'Meine Termine', view: 'kalender', meta: 'Persönliche Termine und Abo', accent: '#38bdf8' },
-                    { key: 'news', label: 'Neuigkeiten', view: 'news', meta: 'Updates und Ankündigungen', accent: '#5b8cff' },
-                    { key: 'musikpool', label: 'Musikerpool', view: 'musikpool', meta: 'Kontakte und Musiker', accent: '#f59e0b' },
-                    { key: 'bands', label: 'Meine Bands', view: 'bands', meta: 'Bands, Rollen und Mitglieder', accent: '#8b5cf6' },
-                    { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals', meta: 'Abstimmungen und feste Proben', accent: '#14b8a6' },
-                    { key: 'events', label: 'Auftritte', view: 'events', meta: 'Anfragen und feste Gigs', accent: '#ec4899' },
-                    { key: 'statistics', label: 'Statistiken', view: 'statistics', meta: 'Auswertungen im Überblick', accent: '#22c55e' },
+                    { key: 'kalender', label: 'Meine Termine', view: 'kalender', icon: 'calendar', meta: 'Persönliche Termine und Abo', accent: '#38bdf8' },
+                    { key: 'news', label: 'Neuigkeiten', view: 'news', icon: 'bell', meta: 'Updates und Ankündigungen', accent: '#5b8cff' },
+                    { key: 'musikpool', label: 'Musikerpool', view: 'musikpool', icon: 'search', meta: 'Kontakte und Musiker', accent: '#f59e0b' },
+                    { key: 'bands', label: 'Meine Bands', view: 'bands', icon: 'users', meta: 'Bands, Rollen und Mitglieder', accent: '#8b5cf6' },
+                    { key: 'rehearsals', label: 'Probetermine', view: 'rehearsals', icon: 'calendar-days', meta: 'Abstimmungen und feste Proben', accent: '#14b8a6' },
+                    { key: 'events', label: 'Auftritte', view: 'events', icon: 'mic-2', meta: 'Anfragen und feste Gigs', accent: '#ec4899' },
+                    { key: 'statistics', label: 'Statistiken', view: 'statistics', icon: 'trending-up', meta: 'Auswertungen im Überblick', accent: '#22c55e' },
                 ];
                 let selected = [];
                 try {
@@ -18499,6 +18786,9 @@ const App = {
                 } else {
                     quickLinksDiv.innerHTML = linksToShow.map(l =>
                         `<button class="dashboard-shortcut" data-view="${l.view}" style="--dashboard-shortcut-accent: ${l.accent}">
+                            <span class="dashboard-shortcut-icon">
+                                <i data-lucide="${l.icon}"></i>
+                            </span>
                             <span class="dashboard-shortcut-copy">
                                 <span class="dashboard-shortcut-label">${l.label}</span>
                                 <span class="dashboard-shortcut-meta">${l.meta}</span>
@@ -18506,6 +18796,7 @@ const App = {
                             <span class="dashboard-shortcut-arrow" aria-hidden="true">↗</span>
                         </button>`
                     ).join('');
+                    if (window.lucide) lucide.createIcons();
                     quickLinksDiv.querySelectorAll('.dashboard-shortcut').forEach(btn => {
                         btn.onclick = (e) => {
                             e.preventDefault();
