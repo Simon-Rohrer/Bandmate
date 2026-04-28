@@ -36840,8 +36840,8 @@ body:not(.landing-active) #dashboardView .dashboard-view-shell {
 #dashboardView .upcoming-card-topline {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 0.7rem;
+    justify-content: flex-start;
+    gap: 0.75rem;
     flex-wrap: wrap;
 }
 
@@ -36878,9 +36878,22 @@ body:not(.landing-active) #dashboardView .dashboard-view-shell {
 
 #dashboardView .news-date,
 #dashboardView .upcoming-card-band {
-    color: var(--text-muted);
-    font-size: 0.8rem;
-    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+#dashboardView .upcoming-card-band::before {
+    content: "";
+    display: inline-block;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.4;
 }
 
 #dashboardView .dashboard-news-item {
