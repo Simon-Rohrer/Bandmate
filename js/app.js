@@ -7110,15 +7110,16 @@ const App = {
         if (!newsItems || newsItems.length === 0) {
             container.innerHTML = `
                 <div class="empty-state">
-                    <div class="empty-icon">📰</div>
+                    <i data-lucide="newspaper" style="width: 48px; height: 48px; opacity: 0.2; margin-bottom: 1rem;"></i>
                     <p>Noch keine News oder Updates vorhanden.</p>
-                    <p>Hier wirst du auf dem laufenden gehalten.</p>
+                    <p class="empty-state-note">Hier wirst du auf dem Laufenden gehalten.</p>
                 </div>
             `;
             if (overlay) {
                 overlay.style.opacity = '0';
                 setTimeout(() => overlay.style.display = 'none', 400);
             }
+            if (window.lucide) lucide.createIcons();
             return;
         }
 
@@ -7130,7 +7131,7 @@ const App = {
             });
             const deleteBtn = isAdmin ? `
                 <button class="btn-icon delete-news" data-id="${news.id}" title="News löschen">
-                    🗑️
+                    <i data-lucide="trash-2" style="width: 16px; height: 16px;"></i>
                 </button>
             ` : '';
 
@@ -7141,7 +7142,9 @@ const App = {
             }
 
             const editBtn = canEdit ? `
-                <button class="btn-icon edit-news" data-id="${news.id}" title="News bearbeiten">✏️</button>
+                <button class="btn-icon edit-news" data-id="${news.id}" title="News bearbeiten">
+                    <i data-lucide="edit-2" style="width: 16px; height: 16px;"></i>
+                </button>
             ` : '';
 
             // Render images with modern grid layout
@@ -7175,11 +7178,17 @@ const App = {
                             ${deleteBtn}
                         </div>
                     </div>
-                    <p class="news-card-date">📅 ${date}</p>
+                    <div class="news-card-date" style="display: flex; align-items: center; gap: 0.5rem;">
+                        <i data-lucide="calendar" style="width: 14px; height: 14px; opacity: 0.6;"></i>
+                        <span>${date}</span>
+                    </div>
                     ${imagesHtml}
                     <p class="news-card-content">${this.escapeHtml(truncatedContent)}</p>
                     <div class="news-card-footer">
-                        <span class="news-card-expand">Mehr anzeigen <span class="expand-icon">→</span></span>
+                        <span class="news-card-expand">
+                            Mehr anzeigen 
+                            <i data-lucide="arrow-right" style="width: 14px; height: 14px; margin-left: 4px;"></i>
+                        </span>
                     </div>
                 </div>
             `;
@@ -7209,11 +7218,14 @@ const App = {
                 await this.openNewsDetail(id);
             });
         });
+
         // Overlay ausblenden, wenn alles fertig
         if (overlay) {
             overlay.style.opacity = '0';
             setTimeout(() => overlay.style.display = 'none', 400);
         }
+
+        if (window.lucide) lucide.createIcons();
     },
 
     async canCurrentUserCreateNews(user = Auth.getCurrentUser()) {
@@ -13563,11 +13575,11 @@ const App = {
                     </div>
                     <div class="band-setlist-toolbar-actions">
                         <button class="btn btn-secondary btn-sm" id="bandSongsExportPDF" title="Gesamte Setliste als PDF">
-                            <img src="images/pdf-download.png" class="btn-icon-img" alt="PDF icon"><span class="btn-text-mobile-hide">Als PDF herunterladen</span>
+                            <i data-lucide="file-down" class="btn-icon-lucide"></i><span class="btn-text-mobile-hide">Als PDF herunterladen</span>
                         </button>
                         <input type="file" id="csvSongUpload" accept=".csv" style="display: none;">
                         <button class="btn btn-secondary btn-sm" onclick="UI.openModal('importSongsModal')" title="Import-Anleitung anzeigen">
-                            <img src="images/csv-import.png" class="btn-icon-img" alt="CSV icon"><span class="btn-text-mobile-hide">CSV Import</span>
+                            <i data-lucide="file-up" class="btn-icon-lucide"></i><span class="btn-text-mobile-hide">CSV Import</span>
                         </button>
                         <button id="addBandSongBtn" class="btn btn-primary btn-sm">+ Song hinzufügen</button>
                     </div>
@@ -13783,6 +13795,7 @@ const App = {
         };
 
         attachSongListeners();
+        if (window.lucide) lucide.createIcons();
     },
 
     async renderSongpoolView() {
@@ -13985,7 +13998,7 @@ const App = {
                     <div class="band-setlist-toolbar-actions">
                         <input type="file" id="songpoolFileUpload" accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf" multiple style="display: none;">
                         <button id="songpoolImportBtn" class="btn btn-secondary btn-sm" title="PDFs oder ChordPro-Dateien importieren">
-                            <img src="images/pdf-download.png" class="btn-icon-img" alt="Import icon"><span class="btn-text-mobile-hide">PDF / ChordPro import</span>
+                            <i data-lucide="file-up" class="btn-icon-lucide"></i><span class="btn-text-mobile-hide">PDF / ChordPro import</span>
                         </button>
                         <button id="addSongpoolSongBtn" class="btn btn-primary btn-sm">+ Song hinzufügen</button>
                     </div>
@@ -14260,6 +14273,8 @@ const App = {
                 }
             });
         });
+
+        if (window.lucide) lucide.createIcons();
     },
 
     setupSongpoolHorizontalScroll(container) {
@@ -15494,7 +15509,7 @@ const App = {
         this.renderProfileImageSettings(user);
 
         // Setup absences form in settings
-        const absenceFormSettings = effectiveRoot.querySelector('#createAbsenceFormSettings');
+        const absenceFormSettings = document.getElementById('createAbsenceFormSettings');
         if (absenceFormSettings && !absenceFormSettings._bound) {
             absenceFormSettings.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -15522,6 +15537,7 @@ const App = {
         [closeModalBtn, cancelModalBtn].forEach(btn => {
             if (btn && absenceModal) {
                 btn.onclick = () => {
+                    this.resetAbsenceFormSettings();
                     absenceModal.classList.remove('active');
                 };
             }
@@ -16517,7 +16533,6 @@ const App = {
         const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
         const reasonInput = document.getElementById('absenceReasonSettings');
         const saveBtn = document.getElementById('saveAbsenceBtnSettings');
-        const cancelBtn = document.getElementById('cancelEditAbsenceBtnSettings');
         const fullDayCheckbox = document.getElementById('absenceFullDaySettings');
         const seriesTypeSelect = document.getElementById('absenceSeriesTypeSettings');
         const customDaysDiv = document.getElementById('absenceCustomDaysSettings');
@@ -16528,10 +16543,6 @@ const App = {
         if (editSeriesIdInput) editSeriesIdInput.value = '';
         if (reasonInput) reasonInput.value = '';
         if (saveBtn) saveBtn.textContent = 'Abwesenheit hinzufügen';
-        if (cancelBtn) {
-            cancelBtn.style.display = 'none';
-            cancelBtn.onclick = null;
-        }
 
         // Reset new form elements
         if (fullDayCheckbox) fullDayCheckbox.checked = false;
@@ -16665,12 +16676,6 @@ const App = {
         const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
         if (editSeriesIdInput) editSeriesIdInput.value = '';
         document.getElementById('saveAbsenceBtnSettings').textContent = 'Änderungen speichern';
-        document.getElementById('cancelEditAbsenceBtnSettings').style.display = 'inline-block';
-
-        const cancelBtn = document.getElementById('cancelEditAbsenceBtnSettings');
-        cancelBtn.onclick = () => {
-            this.resetAbsenceFormSettings();
-        };
 
         window.isAbsenceFormDirty = false;
     },
@@ -16745,12 +16750,6 @@ const App = {
         const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
         if (editSeriesIdInput) editSeriesIdInput.value = seriesId;
         document.getElementById('saveAbsenceBtnSettings').textContent = 'Serie speichern';
-        document.getElementById('cancelEditAbsenceBtnSettings').style.display = 'inline-block';
-
-        const cancelBtn = document.getElementById('cancelEditAbsenceBtnSettings');
-        cancelBtn.onclick = () => {
-            this.resetAbsenceFormSettings();
-        };
 
         window.isAbsenceFormDirty = false;
     },

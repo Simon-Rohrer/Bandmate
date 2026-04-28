@@ -1282,19 +1282,36 @@
 
                     <!-- News & Updates View -->
                     <div id="newsView" class="view">
-                        <div class="view-actions-bar">
-                            <a href="#" id="donateBtn" class="btn btn-secondary"
-                                style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;">
-                                💖 Spenden
-                            </a>
-                            <button id="createNewsBtn" class="btn btn-primary" style="display: none;">+ News
-                                erstellen</button>
-                        </div>
-                        <div id="newsContainer" class="news-content">
-                            <div class="empty-state">
-                                <div class="empty-icon">📰</div>
-                                <p>Noch keine News oder Updates vorhanden.</p>
-                                <p>Hier wirst du auf dem laufenden gehalten.</p>
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Updates</span>
+                                    <h2>Neuigkeiten</h2>
+                                    <p>Bleibe auf dem Laufenden über neue Funktionen, Updates und wichtige Ankündigungen rund um Bandmate.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Aktuelle News und hilfreiche Tipps in einer Übersicht</span>
+                                </div>
+                            </section>
+
+                            <div class="view-actions-bar">
+                                <a href="https://www.paypal.com/paypalme/simonrohrer" target="_blank" id="donateBtn" class="btn btn-secondary"
+                                    style="display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;">
+                                    <i data-lucide="heart" style="width: 16px; height: 16px; color: #ef4444;"></i>
+                                    Spenden
+                                </a>
+                                <button id="createNewsBtn" class="btn btn-primary" style="display: none; align-items: center; gap: 0.5rem;">
+                                    <i data-lucide="plus" style="width: 18px; height: 18px;"></i>
+                                    News erstellen
+                                </button>
+                            </div>
+
+                            <div id="newsContainer" class="news-content">
+                                <div class="empty-state">
+                                    <i data-lucide="newspaper" style="width: 48px; height: 48px; opacity: 0.2; margin-bottom: 1rem;"></i>
+                                    <p>Noch keine News oder Updates vorhanden.</p>
+                                    <p class="empty-state-note">Hier wirst du auf dem Laufenden gehalten.</p>
+                                </div>
                             </div>
                         </div>
                     </div>

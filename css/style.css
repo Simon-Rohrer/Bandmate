@@ -2299,11 +2299,17 @@
 }
 
 /* Button Icons and Sizing */
-.btn-icon-img {
+.btn-icon-img,
+.btn-icon-lucide {
     height: 18px;
     width: auto;
     vertical-align: middle;
     object-fit: contain;
+}
+
+.btn-icon-lucide {
+    margin-right: 0.5rem;
+    display: inline-block;
 }
 
 .download-setlist-pdf,

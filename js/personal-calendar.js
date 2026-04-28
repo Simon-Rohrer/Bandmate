@@ -1701,39 +1701,64 @@ const PersonalCalendar = {
     },
 
     showSubscriptionModal(webcalUrl) {
+        // Remove existing modal if any
+        const existing = document.getElementById('calendarSubModal');
+        if (existing) existing.remove();
+
         const modalHTML = `
             <div id="calendarSubModal" class="modal active" style="z-index: 2000;">
-                <div class="modal-content">
+                <div class="modal-content" style="max-width: 480px;">
                     <div class="modal-header">
-                        <h2>📅 Kalender abonnieren</h2>
-                        <button class="modal-close" onclick="document.getElementById('calendarSubModal').remove()">×</button>
+                        <div class="modal-title-copy">
+                            <span class="modal-kicker">Kalender-Abo</span>
+                            <h2 style="font-size: 1.4rem;">Bandmate Sync</h2>
+                        </div>
+                        <button class="modal-close" onclick="document.getElementById('calendarSubModal').remove()">&times;</button>
                     </div>
-                    <div class="modal-body" style="text-align: center;">
-                        <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary);">
-                            Klicke unten, um den Kalender direkt zu abonnieren. 
-                            Dein Handy wird sich automatisch öffenen.
+                    <div class="modal-body">
+                        <p style="margin-bottom: 1.5rem; color: var(--color-text-secondary); font-size: 0.92rem; line-height: 1.5;">
+                            Abonniere deinen persönlichen Bandmate-Feed, um alle <strong>Auftritte</strong>, <strong>Probetermine</strong> und <strong>Abwesenheiten</strong> direkt in deinem privaten Kalender zu sehen.
                         </p>
                         
-                        <a href="${webcalUrl}" class="btn btn-primary" style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; margin-bottom: 1.5rem; width: 100%;">
-                            🔗 Jetzt abonnieren
-                        </a>
+                        <div style="display: flex; justify-content: center; margin-bottom: 2rem;">
+                            <a href="${webcalUrl}" class="btn btn-primary" style="display: inline-flex; align-items: center; gap: 0.6rem; padding: 0.6rem 1.2rem; font-size: 0.88rem; width: auto;">
+                                <i data-lucide="external-link" style="width: 16px; height: 16px;"></i>
+                                Jetzt abonnieren
+                            </a>
+                        </div>
 
-                        <div style="background: var(--color-bg); padding: 1rem; border-radius: var(--radius-md); text-align: left;">
-                            <p style="font-size: 0.8rem; font-weight: 600; margin-bottom: 0.5rem;">Manueller Link:</p>
-                            <code style="display: block; word-break: break-all; font-size: 0.8rem; padding: 0.5rem; background: rgba(0,0,0,0.1); border-radius: 4px;">${webcalUrl}</code>
-                            <button onclick="navigator.clipboard.writeText('${webcalUrl}'); UI.showToast('Kopiert!', 'success')" class="btn btn-sm btn-secondary" style="margin-top: 0.5rem; width: 100%;">
-                                📋 Link kopieren
+                        <div style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); padding: 1rem; border-radius: 12px;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.75rem; color: var(--color-text-secondary);">
+                                <i data-lucide="link-2" style="width: 14px; height: 14px;"></i>
+                                <span style="font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Manueller Link</span>
+                            </div>
+                            <code style="display: block; word-break: break-all; font-size: 0.75rem; padding: 0.75rem; background: rgba(0,0,0,0.2); border-radius: 8px; color: var(--color-primary); margin-bottom: 1rem; border: 1px solid rgba(255,255,255,0.05);">${webcalUrl}</code>
+                            <button onclick="navigator.clipboard.writeText('${webcalUrl}'); UI.showToast('Link kopiert!', 'success')" class="btn btn-secondary btn-sm" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.8rem;">
+                                <i data-lucide="copy" style="width: 14px; height: 14px;"></i>
+                                Link kopieren
                             </button>
                         </div>
 
-                        <p style="margin-top: 1.5rem; font-size: 0.8rem; color: var(--color-text-secondary);">
-                            ℹ️ Der Kalender aktualisiert sich automatisch, wenn du die App öffnest oder Änderungen vornimmst.
-                        </p>
+                        <div style="margin-top: 1.5rem; display: flex; gap: 0.75rem; align-items: flex-start; padding: 0.75rem; background: rgba(59, 130, 246, 0.05); border-radius: 8px; border-left: 3px solid var(--color-primary);">
+                            <i data-lucide="info" style="width: 16px; height: 16px; color: var(--color-primary); margin-top: 2px; flex-shrink: 0;"></i>
+                            <p style="font-size: 0.8rem; color: var(--color-text-secondary); line-height: 1.4; margin: 0;">
+                                Der Kalender aktualisiert sich automatisch, sobald Termine in Bandmate geändert werden.
+                            </p>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
+        
+        const modal = document.getElementById('calendarSubModal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.remove();
+            });
+        }
+
+        if (window.lucide) lucide.createIcons();
     },
 
     /**
