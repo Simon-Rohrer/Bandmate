@@ -202,7 +202,7 @@
                                 <i data-lucide="bell" class="w-6 h-6 text-accent-secondary"></i>
                             </div>
                             <div class="absolute animate-orbit flex items-center justify-center p-4 rounded-2xl bg-[#0D1527] border border-white/10" style="--duration: 25s; --radius: 225px; animation-delay: -21.42s;">
-                                <i data-lucide="settings" class="w-6 h-6 text-accent-secondary"></i>
+                                <i data-lucide="euro" class="w-6 h-6 text-accent-secondary"></i>
                             </div>
                         </div>
 
@@ -275,6 +275,28 @@
                             </details>
 
                             <!-- Item 4 -->
+                            <details name="features" class="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 open:bg-white/[0.08] open:scale-[1.02] transition-all cursor-pointer">
+                                <summary class="flex items-center justify-between list-none">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 rounded-xl bg-accent-secondary/10 flex items-center justify-center">
+                                            <i data-lucide="euro" class="w-6 h-6 text-accent-secondary"></i>
+                                        </div>
+                                        <h3 class="text-xl font-bold tracking-tight">Finanzverwaltung</h3>
+                                    </div>
+                                    <span class="transition-transform group-open:rotate-180">
+                                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-500"></i>
+                                    </span>
+                                </summary>
+                                <div class="grid grid-rows-[0fr] group-open:grid-rows-[1fr] transition-all duration-500 ease-in-out overflow-hidden">
+                                    <div class="min-h-0">
+                                        <div class="pt-6 text-slate-400 text-base leading-relaxed">
+                                            Behalte eure Band-Kasse und privaten Ausgaben im Griff. Plane Einnahmen und Ausgaben, teile Beträge unter den Mitgliedern auf und behalte immer den Überblick, wer wem was schuldet.
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+
+                            <!-- Item 5 -->
                             <details name="features" class="group p-6 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 open:bg-white/[0.08] open:scale-[1.02] transition-all cursor-pointer">
                                 <summary class="flex items-center justify-between list-none">
                                     <div class="flex items-center gap-4">
@@ -368,7 +390,7 @@
         <div id="authOverlay" class="fixed inset-0 z-[100] hidden items-center justify-center p-4 bg-black/60 backdrop-blur-xl transition-all" aria-hidden="true" hidden>
             <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-[1000] px-6 py-3 rounded-2xl bg-accent-secondary text-white font-bold shadow-2xl opacity-0 pointer-events-none transition-all"></div>
             
-            <div class="auth-white-card relative w-full max-w-2xl bg-[#0D1527] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col auth-mode-login">
+            <div class="auth-white-card relative w-full max-w-lg bg-[#0D1527] border border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col auth-mode-login">
                 <div class="p-8 border-b border-white/5 flex items-start justify-between">
                     <div>
                         <span class="text-[10px] font-black uppercase tracking-[0.3em] text-accent-secondary mb-1 block">Bandmate</span>

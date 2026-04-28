@@ -60,6 +60,7 @@
     <link rel="stylesheet" href="../css/calendar.css?v=20260408-4">
     <link rel="stylesheet" href="../css/settings_modal.css?v=20260408-1">
     <link rel="stylesheet" href="../css/statistics.css">
+    <link rel="stylesheet" href="../css/finances.css">
 
     <!-- Quill Rich Text Editor -->
     <link href="https://cdn.jsdelivr.net/npm/quill@1.3.7/dist/quill.snow.css" rel="stylesheet">
@@ -482,6 +483,16 @@
                                 </span>
                                 <span class="sidebar-label">Neuigkeiten</span>
                             </button>
+                            <button class="sidebar-subitem" data-view="private-finanzen">
+                                <span class="sidebar-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M4 10h12"></path>
+                                        <path d="M4 14h9"></path>
+                                        <path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"></path>
+                                    </svg>
+                                </span>
+                                <span class="sidebar-label">Private Finanzen</span>
+                            </button>
                             <button class="sidebar-subitem" data-view="pdftochordpro">
                                 <span class="sidebar-icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -831,6 +842,16 @@
                                         </svg>
                                     </span>
                                     <span class="nav-label">Neuigkeiten</span>
+                                </button>
+                                <button class="nav-subitem" data-view="private-finanzen">
+                                    <span class="nav-icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M4 10h12"></path>
+                                            <path d="M4 14h9"></path>
+                                            <path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"></path>
+                                        </svg>
+                                    </span>
+                                    <span class="nav-label">Private Finanzen</span>
                                 </button>
                                 <button class="nav-subitem" data-view="pdftochordpro">
                                     <span class="nav-icon" aria-hidden="true">
@@ -1312,6 +1333,26 @@
                                     <p>Noch keine News oder Updates vorhanden.</p>
                                     <p class="empty-state-note">Hier wirst du auf dem Laufenden gehalten.</p>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+ 
+                    <!-- Private Finanzen View -->
+                    <div id="private-finanzenView" class="view">
+                        <div class="view-page-shell">
+                            <section class="page-overview-card">
+                                <div class="page-overview-copy">
+                                    <span class="page-overview-kicker">Finanzen</span>
+                                    <h2>Private Finanzen</h2>
+                                    <p>Verwalte deine persönlichen Einnahmen, Ausgaben und Belege in deiner privaten Übersicht.</p>
+                                </div>
+                                <div class="page-overview-meta">
+                                    <span class="page-overview-caption">Nur für dich sichtbar – keine Vermischung mit Banddaten</span>
+                                </div>
+                            </section>
+
+                            <div id="privateFinanzenContainer" class="finance-workspace">
+                                <!-- Finance Module will be rendered here -->
                             </div>
                         </div>
                     </div>
@@ -2525,6 +2566,16 @@
                         </span>
                         <span>Setlist</span>
                     </button>
+                    <button class="tab-btn" data-tab="finanzen" id="bandFinanzenTabBtn">
+                        <span class="band-details-tab-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M4 10h12"></path>
+                                <path d="M4 14h9"></path>
+                                <path d="M19 6a7.7 7.7 0 0 0-5.2-2A7.9 7.9 0 0 0 6 12c0 4.4 3.5 8 7.8 8 2 0 3.8-.8 5.2-2"></path>
+                            </svg>
+                        </span>
+                        <span>Finanzen</span>
+                    </button>
                     <button class="tab-btn" data-tab="settings">
                         <span class="band-details-tab-icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -2534,6 +2585,13 @@
                         </span>
                         <span>Einstellungen</span>
                     </button>
+                </div>
+
+                <!-- Finance Tab -->
+                <div id="finanzenTab" class="tab-content">
+                    <div id="bandFinanzenContainer" class="finance-workspace">
+                        <!-- Finance Module will be rendered here -->
+                    </div>
                 </div>
 
                 <!-- Members Tab -->
@@ -3189,7 +3247,212 @@
         </div>
     </div>
 
-    <!-- Create Event Modal -->
+    <!-- Finance Entry Modal -->
+    <div id="financeEntryModal" class="modal">
+        <div class="modal-content modal-large scheduler-modal">
+            <div class="modal-header scheduler-modal-header">
+                <div class="scheduler-modal-title-group">
+                    <span class="scheduler-modal-kicker">Transaktion</span>
+                    <h2 id="financeModalTitle">Eintrag hinzufügen</h2>
+                </div>
+                <button class="modal-close" onclick="UI.closeModal('financeEntryModal')" title="Schließen">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="financeEntryForm" class="finance-form scheduler-form">
+                    <input type="hidden" id="financeEntryId">
+                    
+                    <div class="scheduler-form-scroll">
+                        <!-- Basis Informationen -->
+                        <section class="scheduler-panel">
+                            <div class="section-title-sm">Basis-Informationen</div>
+                            <div class="form-row-grid">
+                                <div class="form-group">
+                                    <label for="financeType">Transaktionstyp</label>
+                                    <select id="financeType" required onchange="Finances.handleTypeChange()">
+                                        <option value="income">Einnahme</option>
+                                        <option value="expense">Ausgabe</option>
+                                        <option value="transfer">Transfer</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="financeAmount">Betrag (EUR)</label>
+                                    <input type="number" id="financeAmount" step="0.01" min="0.01" required placeholder="0,00" style="font-size: 1.25rem; font-weight: 700; color: var(--color-primary);">
+                                </div>
+                                <div class="form-group">
+                                    <label for="financeDate">Datum</label>
+                                    <input type="date" id="financeDate" required>
+                                </div>
+                            </div>
+                        </section>
+
+                        <!-- Details -->
+                        <section class="scheduler-panel">
+                            <div class="section-title-sm">Klassifizierung & Notizen</div>
+                            <div class="form-group">
+                                <label for="financeCategory">Kategorie</label>
+                                <select id="financeCategory" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="financeDescription">Beschreibung / Zweck</label>
+                                <textarea id="financeDescription" rows="3" placeholder="Wofür war diese Transaktion? (z.B. Gagenzahlung, Tankbeleg, etc.)"></textarea>
+                            </div>
+                        </section>
+
+                        <!-- Zahlung & Status -->
+                        <section class="scheduler-panel">
+                            <div class="section-title-sm">Zahlung & Status</div>
+                            <div class="form-row-grid">
+                                <div class="form-group">
+                                    <label for="financePaymentMethod">Zahlungsmethode</label>
+                                    <select id="financePaymentMethod"></select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="financeStatus">Status</label>
+                                    <select id="financeStatus">
+                                        <option value="paid">Bezahlt / Erledigt</option>
+                                        <option value="open">Offen / Ausstehend</option>
+                                        <option value="partially_paid">Teilweise bezahlt</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group checkbox-group" style="margin-top: 10px;">
+                                <label class="checkbox-container">
+                                    <input type="checkbox" id="financeTaxRelevant">
+                                    <span class="checkmark"></span>
+                                    Diese Transaktion ist steuerrelevant
+                                </label>
+                            </div>
+                        </section>
+
+                        <!-- Beleg -->
+                        <section class="scheduler-panel">
+                            <div class="section-title-sm">Anhang / Beleg</div>
+                            <div class="file-upload-wrapper">
+                                <input type="file" id="financeReceipt" accept="image/*,application/pdf" onchange="Finances.handleReceiptSelect(this)">
+                                <div id="receiptPreview" class="receipt-preview" style="display:none;"></div>
+                                <p class="file-upload-hint">Bild oder PDF hochladen (max. 5MB)</p>
+                            </div>
+                        </section>
+
+                        <!-- Split / Reimbursement Section (only for Band) -->
+                        <div id="financeSplitSection" style="display:none;">
+                            <section class="scheduler-panel scheduler-panel-highlight">
+                                <div class="section-header">
+                                    <div class="section-title-sm">Aufteilung & Erstattung</div>
+                                    <button type="button" class="btn btn-sm btn-secondary" onclick="Finances.addSplitItem()">Mitglied hinzufügen</button>
+                                </div>
+                                <div id="splitItemsContainer" class="split-items-list"></div>
+                                <div id="splitSummary" class="split-summary"></div>
+                            </section>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions rundown-pdf-modal-actions">
+                        <button type="button" class="btn cancel" onclick="UI.closeModal('financeEntryModal')">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Transaktion speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <!-- Finance Export Preview Modal -->
+    <div id="financeExportPreviewModal" class="modal">
+        <div class="modal-content modal-xl rundown-pdf-modal-content">
+            <div class="modal-header rundown-pdf-modal-header">
+                <div class="rundown-pdf-modal-copy">
+                    <span class="rundown-pdf-modal-kicker" id="financeExportKicker">Finanzexport</span>
+                    <h2 id="financeExportTitle">Vorschau</h2>
+                    <p>Prüfe hier die Daten bevor du den Export startest. Das Design entspricht dem finalen Bericht.</p>
+                </div>
+                <button class="modal-close" onclick="UI.closeModal('financeExportPreviewModal')">&times;</button>
+            </div>
+            <div class="modal-body rundown-pdf-modal-body" style="grid-template-columns: 1fr; padding: 0;">
+                <div class="rundown-pdf-preview-panel" style="border-left: none;">
+                    <div class="rundown-pdf-preview-stage" style="padding: 2rem 0;">
+                        <div class="export-preview-paper" id="financeExportPreviewPaper">
+                            <div id="financeExportPreviewContainer" class="export-preview-container">
+                                <!-- Preview content will be injected here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions rundown-pdf-modal-actions">
+                <button type="button" class="btn cancel" onclick="UI.closeModal('financeExportPreviewModal')">Abbrechen</button>
+                <div class="modal-actions-right">
+                    <button id="financeConfirmExportBtn" class="btn btn-primary">
+                        <span class="btn-inline-icon">
+                            <svg viewBox="0 0 20 20" fill="none" style="width: 18px; height: 18px;">
+                                <path d="M10 3.75v7.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                <path d="m6.9 8.8 3.1 3.35 3.1-3.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M4.75 13.75v1.1c0 .62.5 1.15 1.15 1.15h8.2c.64 0 1.15-.53 1.15-1.15v-1.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </span>
+                        <span>Jetzt herunterladen</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Finance Receipt Preview Modal -->
+    <div id="financeReceiptPreviewModal" class="modal">
+        <div class="modal-content modal-xl rundown-pdf-modal-content">
+            <div class="modal-header rundown-pdf-modal-header">
+                <div class="rundown-pdf-modal-copy">
+                    <span class="rundown-pdf-modal-kicker">Beleg-Vorschau</span>
+                    <h2 id="receiptPreviewTitle">Beleg ansehen</h2>
+                    <p>Hier kannst du den hochgeladenen Beleg überprüfen.</p>
+                </div>
+                <button class="modal-close" onclick="UI.closeModal('financeReceiptPreviewModal')">&times;</button>
+            </div>
+            <div class="modal-body rundown-pdf-modal-body" style="padding: 0;">
+                <div class="rundown-pdf-preview-panel" style="background: #111; overflow: hidden; border-radius: 0;">
+                    <div id="receiptPreviewFrameContainer" style="width: 100%; height: 75vh; display: flex; justify-content: center; align-items: center; overflow: auto; padding: 2rem;">
+                        <!-- Content will be injected here -->
+                    </div>
+                </div>
+            </div>
+            <div class="modal-actions rundown-pdf-modal-actions">
+                <button type="button" class="btn cancel" onclick="UI.closeModal('financeReceiptPreviewModal')">Schließen</button>
+                <div class="modal-actions-right">
+                    <button id="downloadReceiptBtn" class="btn btn-primary">
+                        <span class="btn-inline-icon">
+                            <svg viewBox="0 0 20 20" fill="none" style="width: 18px; height: 18px;">
+                                <path d="M10 3.75v7.9" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path>
+                                <path d="m6.9 8.8 3.1 3.35 3.1-3.35" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                                <path d="M4.75 13.75v1.1c0 .62.5 1.15 1.15 1.15h8.2c.64 0 1.15-.53 1.15-1.15v-1.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path>
+                            </svg>
+                        </span>
+                        <span>Datei herunterladen</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Finance Delete Confirmation Modal -->
+    <div id="financeDeleteModal" class="modal confirm-action-modal">
+        <div class="modal-content confirm-action-modal-content">
+            <div class="modal-header confirm-action-modal-header">
+                <div class="confirm-action-modal-copy">
+                    <span class="confirm-action-modal-kicker">Finanzwesen</span>
+                    <h2>Eintrag löschen</h2>
+                </div>
+                <button class="modal-close" onclick="UI.closeModal('financeDeleteModal')">&times;</button>
+            </div>
+            <div class="modal-body confirm-action-modal-body">
+                <div class="confirm-action-modal-message">
+                    Möchtest du diesen Finanz-Eintrag wirklich unwiderruflich löschen?<br>Dieser Vorgang kann nicht rückgängig gemacht werden.
+                </div>
+            </div>
+            <div class="modal-actions confirm-action-modal-actions">
+                <button type="button" class="btn cancel" onclick="UI.closeModal('financeDeleteModal')">Abbrechen</button>
+                <button id="financeConfirmDeleteBtn" class="btn btn-danger">Unwiderruflich löschen</button>
+            </div>
+        </div>
+    </div>
+
     <div id="createEventModal" class="modal">
         <div class="modal-content modal-large scheduler-modal scheduler-modal-event">
             <div class="modal-header scheduler-modal-header">
@@ -4617,6 +4880,7 @@
     <script src="../js/statistics.js?v=20260407-1"></script>
     <script src="../js/calendar.js?v=20260408-2"></script>
     <script src="../js/personal-calendar.js?v=20260407-4"></script>
+    <script src="../js/finances.js?v=20260428-1"></script>
     <script src="../js/churchtools-api.js?v=20260311"></script>
     <script src="../js/musikpool.js?v=20260311"></script>
     <script src="../js/ui.js?v=20260408-1"></script>

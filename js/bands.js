@@ -415,6 +415,11 @@ const Bands = {
 
         // Show modal
         UI.openModal('bandDetailsModal');
+        
+        // Always reset to members tab when opening
+        if (typeof App !== 'undefined' && typeof App.switchTab === 'function') {
+            App.switchTab('members');
+        }
 
         // Render members
         await this.renderBandMembers(bandId, members);

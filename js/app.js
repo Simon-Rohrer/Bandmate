@@ -4569,6 +4569,26 @@ const App = {
         if (typeof UI !== 'undefined' && !UI._originalCloseModal) {
             UI._originalCloseModal = UI.closeModal;
             UI.closeModal = (modalId) => {
+                // Finance guard
+                if (modalId === 'financeEntryModal' && window.isFinanceDirty) {
+                    UI.showConfirm(
+                        'Deine Eingaben wurden noch nicht gespeichert. Möchtest du das Fenster wirklich schließen?',
+                        () => {
+                            window.isFinanceDirty = false;
+                            UI._originalCloseModal.call(UI, modalId);
+                        },
+                        null,
+                        {
+                            kicker: 'Finanzen',
+                            title: 'Ungespeicherte Änderungen',
+                            confirmText: 'Trotzdem schließen',
+                            confirmClass: 'btn-danger',
+                            cancelText: 'Weiter bearbeiten'
+                        }
+                    );
+                    return;
+                }
+
                 // Profiles and Absences guards
                 if (modalId === 'settingsModal' && (window.isProfileDirty || window.isAbsenceFormDirty)) {
                     const dirtyType = window.isAbsenceFormDirty ? 'Abwesenheit' : 'Profil';
@@ -6408,6 +6428,7 @@ const App = {
                 'pdftochordpro': 'pdftochordproView',
                 'kalender': 'kalenderView',
                 'musikpool': 'musikpoolView',
+                'private-finanzen': 'private-finanzenView',
                 'settings': 'settingsView'
             };
 
@@ -6442,7 +6463,8 @@ const App = {
                     probeorte: '#9333ea', // purple
                     pdftochordpro: '#4f46e5', // indigo
                     kalender: '#f43f5e', // rose
-                    musikpool: '#0ea5e9' // cyan
+                    musikpool: '#0ea5e9', // cyan
+                    'private-finanzen': '#10b981' // emerald/green
                 };
                 const navColor = navActiveColorMap[view] || getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
                 document.documentElement.style.setProperty('--nav-active-color', navColor);
@@ -6546,6 +6568,10 @@ const App = {
                 } else if (view === 'statistics') {
                     await Statistics.initStatisticsFilters();
                     await Statistics.renderGeneralStatistics();
+                } else if (view === 'private-finanzen') {
+                    if (typeof Finances !== 'undefined') {
+                        await Finances.render('private', Auth.getCurrentUser().id);
+                    }
                 } else if (view === 'pdftochordpro') {
                     if (typeof ChordProConverter !== 'undefined' && typeof ChordProConverter.loadBands === 'function') {
                         await ChordProConverter.loadBands();
@@ -6745,6 +6771,10 @@ const App = {
         if (tabName === 'setlist' && typeof this.syncBandSetlistScrollbarMetrics === 'function') {
             requestAnimationFrame(() => this.syncBandSetlistScrollbarMetrics());
             setTimeout(() => this.syncBandSetlistScrollbarMetrics(), 60);
+        }
+
+        if (tabName === 'finanzen' && typeof Finances !== 'undefined' && typeof Bands !== 'undefined' && Bands.currentBandId) {
+            Finances.render('band', Bands.currentBandId);
         }
     },
 
