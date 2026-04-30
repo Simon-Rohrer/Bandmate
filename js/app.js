@@ -16180,7 +16180,11 @@ const App = {
             button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
         });
 
-        if (normalizedDays > 0 && startInput?.value && endInput) {
+        if (normalizedDays > 0 && startInput && endInput) {
+            if (!startInput.value) {
+                const today = new Date();
+                startInput.value = today.toISOString().split('T')[0];
+            }
             endInput.value = this.shiftAbsenceDateInputValue(startInput.value, normalizedDays - 1);
         }
     },

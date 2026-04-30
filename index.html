@@ -11,6 +11,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" id="appleStatusBarMeta">
     <meta name="apple-mobile-web-app-title" content="Bandmate">
     
+    <!-- SEO: Canonical Link (Teilt Google mit, was die Haupt-URL ist) -->
+    <link rel="canonical" href="https://bandmate.studio/">
+    
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="images/branding/bandmate-logo-only.svg" id="faviconSvg">
     <link rel="apple-touch-icon" href="images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
@@ -427,7 +430,7 @@
                             </label>
                             <button type="button" onclick="UI.showForgotPassword(); return false;" class="text-sm font-bold text-accent-secondary hover:underline">Passwort vergessen?</button>
                         </div>
-                        <button type="submit" class="w-full py-2.5 rounded-xl bg-accent-secondary text-white font-bold text-sm shadow-lg shadow-accent-secondary/20 hover:translate-y-[-1px] transition-all">Anmelden</button>
+                        <button type="submit" class="btn btn-primary w-full">Anmelden</button>
                         <p class="text-center text-sm text-slate-500 pt-4 font-medium">Noch kein Konto? <button type="button" onclick="UI.switchAuthTab('register'); return false;" class="text-accent-secondary font-bold hover:underline">Jetzt registrieren</button></p>
                     </form>
 
@@ -437,7 +440,7 @@
                             <label for="forgotPasswordEmail" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">E-Mail Adresse</label>
                             <input type="email" id="forgotPasswordEmail" placeholder="dein@name.de" required class="w-full px-6 py-4 rounded-2xl bg-black/20 border border-white/5 focus:outline-none focus:border-accent-secondary/50 font-medium">
                         </div>
-                        <button type="submit" class="w-full py-2.5 rounded-xl bg-accent-secondary text-white font-bold text-sm shadow-lg shadow-accent-secondary/20 transition-all">Link anfordern</button>
+                        <button type="submit" class="btn btn-primary w-full">Link anfordern</button>
                         <button type="button" onclick="UI.switchAuthTab('login'); return false;" class="w-full text-sm font-bold text-slate-400 hover:text-white transition-colors">Zurück zum Login</button>
                     </form>
 
@@ -484,7 +487,7 @@
                             <label for="registerProfileImage" class="text-xs font-bold uppercase tracking-widest text-slate-500 ml-1">Profilbild (optional)</label>
                             <input type="file" id="registerProfileImage" accept="image/*" class="w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-white/5 file:text-white hover:file:bg-white/10 cursor-pointer">
                         </div>
-                        <button type="submit" class="w-full py-2.5 rounded-xl bg-accent-secondary text-white font-bold text-sm shadow-lg shadow-accent-secondary/20 hover:translate-y-[-1px] transition-all">Kostenlos registrieren</button>
+                        <button type="submit" class="btn btn-primary w-full">Kostenlos registrieren</button>
                     </form>
                 </div>
             </div>

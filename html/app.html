@@ -1930,7 +1930,7 @@
                                                 </svg>
                                             </span> Musiker Profil
                                         </div>
-                                        <div class="form-group full-width">
+                                        <div class="form-group">
                                             <label>Instrument</label>
                                             <div class="instrument-selector" id="profileInstrumentSelector"></div>
                                             <!-- Hidden input to store comma-separated value for form submission -->
@@ -2403,13 +2403,21 @@
                     <input type="hidden" id="editAbsenceSeriesIdSettings">
                     <input type="hidden" id="absenceQuickDurationSettings" value="">
                     
+                    <div class="absence-quick-select">
+                        <div class="absence-quick-select-actions">
+                            <button type="button" class="absence-quick-btn" data-absence-quick-days="1">1 Tag</button>
+                            <button type="button" class="absence-quick-btn" data-absence-quick-days="2">2 Tage</button>
+                            <button type="button" class="absence-quick-btn" data-absence-quick-days="3">3 Tage</button>
+                        </div>
+                    </div>
+
                     <div class="form-group-row">
                         <div class="form-group">
                             <label for="absenceStartSettings">Von</label>
                             <input type="date" id="absenceStartSettings" class="profile-form-input" required>
                         </div>
                         <div class="form-group">
-                            <label for="absenceEndSettings">Bis (optional)</label>
+                            <label for="absenceEndSettings">Bis</label>
                             <input type="date" id="absenceEndSettings" class="profile-form-input">
                         </div>
                     </div>
@@ -2426,7 +2434,8 @@
                     </div>
                     
                     <div class="form-group-row">
-                        <div class="absence-full-day-row" style="margin-bottom: 0;">
+                        <div class="form-group">
+                            <label style="visibility: hidden;">Optionen</label>
                             <div class="absence-full-day-toggle-wrapper">
                                 <span class="absence-full-day-label">Ganztägig</span>
                                 <label class="toggle-switch">
@@ -2460,14 +2469,6 @@
                             <button type="button" class="absence-weekday-btn" data-weekday="0">S</button>
                         </div>
                         <input type="hidden" id="absenceCustomWeekdaysSettings" value="">
-                    </div>
-                    
-                    <div class="absence-quick-select">
-                        <div class="absence-quick-select-actions">
-                            <button type="button" class="absence-quick-btn" data-absence-quick-days="1">1 Tag</button>
-                            <button type="button" class="absence-quick-btn" data-absence-quick-days="2">2 Tage</button>
-                            <button type="button" class="absence-quick-btn" data-absence-quick-days="3">3 Tage</button>
-                        </div>
                     </div>
                     
                     <div class="form-group">
