@@ -38,18 +38,23 @@
     <main id="landingPage" class="landing-page active">
         <div class="landing-content">
             <header class="landing-header" style="padding: 1rem 2rem;">
-                <div class="landing-logo">
-                    <img src="../images/branding/bandmate-logo-short.svg" alt="Bandmate" class="logo-light" style="height: 32px !important;">
-                    <img src="../images/branding/bandmate-logo-short-dark.svg" alt="Bandmate" class="logo-dark" style="height: 32px !important;">
-                </div>
+                <a href="../index.html" class="landing-logo" style="text-decoration: none; display: flex; align-items: center; gap: 0.75rem;">
+                    <div class="landing-logo-mark">
+                        <img src="../images/branding/bandmate-logo-only-dark.svg" alt="Bandmate" style="height: 32px;">
+                    </div>
+                    <div class="landing-brand-copy">
+                        <span class="landing-brand-title">Bandmate</span>
+                        <span class="landing-brand-subtitle">E-Mail bestätigen</span>
+                    </div>
+                </a>
             </header>
 
             <section class="landing-hero" style="min-height: calc(100vh - 80px); display: flex; align-items: center; justify-content: center; padding: 2rem 1rem;">
                 <div style="width: 100%; max-width: 500px; margin: 0 auto; background: var(--color-surface); border-radius: 22px; border: 1px solid var(--color-border); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); overflow: hidden;">
-                    <div style="height: 4px; background: #3d63ff;"></div>
+                    <div style="height: 4px; background: #0ea5e9;"></div>
 
                     <div style="padding: 2.5rem 2rem;">
-                        <div style="display: inline-flex; align-items: center; min-height: 30px; padding: 0.28rem 0.78rem; border-radius: 999px; border: 1px solid rgba(61, 99, 255, 0.28); background: rgba(61, 99, 255, 0.12); color: #8db1ff; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">
+                        <div style="display: inline-flex; align-items: center; min-height: 30px; padding: 0.28rem 0.78rem; border-radius: 999px; border: 1px solid rgba(14, 165, 233, 0.28); background: rgba(14, 165, 233, 0.12); color: #7dd3fc; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase;">
                             Konto aktivieren
                         </div>
 
@@ -58,15 +63,15 @@
                             <p id="confirmEmailMessage" style="margin: 0; color: var(--color-text-secondary); font-size: 0.96rem; line-height: 1.65;">Einen kleinen Moment bitte. Wir aktivieren gerade dein Bandmate-Konto.</p>
                         </div>
 
-                        <div id="confirmEmailStatusBox" style="margin-top: 1.5rem; padding: 1rem 1.1rem; border-radius: 18px; border: 1px solid rgba(125, 160, 255, 0.22); background: rgba(61, 99, 255, 0.1); color: var(--color-text); font-size: 0.92rem; line-height: 1.6;">
+                        <div id="confirmEmailStatusBox" style="margin-top: 1.5rem; padding: 1rem 1.1rem; border-radius: 14px; border: 1px solid rgba(14, 165, 233, 0.22); background: rgba(14, 165, 233, 0.08); color: var(--color-text); font-size: 0.92rem; line-height: 1.6;">
                             Bestätigung wird verarbeitet.
                         </div>
 
-                        <a id="confirmEmailHomeButton" href="../index.html" class="btn-submit" style="display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; margin-top: 1.6rem; border: none; border-radius: 16px; background: linear-gradient(135deg, #8b5cf6, #6366f1); color: #ffffff; font-size: 0.98rem; font-weight: 700; letter-spacing: 0.03em; text-decoration: none; box-shadow: 0 16px 38px rgba(99, 102, 241, 0.28);">
+                        <a id="confirmEmailHomeButton" href="../index.html" class="btn-submit" style="display: flex; align-items: center; justify-content: center; width: 100%; min-height: 52px; margin-top: 1.6rem; border: none; border-radius: 16px; background: linear-gradient(135deg, #0ea5e9, #0284c7); color: #ffffff; font-size: 0.98rem; font-weight: 700; letter-spacing: 0.03em; text-decoration: none; box-shadow: 0 16px 38px rgba(14, 165, 233, 0.28); cursor: pointer; transition: opacity 0.2s, transform 0.2s;">
                             Zur Startseite
                         </a>
 
-                        <p id="confirmEmailHint" style="margin: 1rem 0 0; color: var(--color-text-secondary); font-size: 0.88rem; line-height: 1.6;">
+                        <p id="confirmEmailHint" style="margin: 1rem 0 0; color: var(--color-text-secondary); font-size: 0.88rem; line-height: 1.6; text-align: center;">
                             Nach der Bestätigung kannst du dich mit deiner E-Mail-Adresse und deinem Passwort bei Bandmate einloggen.
                         </p>
                     </div>
@@ -95,8 +100,8 @@
                     statusBoxEl.style.borderColor = 'rgba(248, 113, 113, 0.28)';
                     statusBoxEl.style.background = 'rgba(248, 113, 113, 0.12)';
                 } else {
-                    statusBoxEl.style.borderColor = 'rgba(125, 160, 255, 0.22)';
-                    statusBoxEl.style.background = 'rgba(61, 99, 255, 0.10)';
+                    statusBoxEl.style.borderColor = 'rgba(14, 165, 233, 0.22)';
+                    statusBoxEl.style.background = 'rgba(14, 165, 233, 0.08)';
                 }
             };
 
