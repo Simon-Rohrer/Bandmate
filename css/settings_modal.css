@@ -141,18 +141,7 @@
     cursor: zoom-in;
 }
 
-.btn-image-remove {
-    background: rgba(239, 68, 68, 0.1);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    color: var(--color-danger);
-    padding: 0.4rem 0.8rem;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: 0.75rem;
-}
+/* btn-image-remove replaced by btn-danger */
 
 /* Merged Avatar Section Styles */
 .profile-avatar-merged-section {
@@ -928,21 +917,7 @@
     box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
 }
 
-.btn-danger-soft {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--color-danger);
-    border: 1px solid rgba(239, 68, 68, 0.2);
-    padding: 0.6rem 1.2rem;
-    font-size: 0.9rem;
-    transition: all 0.2s ease;
-}
-
-.btn-danger-soft:hover {
-    background: var(--color-danger);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
-}
+/* btn-danger-soft moved to ui.css */
 
 .absence-form-actions {
     border-top: none;
@@ -2014,10 +1989,10 @@
 }
 
 #settingsModal .band-management-card .accordion-actions .btn {
-    min-height: 34px !important;
-    padding: 0.45rem 0.75rem !important;
-    border-radius: 10px !important;
-    font-size: 0.82rem !important;
+    min-height: 34px;
+    padding: 0.45rem 0.75rem;
+    border-radius: 10px;
+    font-size: 0.82rem;
 }
 
 #settingsModal .band-management-card .accordion-toggle {

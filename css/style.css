@@ -2331,16 +2331,7 @@ button[onclick*="importSongsModal"] {
     margin-bottom: 0.5em;
 }
 
-.dashboard-drag-handle {
-    font-size: 1.3em;
-    color: var(--color-text-secondary, #888);
-    cursor: grab;
-    user-select: none;
-    margin-left: 0.5em;
-    line-height: 1;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
+/* dashboard-drag-handle moved to ui.css */
 
 .dashboard-drag-handle:active {
     opacity: 1;
@@ -4345,25 +4336,7 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
     color: var(--color-text);
 }
 
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: var(--color-text-secondary);
-    cursor: pointer;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-md);
-    transition: all var(--transition-fast);
-}
-
-.modal-close:hover {
-    background: var(--color-surface-hover);
-    color: var(--color-text);
-}
+/* .modal-close moved to ui.css */
 
 .modal-body {
     padding: 0 var(--spacing-xl) var(--spacing-xl) var(--spacing-xl);
@@ -6075,28 +6048,6 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
     /* Standard for bento grids to prevent stretching */
 }
 
-/* Quick Access Edit Button - Refined */
-#editQuickAccessBtn {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    width: 28px;
-    height: 28px;
-    font-size: 0.9rem;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    color: var(--color-text-secondary);
-    transition: all 0.2s ease;
-}
-
-#editQuickAccessBtn:hover {
-    background: var(--color-surface-hover);
-    color: var(--color-primary);
-    transform: scale(1.1);
-}
 
 /* Stat Cards */
 .dashboard-grid {
@@ -11541,25 +11492,7 @@ html[data-theme="light"] .loader-overlay,
     justify-content: flex-end;
 }
 
-.accordion-toggle {
-    background: var(--color-primary);
-    color: white;
-    border: none;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all var(--transition-base);
-    flex-shrink: 0;
-}
-
-.accordion-toggle:hover {
-    background: var(--color-primary-dark);
-    transform: scale(1.1);
-}
+/* .accordion-toggle moved to ui.css */
 
 .toggle-icon {
     font-size: 0.875rem;
@@ -14070,31 +14003,7 @@ body.no-scroll {
     max-height: 520px;
 }
 
-.news-modal-close {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    z-index: 10;
-    background: rgba(15, 23, 42, 0.54);
-    backdrop-filter: blur(10px);
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    border: none;
-    cursor: pointer;
-    transition: var(--transition-fast);
-    color: white;
-    box-shadow: 0 10px 30px rgba(15, 23, 42, 0.22);
-}
-
-.news-modal-close:hover {
-    transform: translateY(-1px) scale(1.03);
-    background: rgba(15, 23, 42, 0.78);
-}
+/* news-modal-close moved to ui.css as .modal-close */
 
 .news-modal-actions {
     padding: 0.95rem 1.5rem 1.25rem;
@@ -14113,14 +14022,7 @@ body.no-scroll {
     border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
-:root.theme-dark .news-modal-close {
-    background: rgba(15, 23, 42, 0.82);
-    color: white;
-}
-
-:root.theme-dark .news-modal-close:hover {
-    background: rgba(15, 23, 42, 0.96);
-}
+/* news-modal-close moved to ui.css as .modal-close */
 
 :root.theme-dark .news-detail-scroll-area {
     background:
@@ -20231,32 +20133,7 @@ textarea {
     position: relative;
 }
 
-.header-dashboard-shortcuts .header-dashboard-shortcut.header-dashboard-icon-btn {
-    width: 42px;
-    height: 42px;
-    min-height: 42px;
-    padding: 0;
-    border-radius: 14px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-    background: var(--button-secondary-bg);
-    border: 1px solid var(--border);
-    box-shadow: none;
-}
-
-.header-dashboard-shortcuts .header-dashboard-shortcut.header-dashboard-icon-btn:hover {
-    background: var(--surface-secondary);
-    color: var(--text-primary);
-    border-color: var(--border);
-}
-
-.header-dashboard-shortcuts .header-dashboard-shortcut.header-dashboard-icon-btn svg {
-    width: 18px;
-    height: 18px;
-    stroke: currentColor;
-}
+/* Header buttons moved to ui.css as .btn-header */
 
 .header-quick-add-menu {
     position: absolute;
@@ -20374,29 +20251,7 @@ textarea {
     align-items: center;
 }
 
-.header-notification-btn {
-    position: relative;
-    width: 42px;
-    height: 42px;
-    min-height: 42px;
-    padding: 0;
-    border-radius: 12px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.header-notification-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--text-secondary);
-}
-
-.header-notification-icon svg {
-    width: 18px;
-    height: 18px;
-}
+/* header-notification-btn and header-notification-icon moved to ui.css */
 
 .header-notification-badge {
     position: absolute;
@@ -21063,12 +20918,6 @@ textarea {
     gap: 8px;
 }
 
-.dashboard-drag-handle {
-    color: var(--text-muted);
-    font-size: 1rem;
-    padding: 6px;
-    border-radius: 10px;
-}
 
 .quick-access-edit-btn {
     min-height: 34px;
@@ -24538,15 +24387,7 @@ body:not(.landing-active) .calendar-submenu {
         var(--surface);
 }
 
-#bandDetailsModal .modal-close {
-    width: 40px;
-    height: 40px;
-    min-height: 40px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--surface-secondary);
-    color: var(--text-secondary);
-}
+/* modal-close moved to ui.css */
 
 #bandDetailsModal .band-details-modal-body {
     padding: 0 24px 24px;
@@ -25166,22 +25007,7 @@ body:not(.landing-active) .calendar-submenu {
 
 /* Redundant button hover styles removed */
 
-.btn-danger {
-    background: var(--danger-soft);
-    color: #b91c1c;
-    border-color: rgba(239, 68, 68, 0.16);
-}
-
-.btn-danger:hover {
-    background: rgba(239, 68, 68, 0.16);
-    color: #991b1b;
-    border-color: rgba(239, 68, 68, 0.28);
-}
-
-html[data-theme="dark"] .btn-danger,
-:root.theme-dark .btn-danger {
-    color: #fecaca;
-}
+/* Danger buttons are now managed in ui.css */
 
 .loader-panel {
     gap: 10px;
@@ -25349,10 +25175,6 @@ html[data-theme="dark"] .btn-danger,
     margin-bottom: 16px;
 }
 
-.dashboard-drag-handle {
-    opacity: 0.42;
-    padding: 4px 6px;
-}
 
 .dashboard-news-item,
 .dashboard-activity-item,
@@ -26375,15 +26197,7 @@ html[data-theme="dark"] .schedule-card-user-state.is-confirmed,
     line-height: 1.55;
 }
 
-.modal-band-entry .modal-close {
-    width: 40px;
-    height: 40px;
-    min-height: 40px;
-    border-radius: 12px;
-    border: 1px solid var(--border);
-    background: var(--surface-secondary);
-    color: var(--text-secondary);
-}
+/* modal-close moved to ui.css */
 
 .modal-band-entry .band-entry-form {
     display: flex;
@@ -26762,11 +26576,7 @@ html[data-theme="dark"] .schedule-card-user-state.is-confirmed,
     line-height: 0;
 }
 
-#bandDetailsModal .band-setlist-table .btn-icon svg {
-    width: 17px;
-    height: 17px;
-    display: block;
-}
+/* Moved to ui.css */
 
 #bandDetailsModal .band-setlist-table .band-setlist-actions-cell {
     min-width: 108px;
@@ -27148,24 +26958,7 @@ html[data-theme="dark"] .schedule-card-user-state.is-confirmed,
     color: var(--text-secondary);
 }
 
-#songpoolView .band-setlist-table .btn-icon {
-    width: 34px;
-    height: 34px;
-    border-radius: 10px;
-    border: 1px solid var(--border);
-    background: var(--surface-secondary);
-    color: var(--text-secondary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 0;
-}
-
-#songpoolView .band-setlist-table .btn-icon svg {
-    width: 17px;
-    height: 17px;
-    display: block;
-}
+/* Moved to ui.css */
 
 #songpoolView .band-setlist-table .band-setlist-actions-cell {
     min-width: 108px;
@@ -31043,12 +30836,7 @@ html[data-theme="light"] .multiselect-menu,
         padding-right: 3.9rem;
     }
 
-    #bandDetailsModal .modal-close {
-        position: absolute;
-        top: 0.95rem;
-        right: 1rem;
-        z-index: 3;
-    }
+/* modal-close positioning removed to match other modals */
 
     #bandDetailsModal .band-details-modal-body {
         position: relative;
@@ -35037,8 +34825,7 @@ html[data-theme="light"] #landingPage .auth-forgot-password-link,
     transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease, background-color 160ms ease, color 160ms ease;
 }
 
-#dashboardView .btn,
-#dashboardView .quick-access-edit-btn {
+#dashboardView .btn {
     min-height: 36px;
     padding: 0.5rem 0.95rem;
     font-size: 0.85rem;
@@ -35054,16 +34841,6 @@ html[data-theme="light"] #landingPage .auth-forgot-password-link,
     padding: 0.4rem 0.7rem;
 }
 
-#dashboardView #editQuickAccessBtn {
-    width: auto;
-    height: auto;
-    padding: 0.5rem 0.95rem;
-    border-radius: var(--dashboard-btn-radius);
-    background: var(--dashboard-btn-bg);
-    border: 1px solid var(--dashboard-btn-border);
-    box-shadow: var(--dashboard-btn-shadow);
-    color: var(--text-primary);
-}
 
 #dashboardView .dashboard-shortcut {
     min-height: 54px;
@@ -36245,20 +36022,6 @@ body:not(.landing-active) #dashboardView .dashboard-view-shell {
     transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
 
-#dashboardView .dashboard-drag-handle {
-    width: auto;
-    height: auto;
-    margin: 0;
-    border: none;
-    background: transparent;
-    color: var(--text-secondary);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-    line-height: 1;
-    opacity: 1;
-}
 
 #dashboardView .dashboard-drag-label {
     line-height: 1;

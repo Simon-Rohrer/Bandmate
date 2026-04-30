@@ -4879,19 +4879,29 @@ const App = {
 
                 try {
                     await Auth.requestPasswordReset(email);
-                    UI.showToast('Reset-Link wurde an deine E-Mail gesendet!', 'success');
 
-                    setTimeout(() => {
-                        UI.switchAuthTab('login');
-                        if (emailInput) emailInput.value = '';
-                        if (submitBtn) {
-                            submitBtn.disabled = false;
-                            submitBtn.textContent = 'Link anfordern';
-                        }
-                    }, 3000);
+                    // Inline-Erfolgsmeldung direkt im Formular anzeigen (kein Toast)
+                    const notice = document.getElementById('forgotPasswordNotice');
+                    if (notice) {
+                        notice.textContent = `Wir haben einen Reset-Link an ${email} gesendet. Bitte prüfe dein Postfach.`;
+                        notice.classList.remove('hidden', 'bg-amber-500/10', 'border-amber-500/20', 'text-amber-400', 'bg-red-500/10', 'border-red-500/20', 'text-red-400');
+                        notice.classList.add('bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-400');
+                    }
+
+                    // E-Mail-Feld leeren und Button-Status zurücksetzen
+                    if (emailInput) emailInput.value = '';
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Link anfordern';
+                    }
                 } catch (err) {
                     Logger.error('Password reset request failed:', err);
-                    UI.showToast('Fehler: ' + (err.message || 'Anfrage fehlgeschlagen'), 'error');
+                    const notice = document.getElementById('forgotPasswordNotice');
+                    if (notice) {
+                        notice.textContent = 'Fehler: ' + (err.message || 'Anfrage fehlgeschlagen');
+                        notice.classList.remove('hidden', 'bg-emerald-500/10', 'border-emerald-500/20', 'text-emerald-400', 'bg-amber-500/10', 'border-amber-500/20', 'text-amber-400');
+                        notice.classList.add('bg-red-500/10', 'border-red-500/20', 'text-red-400');
+                    }
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.textContent = 'Link anfordern';
@@ -7020,7 +7030,6 @@ const App = {
             if (loginUsernameInput) loginUsernameInput.value = email;
             if (loginPasswordInput) loginPasswordInput.value = '';
             this.showAuthStatusNotice(`Wir haben dir an ${email} eine Bestätigungs-E-Mail geschickt. Bitte bestätige dein Konto über den Link in der Mail, bevor du dich einloggst.`, 'success');
-            UI.showToast('Registrierung abgeschlossen. Bitte bestätige jetzt zuerst deine E-Mail-Adresse über den Link in der Mail.', 'info', 10000);
         } catch (error) {
             if (overlay) {
                 overlay.style.opacity = '0';

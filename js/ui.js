@@ -256,6 +256,10 @@ const UI = {
         if (title) title.textContent = 'Passwort vergessen';
         if (subtitle) subtitle.textContent = 'Kein Problem! Wir senden dir einen Link zum Zurücksetzen.';
 
+        // Notice zurücksetzen
+        const notice = document.getElementById('forgotPasswordNotice');
+        if (notice) notice.classList.add('hidden');
+
         // Hide all forms, show forgotPasswordForm
         document.querySelectorAll('#authOverlay .auth-form').forEach(form => {
             if (form.id === 'forgotPasswordForm') {
