@@ -37,10 +37,6 @@ const UI = {
             element.scrollTop = 0;
             element.scrollLeft = 0;
         });
-
-        window.scrollTo(0, 0);
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
     },
 
     _bindBackdropClose(element, onClose) {

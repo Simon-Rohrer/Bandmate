@@ -2389,10 +2389,9 @@
 
     <!-- NEW Modal: Abwesenheit anlegen/bearbeiten -->
     <div id="absenceEditModal" class="modal">
-        <div class="modal-content modal-large absence-edit-modal-content">
+        <div class="modal-content absence-edit-modal-content">
             <div class="modal-header">
                 <div class="modal-title-copy">
-                    <span class="modal-kicker">Abwesenheit</span>
                     <h2 id="absenceEditModalTitle">Abwesenheit planen</h2>
                 </div>
                 <button class="modal-close" id="closeAbsenceEditModal">&times;</button>
@@ -2414,16 +2413,6 @@
                         </div>
                     </div>
                     
-                    <div class="form-group absence-full-day-row">
-                        <div class="absence-full-day-toggle-wrapper">
-                            <span class="absence-full-day-label">Ganztägig</span>
-                            <label class="toggle-switch">
-                                <input type="checkbox" id="absenceFullDaySettings">
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </div>
-                    </div>
-                    
                     <div class="form-group-row absence-time-row">
                         <div class="form-group">
                             <label for="absenceStartTimeSettings">Startzeit</label>
@@ -2435,16 +2424,27 @@
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="absenceSeriesTypeSettings">Serie</label>
-                        <select id="absenceSeriesTypeSettings" class="profile-form-input">
-                            <option value="">Keine Wiederholung</option>
-                            <option value="daily">Täglich</option>
-                            <option value="weekly">Wöchentlich</option>
-                            <option value="monthly">Monatlich</option>
-                            <option value="yearly">Jährlich</option>
-                            <option value="custom">Eigene...</option>
-                        </select>
+                    <div class="form-group-row">
+                        <div class="absence-full-day-row" style="margin-bottom: 0;">
+                            <div class="absence-full-day-toggle-wrapper">
+                                <span class="absence-full-day-label">Ganztägig</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="absenceFullDaySettings">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="absenceSeriesTypeSettings">Serie</label>
+                            <select id="absenceSeriesTypeSettings" class="profile-form-input">
+                                <option value="">Keine Wiederholung</option>
+                                <option value="daily">Täglich</option>
+                                <option value="weekly">Wöchentlich</option>
+                                <option value="monthly">Monatlich</option>
+                                <option value="yearly">Jährlich</option>
+                                <option value="custom">Eigene...</option>
+                            </select>
+                        </div>
                     </div>
                     
                     <div id="absenceCustomDaysSettings" class="form-group absence-custom-days" hidden>
@@ -2462,7 +2462,6 @@
                     </div>
                     
                     <div class="absence-quick-select">
-                        <span class="absence-quick-select-label">Schnellauswahl</span>
                         <div class="absence-quick-select-actions">
                             <button type="button" class="absence-quick-btn" data-absence-quick-days="1">1 Tag</button>
                             <button type="button" class="absence-quick-btn" data-absence-quick-days="2">2 Tage</button>
