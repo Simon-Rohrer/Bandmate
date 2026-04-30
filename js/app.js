@@ -16431,6 +16431,9 @@ const App = {
             const editSeriesIdInput = document.getElementById('editAbsenceSeriesIdSettings');
             const quickDurationInput = document.getElementById('absenceQuickDurationSettings');
 
+            if (startInput) startInput.classList.remove('is-invalid');
+            if (endInput) endInput.classList.remove('is-invalid');
+
             const reason = reasonInput.value.trim();
             const editId = editIdInput.value;
             const editSeriesId = editSeriesIdInput?.value || '';
@@ -16459,8 +16462,14 @@ const App = {
                 const customWeekdays = customWeekdaysInput?.value || '';
 
                 if (!seriesStart || !seriesEnd) {
-                    if (!seriesStart && startInput) startInput.classList.add('is-invalid');
-                    if (!seriesEnd && endInput) endInput.classList.add('is-invalid');
+                    if (!seriesEnd && endInput) {
+                        endInput.classList.add('is-invalid');
+                        endInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                    if (!seriesStart && startInput) {
+                        startInput.classList.add('is-invalid');
+                        startInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
                     UI.showToast('Bitte gib den Zeitraum für die Serie vollständig ein (Von & Bis).', 'error');
                     return;
                 }
@@ -16504,6 +16513,14 @@ const App = {
                         UI.showToast('Bitte wähle eine Wiederholungsart aus.', 'error');
                         return;
                 }
+
+                if (recurringEntries.length === 0) {
+                    UI.showToast('Im gewählten Zeitraum wurde kein passender Termin gefunden.', 'error');
+                    return;
+                }
+
+                UI.showLoading();
+
 
                 if (recurringEntries.length === 0) {
                     UI.showToast('Im gewählten Zeitraum wurde kein passender Termin gefunden.', 'error');
@@ -16586,6 +16603,8 @@ const App = {
                     return;
                 }
 
+                UI.showLoading();
+
                 const singleMeta = (startTime || endTime) ? { startTime, endTime } : null;
 
                 if (editId) {
@@ -16612,6 +16631,8 @@ const App = {
         } catch (error) {
             Logger.error('[Absence] Error during save:', error);
             UI.showToast('Ein Fehler ist aufgetreten.', 'error');
+        } finally {
+            UI.hideLoading();
         }
     },
 
