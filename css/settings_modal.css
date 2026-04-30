@@ -220,22 +220,7 @@
     grid-column: 1 / -1;
 }
 
-/* Inputs styling improvements */
-.profile-form-input {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    border: 1px solid var(--color-border);
-    background: var(--color-bg-main);
-    color: var(--color-text);
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.profile-form-input:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-    outline: none;
-}
+/* .profile-form-input styles removed - now using central form-input in ui.css */
 
 /* Form Actions (Buttons) styling */
 .settings-form-actions {

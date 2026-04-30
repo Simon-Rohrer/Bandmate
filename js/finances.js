@@ -297,13 +297,13 @@ const Finances = {
                                 </td>
                                 <td class="cell-actions text-right">
                                     <button class="btn-icon" onclick="event.stopPropagation(); Finances.openEntryModal(null, '${entry.id}')" title="Eintrag bearbeiten">
-                                        <i data-lucide="pencil" style="width: 14px; height: 14px;"></i>
+                                        ${App.getRundownInlineIcon('edit')}
                                     </button>
                                     <button class="btn-icon" onclick="event.stopPropagation(); Finances.duplicateEntry('${entry.id}')" title="Eintrag kopieren">
-                                        <i data-lucide="copy-plus" style="width: 14px; height: 14px;"></i>
+                                        ${App.getRundownInlineIcon('plus')}
                                     </button>
                                     <button class="btn-icon btn-danger" onclick="event.stopPropagation(); Finances.confirmDelete('${entry.id}')" title="Eintrag löschen">
-                                        <i data-lucide="trash-2" style="width: 14px; height: 14px;"></i>
+                                        ${App.getRundownInlineIcon('trash')}
                                     </button>
                                 </td>
                             </tr>
