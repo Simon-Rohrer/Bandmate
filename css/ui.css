@@ -764,6 +764,9 @@ input:checked + .toggle-slider:before {
     overflow-y: auto;
     opacity: 1;
     pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
 }
 
 .multiselect-option {
@@ -773,7 +776,9 @@ input:checked + .toggle-slider:before {
     gap: 0.72rem;
     position: relative;
     min-height: 50px;
-    border-color: transparent;
+    padding: 0.6rem 0.9rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
     background: #22304a;
 }
 
@@ -816,14 +821,14 @@ input:checked + .toggle-slider:before {
 }
 
 html[data-theme="light"] .multiselect-menu,
-:root:not(.theme-dark) .multiselect-menu {
+:root:not(.theme-dark):not(.dark) .multiselect-menu {
     background: #ffffff;
     border-color: rgba(148, 163, 184, 0.34);
     box-shadow: 0 22px 40px rgba(15, 23, 42, 0.18);
 }
 
 html[data-theme="light"] .multiselect-trigger,
-:root:not(.theme-dark) .multiselect-trigger {
+:root:not(.theme-dark):not(.dark) .multiselect-trigger {
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 255, 0.98)),
         var(--settings-input-bg);
@@ -834,8 +839,8 @@ html[data-theme="light"] .multiselect-trigger,
 
 html[data-theme="light"] .multiselect-trigger:hover,
 html[data-theme="light"] .multiselect-trigger.active,
-:root:not(.theme-dark) .multiselect-trigger:hover,
-:root:not(.theme-dark) .multiselect-trigger.active {
+:root:not(.theme-dark):not(.dark) .multiselect-trigger:hover,
+:root:not(.theme-dark):not(.dark) .multiselect-trigger.active {
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 1), rgba(244, 247, 255, 0.98)),
         var(--settings-input-bg);
@@ -843,7 +848,7 @@ html[data-theme="light"] .multiselect-trigger.active,
 }
 
 html[data-theme="light"] .multiselect-badge,
-:root:not(.theme-dark) .multiselect-badge {
+:root:not(.theme-dark):not(.dark) .multiselect-badge {
     background: rgba(99, 102, 241, 0.1);
     border-color: rgba(99, 102, 241, 0.16);
     color: #312e81;
@@ -851,26 +856,26 @@ html[data-theme="light"] .multiselect-badge,
 
 html[data-theme="light"] .multiselect-placeholder,
 html[data-theme="light"] .multiselect-arrow,
-:root:not(.theme-dark) .multiselect-placeholder,
-:root:not(.theme-dark) .multiselect-arrow {
+:root:not(.theme-dark):not(.dark) .multiselect-placeholder,
+:root:not(.theme-dark):not(.dark) .multiselect-arrow {
     color: #64748b;
 }
 
 html[data-theme="light"] .multiselect-option,
-:root:not(.theme-dark) .multiselect-option {
+:root:not(.theme-dark):not(.dark) .multiselect-option {
     background: #f8fafc;
     border: 1px solid rgba(226, 232, 240, 0.9);
     color: #0f172a;
 }
 
 html[data-theme="light"] .multiselect-option:hover,
-:root:not(.theme-dark) .multiselect-option:hover {
+:root:not(.theme-dark):not(.dark) .multiselect-option:hover {
     background: #eef4ff;
     border-color: rgba(129, 140, 248, 0.32);
 }
 
 html[data-theme="light"] .multiselect-option:has(input[type="checkbox"]:checked),
-:root:not(.theme-dark) .multiselect-option:has(input[type="checkbox"]:checked) {
+:root:not(.theme-dark):not(.dark) .multiselect-option:has(input[type="checkbox"]:checked) {
     background:
         linear-gradient(180deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.02)),
         #ffffff;
@@ -879,24 +884,25 @@ html[data-theme="light"] .multiselect-option:has(input[type="checkbox"]:checked)
 }
 
 html[data-theme="light"] .multiselect-option-indicator,
-:root:not(.theme-dark) .multiselect-option-indicator {
+:root:not(.theme-dark):not(.dark) .multiselect-option-indicator {
     background: #ffffff;
     border-color: rgba(148, 163, 184, 0.38);
 }
 
 html[data-theme="light"] .multiselect-option:has(input[type="checkbox"]:checked) .multiselect-option-indicator,
-:root:not(.theme-dark) .multiselect-option:has(input[type="checkbox"]:checked) .multiselect-option-indicator {
+:root:not(.theme-dark):not(.dark) .multiselect-option:has(input[type="checkbox"]:checked) .multiselect-option-indicator {
     background: #1d4ed8;
     border-color: #1d4ed8;
     box-shadow: 0 0 0 1px rgba(29, 78, 216, 0.12);
 }
 
 html[data-theme="light"] .multiselect-option-label,
-:root:not(.theme-dark) .multiselect-option-label {
+:root:not(.theme-dark):not(.dark) .multiselect-option-label {
     color: #0f172a;
 }
 
 html[data-theme="dark"] .multiselect-menu,
+html.dark .multiselect-menu,
 :root.theme-dark .multiselect-menu {
     background: #182338;
     border-color: rgba(132, 157, 214, 0.42);
@@ -904,13 +910,44 @@ html[data-theme="dark"] .multiselect-menu,
 }
 
 html[data-theme="dark"] .multiselect-option,
+html.dark .multiselect-option,
 :root.theme-dark .multiselect-option {
     background: #22304a;
+    color: var(--color-text, #e2e8f0);
 }
 
 html[data-theme="dark"] .multiselect-option:hover,
+html.dark .multiselect-option:hover,
 :root.theme-dark .multiselect-option:hover {
-    background: color-mix(in srgb, var(--color-primary) 12%, #22304a);
+    background: color-mix(in srgb, var(--color-primary, #8868ff) 12%, #22304a);
+}
+
+html.dark .multiselect-trigger {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0)),
+        #1a2540;
+    border-color: rgba(100, 130, 200, 0.3);
+    color: #e2e8f0;
+}
+
+html.dark .multiselect-placeholder,
+html.dark .multiselect-arrow {
+    color: rgba(148, 163, 184, 0.7);
+}
+
+html.dark .multiselect-badge {
+    background: rgba(136, 104, 255, 0.12);
+    border-color: rgba(136, 104, 255, 0.22);
+    color: #e2e8f0;
+}
+
+html.dark .multiselect-option-label {
+    color: #e2e8f0;
+}
+
+html.dark .multiselect-option-indicator {
+    background: #22304a;
+    border-color: rgba(100, 130, 200, 0.4);
 }
 
 #settingsModal .settings-form-actions {
@@ -929,6 +966,7 @@ html[data-theme="dark"] .multiselect-option:hover,
 /* =========================================
    GLOBAL MULTISELECT (Instrument Selector)
    ========================================= */
+/* =========================================
    SETTINGS MOBILE POLISH
    ========================================= */
 

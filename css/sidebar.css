@@ -226,10 +226,30 @@ html.theme-dark {
 /* Sidebar Navigation */
 .sidebar-nav {
     flex: 1;
-    overflow-y: hidden; /* Disabled per user request */
-    overflow-x: hidden; /* Prevent horizontal scrollbar */
+    overflow-y: auto; /* Re-enabled to allow scrolling when submenus are expanded */
+    overflow-x: hidden;
     overscroll-behavior: contain;
-    padding: 0 var(--spacing-md);
+    padding: 0 var(--spacing-md) var(--spacing-lg); /* Bottom padding for better scroll end */
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--sidebar-separator) transparent; /* Firefox */
+}
+
+/* Custom Scrollbar for Sidebar (Chrome/Safari/Edge) */
+.sidebar-nav::-webkit-scrollbar {
+    width: 5px;
+}
+
+.sidebar-nav::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb {
+    background: var(--sidebar-separator);
+    border-radius: 10px;
+}
+
+.sidebar-nav::-webkit-scrollbar-thumb:hover {
+    background: var(--sidebar-text-muted);
 }
 
 .sidebar-item {
