@@ -812,10 +812,8 @@ const Organizations = {
                 return;
             }
 
-            // Fetch members for each band to display them
             const bandsWithMembers = await Promise.all(bands.map(async band => {
                 const bandMembers = await Storage.getBandMembers(band.id);
-                // Get profile details for the first 5 members to keep it clean
                 const profiles = await Promise.all(bandMembers.slice(0, 5).map(async m => {
                     const profile = await Storage.getById('users', m.userId);
                     return { ...m, profile };
@@ -823,11 +821,27 @@ const Organizations = {
                 return { ...band, memberProfiles: profiles, totalMembers: bandMembers.length };
             }));
 
-            container.innerHTML = bandsWithMembers.map((band, index) => {
+            const pendingBands = canManage
+                ? bandsWithMembers.filter(band => band.linkStatus === 'pending')
+                : [];
+            const activeBands = bandsWithMembers.filter(band => band.linkStatus !== 'pending');
+
+            const bandSummary = document.getElementById('orgDetailsBandsSummary');
+            if (bandSummary) {
+                if (pendingBands.length > 0 && activeBands.length > 0) {
+                    bandSummary.textContent = `${activeBands.length} Band${activeBands.length !== 1 ? 's sind' : ' ist'} aktiv verknüpft, ${pendingBands.length} Einladung${pendingBands.length !== 1 ? 'en sind' : ' ist'} noch offen.`;
+                } else if (pendingBands.length > 0) {
+                    bandSummary.textContent = `${pendingBands.length} Band-Einladung${pendingBands.length !== 1 ? 'en warten' : ' wartet'} noch auf Annahme durch die Bandleitung.`;
+                } else {
+                    bandSummary.textContent = `${activeBands.length} Band${activeBands.length !== 1 ? 's sind' : ' ist'} mit dieser Organisation verknüpft.`;
+                }
+            }
+
+            const renderBandCard = (band, index, isPending = false) => {
                 const accentColor = band.color || 'var(--color-primary)';
-                
+
                 return `
-                    <div class="band-card animated-fade-in mb-3" style="--band-accent: ${accentColor}; animation-delay: ${index * 0.05}s;">
+                    <div class="band-card org-band-card ${isPending ? 'is-pending-invite' : 'is-active-link'} animated-fade-in mb-3" style="--band-accent: ${accentColor}; animation-delay: ${index * 0.05}s;">
                         <div class="band-card-header" style="cursor: default;">
                             <div class="band-card-identity">
                                 <div class="band-card-avatar-shell">
@@ -840,14 +854,14 @@ const Organizations = {
                                 <div class="band-card-title-group">
                                     <div class="band-card-title-row">
                                         <h3>${this.escapeHtml(band.name)}</h3>
-                                        ${band.linkStatus === 'pending' ? '<span class="badge badge-warning badge-xs" style="margin-left: 8px;">Ausstehend</span>' : ''}
+                                        ${isPending ? '<span class="org-band-status-pill is-pending">Einladung offen</span>' : '<span class="org-band-status-pill is-active">Aktiv verknüpft</span>'}
                                     </div>
                                     ${band.description ? `<p class="band-card-description">${this.escapeHtml(band.description)}</p>` : ''}
                                 </div>
                             </div>
                             
                             ${canManage ? `
-                                <button class="btn-icon unlink-band-btn" data-band-id="${band.id}" title="Band-Verknüpfung lösen">
+                                <button class="btn-icon unlink-band-btn ${isPending ? 'is-pending-action' : ''}" data-band-id="${band.id}" title="${isPending ? 'Ausstehende Einladung zurückziehen' : 'Band-Verknüpfung lösen'}">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;">
                                         <path d="M3 6h18"></path>
                                         <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
@@ -856,6 +870,21 @@ const Organizations = {
                                 </button>
                             ` : ''}
                         </div>
+
+                        ${isPending ? `
+                            <div class="org-band-pending-notice">
+                                <span class="org-band-pending-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <path d="M12 6v6l4 2"></path>
+                                    </svg>
+                                </span>
+                                <div>
+                                    <strong>Wartet auf Antwort der Bandleitung</strong>
+                                    <span>Die Band ist noch nicht Teil der Organisation. Leiter und Co-Leiter können die Einladung in ihrer Benachrichtigungsbox annehmen oder ablehnen.</span>
+                                </div>
+                            </div>
+                        ` : ''}
 
                         <div class="band-card-members-preview mt-4">
                             <div class="text-xs text-secondary mb-3">BANDMITGLIEDER (${band.totalMembers})</div>
@@ -881,9 +910,57 @@ const Organizations = {
                         </div>
                     </div>
                 `;
-            }).join('');
+            };
 
-            // Bind unlink actions
+            const sections = [];
+
+            if (pendingBands.length > 0) {
+                sections.push(`
+                    <section class="org-band-link-section org-band-link-section-pending">
+                        <div class="org-band-link-section-head">
+                            <span class="org-band-link-section-icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M12 6v6l4 2"></path>
+                                </svg>
+                            </span>
+                            <div>
+                                <h4>Ausstehende Einladungen</h4>
+                                <p>Diese Bands wurden eingeladen, sind aber noch nicht aktiv mit der Organisation verknüpft.</p>
+                            </div>
+                        </div>
+                        <div class="org-band-link-list">
+                            ${pendingBands.map((band, index) => renderBandCard(band, index, true)).join('')}
+                        </div>
+                    </section>
+                `);
+            }
+
+            if (activeBands.length > 0) {
+                sections.push(`
+                    <section class="org-band-link-section">
+                        ${pendingBands.length > 0 ? `
+                            <div class="org-band-link-section-head">
+                                <span class="org-band-link-section-icon is-active" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M20 6 9 17l-5-5"></path>
+                                    </svg>
+                                </span>
+                                <div>
+                                    <h4>Aktiv verknüpfte Bands</h4>
+                                    <p>Diese Bands sind bereits Teil der Organisation.</p>
+                                </div>
+                            </div>
+                        ` : ''}
+                        <div class="org-band-link-list">
+                            ${activeBands.map((band, index) => renderBandCard(band, index + pendingBands.length, false)).join('')}
+                        </div>
+                    </section>
+                `);
+            }
+
+            container.innerHTML = sections.join('');
+
             container.querySelectorAll('.unlink-band-btn').forEach(btn => {
                 btn.onclick = (e) => {
                     e.stopPropagation();
@@ -906,17 +983,28 @@ const Organizations = {
         const band = await Storage.getBand(bandId);
         if (!band) return;
 
+        const existingLink = await Storage.getOrganizationBandLink(this.currentOrgId, bandId);
+        const isPendingInvite = existingLink?.status === 'pending';
         const members = await Storage.getBandMembers(bandId);
         const modal = document.getElementById('unlinkBandConfirmModal');
         const confirmBtn = document.getElementById('confirmUnlinkBandBtn');
         const cancelBtn = document.getElementById('cancelUnlinkBandBtn');
         const membersList = document.getElementById('unlinkBandMembersList');
         const confirmText = document.getElementById('unlinkBandConfirmText');
+        const membersInfoLabel = document.getElementById('unlinkBandMembersInfoLabel');
 
         if (!modal || !confirmBtn || !cancelBtn || !membersList || !confirmText) return;
 
         // Set text
-        confirmText.innerHTML = `Bist du sicher, dass du die Verknüpfung der Band <strong>"${this.escapeHtml(band.name)}"</strong> zur Organisation lösen möchtest?`;
+        confirmText.innerHTML = isPendingInvite
+            ? `Möchtest du die noch offene Einladung an <strong>"${this.escapeHtml(band.name)}"</strong> zurückziehen? Die Band ist aktuell noch nicht mit der Organisation verknüpft.`
+            : `Bist du sicher, dass du die Verknüpfung der Band <strong>"${this.escapeHtml(band.name)}"</strong> zur Organisation lösen möchtest?`;
+        confirmBtn.textContent = isPendingInvite ? 'Einladung zurückziehen' : 'Verknüpfung lösen';
+        if (membersInfoLabel) {
+            membersInfoLabel.textContent = isPendingInvite
+                ? 'MITGLIEDER DER EINGELADENEN BAND:'
+                : 'FOLGENDE MITGLIEDER WERDEN DARÜBER INFORMIERT:';
+        }
 
         // Load members list
         membersList.innerHTML = '<div class="loading-inline">Mitglieder werden geladen...</div>';
@@ -947,16 +1035,16 @@ const Organizations = {
 
         // Action handlers
         const performUnlink = async () => {
-            UI.showLoading('Verknüpfung wird gelöst...');
+            UI.showLoading(isPendingInvite ? 'Einladung wird zurückgezogen...' : 'Verknüpfung wird gelöst...');
             try {
                 await Storage.unlinkBandFromOrganization(this.currentOrgId, bandId);
                 const user = Auth.getCurrentUser();
-                await Storage.logOrganizationActivity(this.currentOrgId, user.id, 'unlink_band', 'band', bandId);
+                await Storage.logOrganizationActivity(this.currentOrgId, user.id, isPendingInvite ? 'withdraw_band_invite' : 'unlink_band', 'band', bandId);
                 
                 // Notify all band members about the unlink
                 try {
                     const org = await Storage.getOrganization(this.currentOrgId);
-                    if (org && Array.isArray(members) && members.length > 0) {
+                    if (!isPendingInvite && org && Array.isArray(members) && members.length > 0) {
                         const notifyPromises = members.map(member =>
                             Storage.createNotification({
                                 userId: member.userId,
@@ -971,6 +1059,12 @@ const Organizations = {
                         );
                         await Promise.all(notifyPromises);
                     }
+                    if (isPendingInvite) {
+                        await Storage.updateNotificationsByOrgBandInvitation(this.currentOrgId, bandId, {
+                            actionStatus: 'declined',
+                            status: 'dismissed'
+                        });
+                    }
                     if (typeof Notifications !== 'undefined') {
                         await Notifications.refresh({ quiet: true, skipAutoRead: true });
                     }
@@ -981,12 +1075,12 @@ const Organizations = {
                     Logger.warn('[Organizations] Could not send unlink notifications:', notifyErr);
                 }
                 
-                UI.showToast('Verknüpfung gelöst', 'success');
+                UI.showToast(isPendingInvite ? 'Einladung zurückgezogen' : 'Verknüpfung gelöst', 'success');
                 UI.closeModal('unlinkBandConfirmModal');
                 await this.loadBands();
             } catch (error) {
                 Logger.error('[Organizations] Error unlinking band:', error);
-                UI.showToast('Fehler beim Lösen der Verknüpfung', 'error');
+                UI.showToast(isPendingInvite ? 'Fehler beim Zurückziehen der Einladung' : 'Fehler beim Lösen der Verknüpfung', 'error');
             } finally {
                 UI.hideLoading();
             }
@@ -1231,6 +1325,7 @@ const Organizations = {
             'request_band_link': 'Band eingeladen',
             'accept_band_invite': 'Band-Einladung angenommen',
             'decline_band_invite': 'Band-Einladung abgelehnt',
+            'withdraw_band_invite': 'Band-Einladung zurückgezogen',
             'unlink_band': 'Band-Verknüpfung gelöst'
         };
         return actions[action] || action;
@@ -1384,11 +1479,11 @@ const Organizations = {
     },
 
     async handleInviteMember() {
-        const email = document.getElementById('inviteOrgUserEmail').value.trim();
+        const identifier = document.getElementById('inviteOrgUserEmail').value.trim();
         const role = document.getElementById('inviteOrgRole').value;
         const user = Auth.getCurrentUser();
 
-        if (!email) return;
+        if (!identifier) return;
 
         UI.showLoading('Einladung wird gesendet...');
         try {
@@ -1402,9 +1497,9 @@ const Organizations = {
                 return;
             }
 
-            const invitedUser = await Storage.getUserByEmail(email);
+            const invitedUser = await Storage.getUserByEmailOrUsername(identifier);
             if (!invitedUser) {
-                UI.showToast('User mit dieser E-Mail nicht gefunden', 'error');
+                UI.showToast('User mit dieser E-Mail oder diesem Benutzernamen nicht gefunden', 'error');
                 return;
             }
 
@@ -1500,9 +1595,19 @@ const Organizations = {
         }
 
         try {
-            const bands = await Storage.searchBandsNotInOrg(this.orgBandSearchQuery, this.currentOrgId, this.orgBandSearchOffset, 20);
+            const [bands, linkedBands] = await Promise.all([
+                Storage.searchBandsNotInOrg(this.orgBandSearchQuery, this.currentOrgId, this.orgBandSearchOffset, 20),
+                append ? Promise.resolve([]) : Storage.getOrganizationBands(this.currentOrgId, { includePending: true })
+            ]);
 
-            if (!append && (!bands || bands.length === 0)) {
+            const normalizedQuery = String(this.orgBandSearchQuery || '').trim().toLowerCase();
+            const pendingBands = append
+                ? []
+                : (linkedBands || [])
+                    .filter(band => band.linkStatus === 'pending')
+                    .filter(band => !normalizedQuery || String(band.name || '').toLowerCase().includes(normalizedQuery));
+
+            if (!append && (!bands || bands.length === 0) && pendingBands.length === 0) {
                 container.innerHTML = `
                     <div class="text-center py-4 text-secondary">
                         ${this.orgBandSearchQuery ? 'Keine passenden Bands gefunden.' : 'Keine weiteren Bands verfügbar.'}
@@ -1511,26 +1616,54 @@ const Organizations = {
                 return;
             }
 
-            const html = bands.map(band => {
+            const renderSearchItem = (band, isPending = false) => {
                 const accentColor = band.color || 'var(--color-primary)';
                 const avatarContent = band.image_url 
                     ? `<img src="${band.image_url}" alt="${this.escapeHtml(band.name)}" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;">`
                     : UI.getUserInitials(band.name);
-                    
+
                 return `
-                    <div class="band-list-item flex items-center justify-between p-3 rounded-lg border border-border bg-card" style="display: flex; align-items: center; justify-content: space-between; padding: 12px; background: var(--color-bg-secondary); border-radius: 8px; border: 1px solid var(--color-border-subtle);">
-                        <div class="flex items-center gap-3" style="display: flex; align-items: center; gap: 12px;">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white shrink-0 overflow-hidden" style="width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; flex-shrink: 0; overflow: hidden; ${band.image_url ? 'background: none;' : `background: ${accentColor};`}">
+                    <div class="org-band-search-item ${isPending ? 'is-pending' : ''}">
+                        <div class="org-band-search-identity">
+                            <div class="org-band-search-avatar" style="${band.image_url ? 'background: none;' : `background: ${accentColor};`}">
                                 ${avatarContent}
                             </div>
-                            <span class="font-medium" style="font-weight: 500;">${this.escapeHtml(band.name)}</span>
+                            <div class="org-band-search-copy">
+                                <span>${this.escapeHtml(band.name)}</span>
+                                ${isPending ? '<small>Einladung wurde gesendet und wartet auf Annahme.</small>' : '<small>Kann zur Organisation eingeladen werden.</small>'}
+                            </div>
                         </div>
-                        <button class="btn btn-primary btn-sm" onclick="Organizations.inviteBandToOrg('${band.id}')">
-                            Einladen
-                        </button>
+                        ${isPending ? `
+                            <span class="org-band-search-status is-pending">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                    <circle cx="12" cy="12" r="10"></circle>
+                                    <path d="M12 6v6l4 2"></path>
+                                </svg>
+                                Ausstehend
+                            </span>
+                        ` : `
+                            <button class="btn btn-primary btn-sm" onclick="Organizations.inviteBandToOrg('${band.id}')">
+                                Einladen
+                            </button>
+                        `}
                     </div>
                 `;
-            }).join('');
+            };
+
+            const pendingHtml = pendingBands.length > 0 ? `
+                <div class="org-band-search-pending-block">
+                    <div class="org-band-search-pending-head">
+                        <strong>Bereits eingeladen</strong>
+                        <span>Diese Anfrage ist noch offen und muss von der Bandleitung beantwortet werden.</span>
+                    </div>
+                    ${pendingBands.map(band => renderSearchItem(band, true)).join('')}
+                </div>
+            ` : '';
+
+            const html = [
+                pendingHtml,
+                (bands || []).map(band => renderSearchItem(band, false)).join('')
+            ].filter(Boolean).join('');
 
             if (!append) {
                 container.innerHTML = html;

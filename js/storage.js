@@ -528,6 +528,23 @@ const Storage = {
         return data || null;
     },
 
+    async getUserByEmailOrUsername(identifier) {
+        const value = String(identifier || '').trim();
+        if (!value) return null;
+
+        const username = value.replace(/^@+/, '');
+        const looksLikeEmail = value.includes('@') && value.includes('.');
+
+        if (looksLikeEmail) {
+            return await this.getUserByEmail(value);
+        }
+
+        const userByUsername = await this.getUserByUsername(username);
+        if (userByUsername) return userByUsername;
+
+        return await this.getUserByEmail(value);
+    },
+
     async updateUser(userId, updates) {
         return await this.update('users', userId, updates);
     },

@@ -6867,6 +6867,295 @@ html[data-theme="light"] #rundownPdfExportModal .rundown-pdf-modal-actions,
     line-height: 1.6;
 }
 
+.org-band-link-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.95rem;
+    margin-bottom: 1.2rem;
+}
+
+.org-band-link-section-pending {
+    padding: 1rem;
+    border: 1px solid rgba(245, 158, 11, 0.32);
+    border-radius: 24px;
+    background:
+        radial-gradient(circle at top left, rgba(245, 158, 11, 0.16), transparent 34%),
+        linear-gradient(180deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.03));
+}
+
+.org-band-link-section-head {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-bottom: 0.2rem;
+}
+
+.org-band-link-section-head h4 {
+    margin: 0 0 0.2rem;
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--color-text);
+}
+
+.org-band-link-section-head p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.45;
+}
+
+.org-band-link-section-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.24);
+}
+
+.org-band-link-section-icon.is-active {
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.24);
+}
+
+.org-band-link-section-icon svg {
+    width: 18px;
+    height: 18px;
+}
+
+.org-band-link-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+
+.org-band-card {
+    cursor: default;
+}
+
+.org-band-card.is-pending-invite {
+    border-color: rgba(245, 158, 11, 0.42);
+    background:
+        radial-gradient(circle at top right, rgba(245, 158, 11, 0.18), transparent 34%),
+        linear-gradient(180deg, rgba(245, 158, 11, 0.08), rgba(255, 255, 255, 0.02)),
+        var(--color-surface);
+}
+
+.org-band-card.is-pending-invite:hover {
+    transform: translateY(-1px);
+    border-color: rgba(245, 158, 11, 0.56);
+}
+
+.org-band-status-pill {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 0.24rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+}
+
+.org-band-status-pill.is-pending {
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.32);
+}
+
+.org-band-status-pill.is-active {
+    color: #047857;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+}
+
+.org-band-pending-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    margin-top: 0.95rem;
+    padding: 0.85rem 0.95rem;
+    border-radius: 16px;
+    color: #92400e;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(245, 158, 11, 0.24);
+}
+
+.org-band-pending-notice strong,
+.org-band-pending-notice span {
+    display: block;
+}
+
+.org-band-pending-notice strong {
+    margin-bottom: 0.15rem;
+    font-size: 0.88rem;
+    color: #92400e;
+}
+
+.org-band-pending-notice span {
+    font-size: 0.82rem;
+    line-height: 1.45;
+}
+
+.org-band-pending-icon {
+    width: 28px;
+    height: 28px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(245, 158, 11, 0.18);
+}
+
+.org-band-pending-icon svg {
+    width: 16px;
+    height: 16px;
+}
+
+.unlink-band-btn.is-pending-action {
+    color: #b45309;
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.org-band-search-pending-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 0.75rem;
+    border-radius: 18px;
+    border: 1px solid rgba(245, 158, 11, 0.28);
+    background: rgba(245, 158, 11, 0.08);
+}
+
+.org-band-search-pending-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0 0.1rem 0.25rem;
+}
+
+.org-band-search-pending-head strong {
+    font-size: 0.82rem;
+    color: var(--color-text);
+}
+
+.org-band-search-pending-head span {
+    font-size: 0.76rem;
+    color: var(--color-text-secondary);
+    line-height: 1.4;
+}
+
+.org-band-search-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.9rem;
+    padding: 0.85rem;
+    border-radius: 14px;
+    border: 1px solid var(--color-border-subtle);
+    background: var(--color-bg-secondary);
+}
+
+.org-band-search-item.is-pending {
+    border-color: rgba(245, 158, 11, 0.32);
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.org-band-search-identity {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.org-band-search-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    color: white;
+    font-weight: 800;
+}
+
+.org-band-search-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 0.16rem;
+    min-width: 0;
+}
+
+.org-band-search-copy span {
+    font-weight: 750;
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.org-band-search-copy small {
+    color: var(--color-text-secondary);
+    font-size: 0.76rem;
+    line-height: 1.35;
+}
+
+.org-band-search-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 32px;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.74rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.org-band-search-status svg {
+    width: 14px;
+    height: 14px;
+}
+
+.org-band-search-status.is-pending {
+    color: #92400e;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.28);
+}
+
+html[data-theme="dark"] .org-band-status-pill.is-pending,
+:root.theme-dark .org-band-status-pill.is-pending,
+html[data-theme="dark"] .org-band-pending-notice,
+:root.theme-dark .org-band-pending-notice,
+html[data-theme="dark"] .org-band-pending-notice strong,
+:root.theme-dark .org-band-pending-notice strong,
+html[data-theme="dark"] .org-band-search-status.is-pending,
+:root.theme-dark .org-band-search-status.is-pending {
+    color: #fbbf24;
+}
+
+@media (max-width: 560px) {
+    .org-band-search-item {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .org-band-search-item .btn,
+    .org-band-search-status {
+        width: 100%;
+    }
+}
+
 .band-details-modal-content {
     max-width: 1260px;
     max-height: 90vh;
