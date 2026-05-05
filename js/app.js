@@ -1350,7 +1350,6 @@ const App = {
         const logoOnlySrc = this.getAssetPath(resolvedMode === 'dark'
             ? 'images/branding/bandmate-logo-only-dark.svg'
             : 'images/branding/bandmate-logo-only.svg');
-        const appIconSrc = this.getAssetPath('images/branding/bandmate-logo-only-dark.svg');
         const logoShortSrc = this.getAssetPath(resolvedMode === 'dark'
             ? 'images/branding/bandmate-logo-short-dark.svg'
             : 'images/branding/bandmate-logo-short.svg');
@@ -1370,12 +1369,22 @@ const App = {
 
         const favicon = document.getElementById('faviconSvg');
         if (favicon) {
-            favicon.setAttribute('href', appIconSrc);
+            favicon.setAttribute('href', logoOnlySrc);
         }
 
         const appleTouchIcon = document.getElementById('appleTouchIcon');
         if (appleTouchIcon) {
-            appleTouchIcon.setAttribute('href', appIconSrc);
+            appleTouchIcon.setAttribute('href', logoOnlySrc);
+        }
+    },
+
+    getBrowserPreferredThemeMode() {
+        try {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+        } catch (error) {
+            return 'dark';
         }
     },
 
@@ -1384,7 +1393,7 @@ const App = {
         if (savedTheme === 'light' || savedTheme === 'dark') {
             return savedTheme;
         }
-        return 'dark';
+        return this.getBrowserPreferredThemeMode();
     },
 
     getThemeIconMarkup(mode) {
@@ -1463,9 +1472,30 @@ const App = {
         }
     },
 
+    bindSystemThemePreference() {
+        if (this.systemThemePreferenceBound || !window.matchMedia) return;
+
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+        const handleSystemThemeChange = () => {
+            const savedTheme = this.getStoredThemePreference();
+            if (savedTheme === 'light' || savedTheme === 'dark') return;
+
+            this.applyThemeMode(mediaQuery.matches ? 'dark' : 'light', false);
+        };
+
+        if (typeof mediaQuery.addEventListener === 'function') {
+            mediaQuery.addEventListener('change', handleSystemThemeChange);
+        } else if (typeof mediaQuery.addListener === 'function') {
+            mediaQuery.addListener(handleSystemThemeChange);
+        }
+
+        this.systemThemePreferenceBound = true;
+    },
+
     initializeThemeSystem() {
         this.applyThemeMode(this.getResolvedThemeMode(), false);
         this.bindThemeControls();
+        this.bindSystemThemePreference();
     },
 
     // Update header to show current page title
@@ -6306,14 +6336,6 @@ const App = {
             });
         });
 
-        // Add Own Member button (placeholder)
-        const addOwnMemberBtn = document.getElementById('addOwnMemberBtn');
-        if (addOwnMemberBtn) {
-            addOwnMemberBtn.addEventListener('click', () => {
-                UI.showToast('Diese Funktion wird in Kürze verfügbar sein', 'success');
-            });
-        }
-
         // Tab switching in band details
         document.querySelectorAll('.tab-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -6698,18 +6720,12 @@ const App = {
                         await Organizations.renderOrganizations();
                     }
                 } else if (view === 'musikpool') {
-                    // Check if user is admin - Musikerpool is restricted
                     const musikpoolSection = document.getElementById('churchToolsMusikpoolSection');
                     if (!Auth.isAdmin()) {
                         if (musikpoolSection) musikpoolSection.style.display = 'none';
-                        if (overlay && shouldShowLoading) {
-                            overlay.style.opacity = '0';
-                            setTimeout(() => overlay.style.display = 'none', 400);
-                        }
-                        return;
+                    } else {
+                        if (musikpoolSection) musikpoolSection.style.display = 'block';
                     }
-
-                    if (musikpoolSection) musikpoolSection.style.display = 'block';
 
                     // Musikerpool mit Timeout und garantiertem Ausblenden des Overlays laden
                     if (typeof Musikpool !== 'undefined' && Musikpool.loadGroupData) {
@@ -10280,6 +10296,8 @@ const App = {
                     leadVocal: draft.leadVocal || null,
                     pdf_url: pdfUrl,
                     visibility: this.normalizeSongpoolVisibility(draft.visibility),
+                    organizationId: draft.organizationId || null,
+                    contextType: draft.organizationId ? 'organization' : (draft.contextType || null),
                     createdBy: user.id
                 });
 
@@ -12018,15 +12036,23 @@ const App = {
                         result.skippedDuplicateCount > 0 ? 'warning' : 'success'
                     );
                     UI.closeModal('songModal');
+                    const organizationId = modalContext?.organizationId || null;
                     this.lastSongModalContext = null;
                     await this.renderSongpoolView();
+                    if (organizationId && typeof Organizations !== 'undefined') {
+                        await Organizations.loadSongpool();
+                    }
                     return;
                 }
 
                 if (result.duplicateReviewCanceled) {
                     UI.closeModal('songModal');
+                    const organizationId = modalContext?.organizationId || null;
                     this.lastSongModalContext = null;
                     await this.renderSongpoolView();
+                    if (organizationId && typeof Organizations !== 'undefined') {
+                        await Organizations.loadSongpool();
+                    }
                     UI.showToast('Import abgebrochen.', 'info');
                     return;
                 }

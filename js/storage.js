@@ -1172,6 +1172,43 @@ const Storage = {
 
     async deleteOrganization(orgId) {
         const sb = SupabaseClient.getClient();
+        const ignoreMissingTableOrColumn = (error) => ['42P01', '42703'].includes(String(error?.code || '').toUpperCase());
+        const deleteRelated = async (table, column) => {
+            const { error } = await sb.from(table).delete().eq(column, orgId);
+            if (error) {
+                if (ignoreMissingTableOrColumn(error)) {
+                    Logger.warn(`Optional organization cleanup skipped for ${table}.${column}`, error);
+                    return;
+                }
+                throw error;
+            }
+        };
+
+        const cleanupNotifications = async () => {
+            const { error } = await sb
+                .from('notifications')
+                .update({
+                    status: 'dismissed',
+                    actionStatus: 'declined',
+                    readAt: new Date().toISOString(),
+                    organizationId: null,
+                    requestId: null
+                })
+                .eq('organizationId', orgId);
+            if (error && !ignoreMissingTableOrColumn(error)) {
+                Logger.warn('Optional organization notification cleanup failed', error);
+            }
+        };
+
+        await cleanupNotifications();
+        await deleteRelated('songpool_songs', 'organizationId');
+        await deleteRelated('locations', 'organizationId');
+        await deleteRelated('locations', 'organization_id');
+        await deleteRelated('organization_musicians', 'organization_id');
+        await deleteRelated('organization_activity_log', 'organization_id');
+        await deleteRelated('organization_bands', 'organization_id');
+        await deleteRelated('organization_members', 'organization_id');
+
         const { error } = await sb.from('organizations').delete().eq('id', orgId);
         if (error) throw error;
         return true;
@@ -1567,8 +1604,112 @@ const Storage = {
         return data || [];
     },
 
+    _isMissingOrganizationMusiciansTableError(error) {
+        const code = String(error?.code || '').toUpperCase();
+        const message = String(error?.message || '').toLowerCase();
+        return code === '42P01'
+            || code === '42703'
+            || (message.includes('organization_musicians') && (
+                message.includes('does not exist')
+                || message.includes('could not find')
+                || message.includes('schema cache')
+            ));
+    },
+
+    _getOrganizationMusiciansErrorMessage(error, fallback = 'Musiker konnten nicht geladen werden.') {
+        if (this._isMissingOrganizationMusiciansTableError(error)) {
+            return 'Die Tabelle für Organisations-Musiker fehlt noch. Bitte zuerst "sql/organization_musicians.sql" in Supabase ausführen.';
+        }
+        return fallback;
+    },
+
+    normalizeOrganizationMusician(record = {}, organization = null) {
+        const firstName = record.first_name || record.firstName || '';
+        const lastName = record.last_name || record.lastName || '';
+        const instruments = record.instruments || record.instrument || '';
+
+        return {
+            ...record,
+            first_name: firstName,
+            last_name: lastName,
+            instruments,
+            instrument: instruments,
+            organization_id: record.organization_id || organization?.id || null,
+            organizationName: record.organizationName || organization?.name || '',
+            source: record.source || 'organization_musician'
+        };
+    },
+
+    sortOrganizationMusicians(musicians = []) {
+        return [...musicians].sort((a, b) => {
+            const aName = `${a.last_name || ''} ${a.first_name || ''}`.trim().toLowerCase();
+            const bName = `${b.last_name || ''} ${b.first_name || ''}`.trim().toLowerCase();
+            return aName.localeCompare(bName, 'de');
+        });
+    },
+
+    async getOrganizationPoolMusicians(orgIds = [], organizationsById = new Map()) {
+        const ids = [...new Set((Array.isArray(orgIds) ? orgIds : [orgIds]).filter(Boolean))];
+        if (ids.length === 0) return [];
+
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('organization_musicians')
+            .select('*')
+            .in('organization_id', ids)
+            .order('last_name', { ascending: true })
+            .order('first_name', { ascending: true });
+
+        if (error) {
+            if (this._isMissingOrganizationMusiciansTableError(error)) {
+                Logger.warn('[Storage] organization_musicians table is not configured yet.', error);
+                return [];
+            }
+            throw new Error(this._getOrganizationMusiciansErrorMessage(error));
+        }
+
+        return (data || []).map(record => {
+            const org = organizationsById.get(String(record.organization_id)) || null;
+            return this.normalizeOrganizationMusician(record, org);
+        });
+    },
+
+    async createOrganizationMusician(orgId, musicianData = {}) {
+        if (!orgId) throw new Error('Keine Organisation ausgewählt.');
+
+        const payload = {
+            organization_id: orgId,
+            first_name: String(musicianData.first_name || '').trim(),
+            last_name: String(musicianData.last_name || '').trim(),
+            instruments: String(musicianData.instruments || musicianData.instrument || '').trim(),
+            created_by: musicianData.created_by || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        if (!payload.first_name || !payload.last_name) {
+            throw new Error('Vorname und Nachname sind erforderlich.');
+        }
+
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('organization_musicians')
+            .insert(payload)
+            .select('*')
+            .maybeSingle();
+
+        if (error) {
+            Logger.error('Supabase createOrganizationMusician error', error);
+            throw new Error(this._getOrganizationMusiciansErrorMessage(error, 'Musiker konnte nicht gespeichert werden.'));
+        }
+
+        return this.normalizeOrganizationMusician(data || payload);
+    },
+
     async getOrganizationMusicians(orgId) {
         const sb = SupabaseClient.getClient();
+        const org = await this.getOrganization(orgId);
+        const orgMap = new Map(org ? [[String(org.id), org]] : []);
         const { data: memberData, error: memberError } = await sb
             .from('organization_members')
             .select('user_id')
@@ -1580,7 +1721,10 @@ const Storage = {
             return [];
         }
         
-        if (!memberData || memberData.length === 0) return [];
+        const poolMusiciansPromise = this.getOrganizationPoolMusicians([orgId], orgMap);
+        if (!memberData || memberData.length === 0) {
+            return this.sortOrganizationMusicians(await poolMusiciansPromise);
+        }
         
         const userIds = memberData.map(m => m.user_id);
         
@@ -1591,10 +1735,36 @@ const Storage = {
             
         if (error) {
             Logger.error('Supabase getOrganizationMusicians details error', error);
-            return [];
+            return this.sortOrganizationMusicians(await poolMusiciansPromise);
         }
         
-        return data || [];
+        const memberMusicians = (data || []).map(user => this.normalizeOrganizationMusician({
+            ...user,
+            instruments: user.instruments || user.instrument || user.instrumentType || '',
+            source: 'organization_member'
+        }, org));
+        const poolMusicians = await poolMusiciansPromise;
+
+        return this.sortOrganizationMusicians([...memberMusicians, ...poolMusicians]);
+    },
+
+    async getOrganizationMusiciansForUser(userId) {
+        if (!userId) return [];
+
+        const organizations = await this.getOrganizations(userId);
+        if (!organizations || organizations.length === 0) return [];
+
+        const musiciansByOrg = await Promise.all(
+            organizations.map(async (org) => {
+                const musicians = await this.getOrganizationMusicians(org.id);
+                return musicians.map(musician => ({
+                    ...musician,
+                    organizationName: musician.organizationName || org.name || ''
+                }));
+            })
+        );
+
+        return this.sortOrganizationMusicians(musiciansByOrg.flat());
     },
 
     // Event operations
@@ -2651,12 +2821,10 @@ const Storage = {
         const sb = SupabaseClient.getClient();
 
         if (organizationId) {
-            // Strict organization query: Only songs for THIS organization
-            // Or public organization songs if intended
             const { data, error } = await sb
                 .from('songpool_songs')
                 .select('*')
-                .or(`organizationId.eq.${organizationId},and(contextType.eq.organization,visibility.eq.public)`);
+                .eq('organizationId', organizationId);
             
             if (error) {
                 throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Songs konnten nicht geladen werden.'));

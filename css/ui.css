@@ -1225,23 +1225,6 @@ a.meta-item:hover {
     color: var(--color-primary);
 }
 
-.org-dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: var(--spacing-xl);
-}
-
-@media (max-width: 1024px) {
-    .org-dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.activity-feed {
-    display: flex;
-    flex-direction: column;
-}
-
 .sticky-tabs {
     position: sticky;
     top: 0;
@@ -1273,28 +1256,6 @@ a.meta-item:hover {
 .browse-org-item:hover {
     background: var(--color-bg-tertiary);
     transform: scale(1.02);
-}
-
-/* =========================================
-   ORGANIZATION DASHBOARD & COMPONENTS
-   ========================================= */
-.org-dashboard-grid {
-    display: grid;
-    grid-template-columns: 1fr 300px;
-    gap: 1.5rem;
-    margin-top: 1rem;
-}
-
-@media (max-width: 992px) {
-    .org-dashboard-grid {
-        grid-template-columns: 1fr;
-    }
-}
-
-.org-dashboard-sidebar {
-    display: flex;
-    flex-direction: column;
-    gap: 1.5rem;
 }
 
 /* Compact Songpool Grid */

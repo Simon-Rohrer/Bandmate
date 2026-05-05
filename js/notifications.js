@@ -88,6 +88,14 @@ const Notifications = {
             }
         });
 
+        // Mark unread notifications as read on hover
+        list.addEventListener('mouseover', async (event) => {
+            const item = event.target.closest('.notification-item.is-unread[data-notification-id]');
+            if (item) {
+                await this.markNotificationRead(item.dataset.notificationId);
+            }
+        });
+
         document.addEventListener('pointerdown', (event) => {
             if (!this.isOpen) return;
             if (dropdown.contains(event.target) || bellButton.contains(event.target)) return;
@@ -190,6 +198,7 @@ const Notifications = {
                 : [];
 
             this.currentNotifications = await this.enrichNotificationsWithRequestState(visibleNotifications);
+            await this.enforceNotificationLimit(user.id);
             const unreadFromQuery = Number.isFinite(Number(unreadCount)) ? Number(unreadCount) : 0;
             const unreadFromList = this.currentNotifications.filter(notification => notification.status === 'unread').length;
             this.unreadCount = Math.max(unreadFromQuery, unreadFromList);
@@ -864,6 +873,37 @@ const Notifications = {
         this.renderNotifications(this.currentNotifications);
         this.unreadCount = Math.max(0, this.unreadCount - 1);
         this.updateBadge(this.unreadCount);
+    },
+
+    async enforceNotificationLimit(userId) {
+        const MAX_NOTIFICATIONS = 7;
+        
+        if (this.currentNotifications.length <= MAX_NOTIFICATIONS) {
+            return;
+        }
+
+        // Sort notifications by creation date (newest first)
+        const sorted = [...this.currentNotifications].sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0).getTime();
+            const dateB = new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;
+        });
+
+        // Identify notifications to delete (older ones beyond the limit)
+        const toDelete = sorted.slice(MAX_NOTIFICATIONS);
+
+        // Persist dismissed notification IDs and update current notifications
+        for (const notification of toDelete) {
+            this.persistDismissedNotificationId(userId, notification.id);
+        }
+
+        // Update currentNotifications to keep only the newest ones
+        const toDeleteIds = new Set(toDelete.map(n => String(n.id)));
+        this.currentNotifications = this.currentNotifications.filter(
+            notification => !toDeleteIds.has(String(notification.id))
+        );
+
+        this.renderNotifications(this.currentNotifications);
     },
 
     async handleActionButton(button) {

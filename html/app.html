@@ -25,6 +25,8 @@
                 const storedTheme = localStorage.getItem(STORAGE_KEY);
                 if (storedTheme === 'light' || storedTheme === 'dark') {
                     resolvedTheme = storedTheme;
+                } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+                    resolvedTheme = 'light';
                 }
             } catch (error) {
                 resolvedTheme = 'dark';
@@ -74,12 +76,12 @@
     </script>
 
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="../css/ui.css?v=20260504">
-    <link rel="stylesheet" href="../css/style.css?v=20260409-1">
+    <link rel="stylesheet" href="../css/ui.css?v=20260505-1">
+    <link rel="stylesheet" href="../css/style.css?v=20260505-2">
     <link rel="stylesheet" href="../css/rider.css">
     <link rel="stylesheet" href="../css/sidebar.css?v=20260407-2">
     <link rel="stylesheet" href="../css/calendar.css?v=20260408-4">
-    <link rel="stylesheet" href="../css/settings_modal.css?v=20260408-1">
+    <link rel="stylesheet" href="../css/settings_modal.css?v=20260505-1">
     <link rel="stylesheet" href="../css/statistics.css">
     <link rel="stylesheet" href="../css/finances.css">
 
@@ -1693,17 +1695,16 @@
                                 <!-- Eigene Mitglieder Section -->
                                 <div class="section page-section-card">
                                     <div class="section-header">
-                                        <h3>Eigene Mitglieder</h3>
-                                        <button id="addOwnMemberBtn" class="btn btn-primary"
-                                            style="display: inline-flex; align-items: center; gap: 0.5rem;">
-                                            Mitglied hinzufügen
-                                        </button>
+                                        <div>
+                                            <h3>Organisations-Musiker</h3>
+                                            <p class="section-subtext">Musiker aus Organisationen, in denen du Mitglied bist.</p>
+                                        </div>
                                     </div>
                                     <div id="ownMembersContainer">
                                         <div class="empty-state">
-                                            <p>Noch keine eigenen Mitglieder angelegt</p>
+                                            <p>Noch keine Organisations-Musiker sichtbar</p>
                                             <p class="empty-state-note">
-                                                Hier kannst du eigene Musiker und Kontakte ergänzen.
+                                                Sobald in deiner Organisation Musiker angelegt wurden, erscheinen sie hier.
                                             </p>
                                         </div>
                                     </div>
@@ -2823,103 +2824,169 @@
 
                 <!-- Dashboard Tab -->
                 <div id="org-overviewTab" class="tab-content active">
-                    <div class="org-dashboard-grid">
-                        <div class="org-dashboard-main">
-                            <div class="dashboard-grid">
-                                <div class="dashboard-panel dashboard-card stat-card">
-                                    <div class="card-icon">👥</div>
-                                    <div class="card-content">
-                                        <span class="card-eyebrow">Mitglieder</span>
-                                        <p class="card-stat" id="orgMemberCount">0</p>
-                                    </div>
-                                </div>
-                                <div class="dashboard-panel dashboard-card stat-card">
-                                    <div class="card-icon">🎸</div>
-                                    <div class="card-content">
-                                        <span class="card-eyebrow">Bands</span>
-                                        <p class="card-stat" id="orgBandCount">0</p>
-                                    </div>
-                                </div>
-                                <div class="dashboard-panel dashboard-card stat-card">
-                                    <div class="card-icon">🎵</div>
-                                    <div class="card-content">
-                                        <span class="card-eyebrow">Songs</span>
-                                        <p class="card-stat" id="orgSongCount">0</p>
-                                    </div>
-                                </div>
+                    <div class="org-dashboard-shell">
+                        <section class="org-dashboard-spotlight">
+                            <div class="org-dashboard-spotlight-copy">
+                                <span class="band-details-section-eyebrow">Übersicht</span>
+                                <h3>Organisations-Dashboard</h3>
+                                <p>Alle wichtigen Kennzahlen, Kontaktdaten und Aktivitäten dieser Organisation auf einen Blick.</p>
                             </div>
+                            <div id="orgDashboardHealth" class="org-dashboard-health">
+                                <span class="org-dashboard-health-dot" aria-hidden="true"></span>
+                                Aktiv
+                            </div>
+                        </section>
 
-                            <div class="section band-details-panel-section mt-6">
+                        <div class="org-dashboard-stats-grid">
+                            <button type="button" class="org-stat-card" onclick="Organizations.switchTab('org-members')">
+                                <span class="org-stat-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                                        <circle cx="9" cy="7" r="4"></circle>
+                                        <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                                        <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                                    </svg>
+                                </span>
+                                <span class="org-stat-copy">
+                                    <span>Mitglieder</span>
+                                    <strong id="orgMemberCount">0</strong>
+                                    <small>Aktive Zugänge</small>
+                                </span>
+                            </button>
+                            <button type="button" class="org-stat-card" onclick="Organizations.switchTab('org-bands')">
+                                <span class="org-stat-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M10 14 21 3"></path>
+                                        <path d="m14 3 7 7"></path>
+                                        <circle cx="8" cy="16" r="3"></circle>
+                                        <path d="M6 18 3 21"></path>
+                                    </svg>
+                                </span>
+                                <span class="org-stat-copy">
+                                    <span>Bands</span>
+                                    <strong id="orgBandCount">0</strong>
+                                    <small>Verknüpft</small>
+                                </span>
+                            </button>
+                            <button type="button" class="org-stat-card" onclick="Organizations.switchTab('org-songpool')">
+                                <span class="org-stat-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M9 18V5l12-2v13"></path>
+                                        <circle cx="6" cy="18" r="3"></circle>
+                                        <circle cx="18" cy="16" r="3"></circle>
+                                    </svg>
+                                </span>
+                                <span class="org-stat-copy">
+                                    <span>Songs</span>
+                                    <strong id="orgSongCount">0</strong>
+                                    <small>Im Songpool</small>
+                                </span>
+                            </button>
+                            <button type="button" class="org-stat-card" onclick="Organizations.switchTab('org-musikpool')">
+                                <span class="org-stat-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M2 20a10 10 0 0 1 20 0"></path>
+                                        <circle cx="12" cy="10" r="8"></circle>
+                                    </svg>
+                                </span>
+                                <span class="org-stat-copy">
+                                    <span>Musikerpool</span>
+                                    <strong id="orgMusicianCount">0</strong>
+                                    <small>Verfügbare Musiker</small>
+                                </span>
+                            </button>
+                            <button type="button" class="org-stat-card" onclick="Organizations.switchTab('org-locations')">
+                                <span class="org-stat-icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 21h18"></path>
+                                        <path d="M5 21V7l7-4 7 4v14"></path>
+                                        <path d="M9 21v-6h6v6"></path>
+                                    </svg>
+                                </span>
+                                <span class="org-stat-copy">
+                                    <span>Ressourcen</span>
+                                    <strong id="orgLocationCount">0</strong>
+                                    <small>Orte & Räume</small>
+                                </span>
+                            </button>
+                        </div>
+
+                        <div class="org-dashboard-content-grid">
+                            <section class="section band-details-panel-section org-dashboard-activity-card">
                                 <div class="section-header band-details-section-header">
                                     <div class="band-details-section-copy">
                                         <span class="band-details-section-eyebrow">Aktivität</span>
-                                        <h3>Letzte Aktivitäten</h3>
-                                        <p class="band-details-section-note">Was in deiner Organisation zuletzt passiert ist.</p>
+                                        <h3>Timeline</h3>
+                                        <p class="band-details-section-note">Neue Einladungen, Änderungen und Organisationsaktionen chronologisch sortiert.</p>
                                     </div>
                                 </div>
-                                <div id="orgRecentActivity" class="activity-feed"></div>
-                            </div>
-                        </div>
+                                <div id="orgRecentActivity" class="org-activity-timeline"></div>
+                            </section>
 
-                        <div class="org-dashboard-sidebar">
-                            <div class="section band-details-panel-section">
-                                <div class="section-header mb-4">
-                                    <div class="band-details-section-copy">
-                                        <span class="band-details-section-eyebrow">Hub</span>
-                                        <h3>Quick Actions</h3>
-                                    </div>
-                                </div>
-                                <div class="flex flex-col gap-3">
-                                    <div class="org-quick-add-wrapper" style="display: flex; justify-content: flex-end; position: relative;">
-                                        <button
-                                            id="orgQuickAddBtn"
-                                            class="btn btn-header"
-                                            type="button"
-                                            title="Schnellaktionen"
-                                            aria-label="Schnellaktionen"
-                                            aria-haspopup="menu"
-                                            aria-expanded="false"
-                                            style="width: 40px; height: 40px; padding: 0; display: flex; align-items: center; justify-content: center; border-radius: 50%;"
-                                        >
-                                            <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
-                                                <path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"></path>
-                                            </svg>
-                                        </button>
-                                        <div id="orgQuickAddMenu" class="header-quick-add-menu" style="top: 45px; right: 0; width: 220px;" role="menu" hidden>
-                                            <button class="header-quick-add-item" onclick="UI.openModal('inviteOrgMemberModal')" type="button" role="menuitem">
-                                                <span class="header-quick-add-item-icon" aria-hidden="true">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
-                                                        <circle cx="9" cy="7" r="4"></circle>
-                                                        <line x1="19" y1="8" x2="19" y2="14"></line>
-                                                        <line x1="16" y1="11" x2="22" y2="11"></line>
-                                                    </svg>
-                                                </span>
-                                                <span>Mitglied einladen</span>
-                                            </button>
-                                            <button class="header-quick-add-item" onclick="Organizations.handleLinkBand()" type="button" role="menuitem">
-                                                <span class="header-quick-add-item-icon" aria-hidden="true">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                                        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                                        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                                                    </svg>
-                                                </span>
-                                                <span>Band verknüpfen</span>
-                                            </button>
-                                            <button class="header-quick-add-item" onclick="Organizations.switchTab('org-songpool')" type="button" role="menuitem">
-                                                <span class="header-quick-add-item-icon" aria-hidden="true">
-                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                                        <path d="M9 18V5l12-2v13"></path>
-                                                        <circle cx="6" cy="18" r="3"></circle>
-                                                        <circle cx="18" cy="16" r="3"></circle>
-                                                    </svg>
-                                                </span>
-                                                <span>Songpool öffnen</span>
-                                            </button>
+                            <aside class="org-dashboard-side-stack">
+                                <section id="orgDashboardActionsCard" class="section band-details-panel-section org-dashboard-actions-card">
+                                    <div class="section-header mb-4">
+                                        <div class="band-details-section-copy">
+                                            <span class="band-details-section-eyebrow">Aktionen</span>
+                                            <h3>Verwalten</h3>
+                                            <p class="band-details-section-note">Direkte Wege zu den wichtigsten Verwaltungsaufgaben.</p>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
+                                    <div class="org-dashboard-action-list">
+                                        <button type="button" class="org-dashboard-action-btn" onclick="UI.openModal('inviteOrgMemberModal')">
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                                                    <circle cx="9" cy="7" r="4"></circle>
+                                                    <path d="M19 8v6"></path>
+                                                    <path d="M16 11h6"></path>
+                                                </svg>
+                                            </span>
+                                            <strong>Mitglied einladen</strong>
+                                        </button>
+                                        <button type="button" class="org-dashboard-action-btn" onclick="Organizations.handleLinkBand()">
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                                </svg>
+                                            </span>
+                                            <strong>Band verknüpfen</strong>
+                                        </button>
+                                        <button type="button" class="org-dashboard-action-btn" onclick="Organizations.openCreateMusicianModal()">
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M2 20a10 10 0 0 1 20 0"></path>
+                                                    <circle cx="12" cy="10" r="8"></circle>
+                                                    <path d="M12 6v4l3 2"></path>
+                                                </svg>
+                                            </span>
+                                            <strong>Musiker anlegen</strong>
+                                        </button>
+                                        <button type="button" class="org-dashboard-action-btn" onclick="Organizations.handleAddOrgSong()">
+                                            <span aria-hidden="true">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                                    <path d="M9 18V5l12-2v13"></path>
+                                                    <circle cx="6" cy="18" r="3"></circle>
+                                                    <circle cx="18" cy="16" r="3"></circle>
+                                                </svg>
+                                            </span>
+                                            <strong>Song hinzufügen</strong>
+                                        </button>
+                                    </div>
+                                </section>
+
+                                <section class="section band-details-panel-section org-dashboard-info-card">
+                                    <div class="section-header mb-4">
+                                        <div class="band-details-section-copy">
+                                            <span class="band-details-section-eyebrow">Organisation</span>
+                                            <h3>Details</h3>
+                                            <p class="band-details-section-note">Kontakt, Typ und Kurzprofil dieser Organisation.</p>
+                                        </div>
+                                    </div>
+                                    <div id="orgDashboardInfo" class="org-dashboard-info-list"></div>
+                                </section>
+                            </aside>
                         </div>
                     </div>
                 </div>
@@ -2984,6 +3051,9 @@
                                 <h3>Musiker-Verzeichnis</h3>
                                 <p class="band-details-section-note">Verfügbare Musiker innerhalb der Organisation.</p>
                             </div>
+                            <div style="display: flex; gap: 0.75rem;">
+                                <button class="btn btn-primary btn-sm" id="addOrgMusicianBtn">+ Musiker anlegen</button>
+                            </div>
                         </div>
                         <div id="orgMusikpoolList"></div>
                     </div>
@@ -3011,66 +3081,97 @@
                     <div class="band-details-panel-intro band-details-panel-intro-compact">
                         <span class="band-details-section-eyebrow">Verwaltung</span>
                         <h3>Einstellungen</h3>
-                        <p>Name, Beschreibung und Organisationsverwaltung.</p>
+                        <p>Profilbild, Basisdaten, Kontakt und Organisationsverwaltung.</p>
                     </div>
 
-                    <div class="org-settings-grid">
-                        <div class="section band-details-panel-section band-details-settings-panel">
-                            <div class="band-details-panel-head">
-                                <div>
-                                    <span class="band-details-section-eyebrow">Profil</span>
-                                    <h3>Organisationsbild</h3>
-                                    <p class="band-details-section-note">Passe das Logo deiner Organisation an.</p>
+                    <div class="org-settings-profile-grid">
+                        <aside class="profile-sidebar-column org-settings-sidebar">
+                            <div class="profile-summary-card org-settings-summary-card">
+                                <div class="profile-avatar-wrapper profile-avatar-wrapper-summary org-settings-avatar-wrapper">
+                                    <div id="orgSettingsImagePreview" class="profile-avatar-preview org-settings-avatar-preview"></div>
+                                    <button type="button" id="orgImageUploadBtn" class="profile-avatar-edit-btn" title="Organisationsbild ändern" aria-label="Organisationsbild ändern">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                                            <circle cx="12" cy="13" r="4"></circle>
+                                        </svg>
+                                    </button>
+                                    <input type="file" id="orgImageInput" accept="image/*" hidden>
                                 </div>
+                                <div class="profile-summary-copy">
+                                    <span class="settings-column-kicker">Organisationsbild</span>
+                                    <h4 id="orgSettingsNamePreview">Organisation</h4>
+                                    <p>Verwalte Bild, Basisdaten und Kontaktinformationen deiner Organisation.</p>
+                                </div>
+                                <div class="org-settings-image-actions">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="orgImageUploadSecondaryBtn">Bild hochladen</button>
+                                    <button type="button" class="btn btn-danger btn-sm" id="orgImageRemoveBtn">Bild entfernen</button>
+                                </div>
+                                <p class="text-xs text-secondary mt-2">Empfohlen: Quadratisch, mindestens 400x400px.</p>
                             </div>
-                            <div class="band-details-profile-upload">
-                                <div class="band-details-profile-preview" id="orgSettingsImagePreview">
-                                    <span id="orgSettingsImagePlaceholder">🏢</span>
-                                </div>
-                                <div class="band-details-profile-actions">
-                                    <button type="button" class="btn btn-secondary btn-sm" id="orgImageUploadBtn">Bild hochladen</button>
-                                    <input type="file" id="orgImageInput" accept="image/*" style="display: none;">
-                                    <p class="text-xs text-secondary mt-2">Empfohlen: Quadratisch, mind. 400x400px.</p>
-                                </div>
-                            </div>
-                        </div>
+                        </aside>
 
-                        <div class="section band-details-panel-section band-details-settings-panel">
-                            <div class="band-details-panel-head">
-                                <div>
-                                    <span class="band-details-section-eyebrow">Stammdaten</span>
-                                    <h3>Organisation bearbeiten</h3>
-                                    <p class="band-details-section-note">Passe die grundlegenden Informationen an.</p>
+                        <div class="profile-main-column org-settings-main-column">
+                            <div class="profile-section">
+                                <div class="profile-section-title">
+                                    Stammdaten
+                                </div>
+                                <div class="profile-form-grid">
+                                    <div class="form-group">
+                                        <label for="editOrgName">Name</label>
+                                        <input type="text" id="editOrgName" class="profile-form-input" placeholder="Name" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editOrgType">Typ</label>
+                                        <select id="editOrgType" class="profile-form-input">
+                                            <option value="agency">Agentur / Booking</option>
+                                            <option value="club">Musikverein / Club</option>
+                                            <option value="label">Label / Verlag</option>
+                                            <option value="collective">Kollektiv / Band-Pool</option>
+                                            <option value="other">Sonstiges</option>
+                                        </select>
+                                    </div>
+                                    <div class="form-group full-width">
+                                        <label for="editOrgDescription">Beschreibung</label>
+                                        <textarea id="editOrgDescription" class="profile-form-input" rows="4" placeholder="Zweck der Organisation..."></textarea>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="form-group mb-6">
-                                <label for="editOrgName">Name</label>
-                                <input type="text" id="editOrgName" class="profile-form-input" placeholder="Name" required>
+
+                            <div class="profile-section">
+                                <div class="profile-section-title">
+                                    Kontakt & Online-Präsenz
+                                </div>
+                                <div class="profile-form-grid">
+                                    <div class="form-group">
+                                        <label for="editOrgWebsite">Website</label>
+                                        <input type="text" id="editOrgWebsite" class="profile-form-input" placeholder="www.domain.de">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editOrgEmail">Kontakt-E-Mail</label>
+                                        <input type="email" id="editOrgEmail" class="profile-form-input" placeholder="info@domain.de">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="editOrgPhone">Telefon</label>
+                                        <input type="tel" id="editOrgPhone" class="profile-form-input" placeholder="+49...">
+                                    </div>
+                                </div>
                             </div>
-                            <div class="form-group mb-6">
-                                <label for="editOrgDescription">Beschreibung</label>
-                                <textarea id="editOrgDescription" class="profile-form-input" rows="4" placeholder="Zweck der Organisation..."></textarea>
+
+                            <div class="profile-section org-danger-section">
+                                <div class="profile-section-title text-danger">
+                                    Gefahrenzone
+                                </div>
+                                <div class="org-settings-danger-row">
+                                    <div class="band-details-danger-note org-settings-danger-note">
+                                        <strong>Achtung</strong>
+                                        <span>Das Löschen einer Organisation entfernt alle Verknüpfungen und Daten unwiderruflich.</span>
+                                    </div>
+                                    <button type="button" class="btn btn-danger band-details-danger-action" id="deleteOrgBtn">Organisation löschen</button>
+                                </div>
                             </div>
-                            <div class="flex justify-end">
+
+                            <div class="settings-form-actions org-settings-form-actions">
                                 <button type="button" class="btn btn-primary" id="saveOrgSettingsBtn">Speichern</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="section band-details-panel-section band-details-settings-panel mt-6">
-                        <div class="band-details-panel-head">
-                            <div>
-                                <span class="band-details-section-eyebrow text-danger">Gefahrenzone</span>
-                                <h3 class="text-danger">Organisation löschen</h3>
-                                <p class="band-details-section-note">Diese Aktion kann nicht rückgängig gemacht werden.</p>
-                            </div>
-                        </div>
-                        <div class="band-details-danger-note">
-                            <strong>Achtung</strong>
-                            <span>Das Löschen einer Organisation entfernt alle Verknüpfungen und Daten unwiderruflich.</span>
-                            </div>
-                            <div class="flex justify-between items-center w-full">
-                                <button class="btn btn-danger band-details-danger-action" id="deleteOrgBtn">Organisation löschen</button>
                             </div>
                         </div>
                     </div>
@@ -3196,6 +3297,44 @@
         </div>
     </div>
 
+    <!-- Modal: Musiker im Organisationspool anlegen -->
+    <div id="createOrgMusicianModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <div class="modal-title-copy">
+                    <span class="modal-kicker">Organisation</span>
+                    <h2>Musiker anlegen</h2>
+                </div>
+                <button class="modal-close" id="closeCreateOrgMusicianModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="createOrgMusicianForm">
+                    <div class="form-row mb-4" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--spacing-md);">
+                        <div class="form-group">
+                            <label for="orgMusicianFirstName">Vorname *</label>
+                            <input type="text" id="orgMusicianFirstName" placeholder="Vorname" autocomplete="given-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="orgMusicianLastName">Nachname *</label>
+                            <input type="text" id="orgMusicianLastName" placeholder="Nachname" autocomplete="family-name" required>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="orgMusicianInstruments">Instrumente</label>
+                        <input type="text" id="orgMusicianInstruments" placeholder="z.B. Gesang, Gitarre, Piano">
+                    </div>
+                    <p class="text-sm text-secondary mt-4">
+                        Der Musiker wird im Musikerpool dieser Organisation gespeichert und ist für Organisationsmitglieder sichtbar.
+                    </p>
+                    <div class="modal-actions mt-6">
+                        <button type="button" class="btn btn-secondary" id="cancelCreateOrgMusicianBtn">Abbrechen</button>
+                        <button type="submit" class="btn btn-primary">Musiker speichern</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal: Band mit Organisation verknüpfen -->
     <div id="linkOrgBandModal" class="modal">
         <div class="modal-content" style="max-width: 450px;">
@@ -3209,7 +3348,12 @@
             <div class="modal-body">
                 <div class="form-group mb-4">
                     <div class="search-wrapper" style="width: 100%;">
-                        <span class="search-icon">🔍</span>
+                        <span class="search-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                        </span>
                         <input type="text" id="orgBandSearchInput" placeholder="Bands suchen..." class="modern-search-input" style="width: 100%;">
                     </div>
                 </div>
@@ -3275,9 +3419,9 @@
                         <label for="orgLocationCalendar">Mit Kalender verknüpfen</label>
                         <select id="orgLocationCalendar">
                             <option value="">Nicht verknüpft</option>
-                            <option value="tonstudio">🎙️ Tonstudio</option>
-                            <option value="festhalle">🏛️ JMS Festhalle</option>
-                            <option value="ankersaal">⚓ Ankersaal</option>
+                            <option value="tonstudio">Tonstudio</option>
+                            <option value="festhalle">JMS Festhalle</option>
+                            <option value="ankersaal">Ankersaal</option>
                         </select>
                     </div>
                     <div class="modal-actions mt-6">
@@ -5543,11 +5687,11 @@
     <script src="../js/proxy-service.js?v=20260311"></script>
     <script src="../js/config.js?v=20260424-1"></script>
     <script src="../js/supabase.js?v=20260407-17"></script>
-    <script src="../js/storage.js?v=20260504-1"></script>
+    <script src="../js/storage.js?v=20260505-1"></script>
     <script src="../js/auth.js?v=20260407-19"></script>
     <script src="../js/email-service.js?v=20260311"></script>
     <script src="../js/bands.js?v=20260311"></script>
-    <script src="../js/organizations.js?v=20260504-1"></script>
+    <script src="../js/organizations.js?v=20260505-2"></script>
     <script src="../js/pdf-generator.js?v=20260311"></script>
     <script src="../js/events.js?v=20260408-6"></script>
     <script src="../js/rehearsals.js?v=20260408-2"></script>
@@ -5556,12 +5700,12 @@
     <script src="../js/personal-calendar.js?v=20260407-4"></script>
     <script src="../js/finances.js?v=20260428-1"></script>
     <script src="../js/churchtools-api.js?v=20260311"></script>
-    <script src="../js/musikpool.js?v=20260311"></script>
+    <script src="../js/musikpool.js?v=20260505-1"></script>
     <script src="../js/ui.js?v=20260408-1"></script>
     <script src="../js/feedback-service.js?v=20260311"></script>
     <script src="../js/chordpro-converter.js?v=20260407-8"></script>
     <script src="../js/notifications.js?v=20260328"></script>
-    <script src="../js/app.js?v=20260504-1"></script>
+    <script src="../js/app.js?v=20260505-1"></script>
 
     <!-- Skip duplicated pdf.js block -->
 
@@ -5657,7 +5801,12 @@
             <div class="modal-body">
                 <div class="form-group mb-4">
                     <div class="search-wrapper" style="width: 100%;">
-                        <span class="search-icon">🔍</span>
+                        <span class="search-icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="11" cy="11" r="8"></circle>
+                                <path d="m21 21-4.35-4.35"></path>
+                            </svg>
+                        </span>
                         <input type="text" id="searchOrgsInput" placeholder="Name suchen..." class="modern-search-input" style="width: 100%;">
                     </div>
                 </div>

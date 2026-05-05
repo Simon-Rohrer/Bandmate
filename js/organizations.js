@@ -1,6 +1,7 @@
 // Organizations Management Module
 const Organizations = {
     currentOrgId: null,
+    currentUserIsAdmin: false,
     orgSettingsDirty: false,
     orgImageDraftFile: null,
     orgImageRemovalPending: false,
@@ -42,20 +43,18 @@ const Organizations = {
         const canManage = !!permissions?.canManage;
         const canAdmin = !!permissions?.canAdmin;
 
+        this.currentUserIsAdmin = canAdmin;
+
         this.setElementVisible('inviteOrgMemberBtn', canManage);
         this.setElementVisible('linkBandBtn', canManage);
         this.setElementVisible('addOrgSongBtn', canManage);
+        this.setElementVisible('addOrgMusicianBtn', canManage);
         this.setElementVisible('addOrgLocationBtn', canManage);
-        this.setElementVisible('orgQuickAddBtn', canManage);
-
-        const quickAddMenu = document.getElementById('orgQuickAddMenu');
-        if (quickAddMenu && !canManage) {
-            quickAddMenu.hidden = true;
-        }
+        this.setElementVisible('orgDashboardActionsCard', canManage, 'block');
 
         const settingsTabBtn = document.querySelector('.tab-btn[data-tab="org-settings"]');
         if (settingsTabBtn) {
-            settingsTabBtn.style.display = canAdmin ? 'block' : 'none';
+            settingsTabBtn.style.display = canAdmin ? '' : 'none';
         }
 
         const inviteRoleSelect = document.getElementById('inviteOrgRole');
@@ -162,21 +161,37 @@ const Organizations = {
 
         // Image Upload Handlers
         const orgImageUploadBtn = document.getElementById('orgImageUploadBtn');
+        const orgImageUploadSecondaryBtn = document.getElementById('orgImageUploadSecondaryBtn');
+        const orgImageRemoveBtn = document.getElementById('orgImageRemoveBtn');
         const orgImageInput = document.getElementById('orgImageInput');
         if (orgImageUploadBtn && orgImageInput) {
             orgImageUploadBtn.onclick = () => orgImageInput.click();
+        }
+        if (orgImageUploadSecondaryBtn && orgImageInput) {
+            orgImageUploadSecondaryBtn.onclick = () => orgImageInput.click();
+        }
+        if (orgImageInput) {
             orgImageInput.onchange = (e) => this.handleImageSelect(e);
+        }
+        if (orgImageRemoveBtn) {
+            orgImageRemoveBtn.onclick = () => this.handleRemoveImage();
         }
 
         // Dirty Tracking
-        const settingsInputs = ['editOrgName', 'editOrgDescription'];
+        const settingsInputs = ['editOrgName', 'editOrgType', 'editOrgDescription', 'editOrgWebsite', 'editOrgEmail', 'editOrgPhone'];
         settingsInputs.forEach(id => {
             const el = document.getElementById(id);
             if (el) {
-                el.addEventListener('input', () => {
+                const markDirty = () => {
                     this.orgSettingsDirty = true;
                     window._orgSettingsDirty = true;
-                });
+                    if (id === 'editOrgName') {
+                        this.updateOrgSettingsNamePreview(el.value);
+                        this.updateImagePreview(null, { preserveCurrentImage: true });
+                    }
+                };
+                el.addEventListener('input', markDirty);
+                el.addEventListener('change', markDirty);
             }
         });
         UI.guardModalClose('orgDetailsModal', '_orgSettingsDirty');
@@ -242,6 +257,29 @@ const Organizations = {
             addOrgSongBtn.onclick = () => this.handleAddOrgSong();
         }
 
+        // Musician Pool Creation
+        const addOrgMusicianBtn = document.getElementById('addOrgMusicianBtn');
+        if (addOrgMusicianBtn) {
+            addOrgMusicianBtn.onclick = () => this.openCreateMusicianModal();
+        }
+
+        const createOrgMusicianForm = document.getElementById('createOrgMusicianForm');
+        if (createOrgMusicianForm) {
+            createOrgMusicianForm.onsubmit = async (e) => {
+                e.preventDefault();
+                await this.handleCreateMusician();
+            };
+        }
+
+        const closeCreateOrgMusicianModal = document.getElementById('closeCreateOrgMusicianModal');
+        if (closeCreateOrgMusicianModal) {
+            closeCreateOrgMusicianModal.onclick = () => UI.closeModal('createOrgMusicianModal');
+        }
+        const cancelCreateOrgMusicianBtn = document.getElementById('cancelCreateOrgMusicianBtn');
+        if (cancelCreateOrgMusicianBtn) {
+            cancelCreateOrgMusicianBtn.onclick = () => UI.closeModal('createOrgMusicianModal');
+        }
+
         // Location Creation
         const addOrgLocationBtn = document.getElementById('addOrgLocationBtn');
         if (addOrgLocationBtn) {
@@ -265,24 +303,6 @@ const Organizations = {
             cancelCreateOrgLocationBtn.onclick = () => UI.closeModal('createOrgLocationModal');
         }
 
-        // Quick Add Toggle
-        const orgQuickAddBtn = document.getElementById('orgQuickAddBtn');
-        const orgQuickAddMenu = document.getElementById('orgQuickAddMenu');
-        if (orgQuickAddBtn && orgQuickAddMenu) {
-            orgQuickAddBtn.onclick = (e) => {
-                e.stopPropagation();
-                const isHidden = orgQuickAddMenu.hidden;
-                orgQuickAddMenu.hidden = !isHidden;
-                orgQuickAddBtn.setAttribute('aria-expanded', !isHidden);
-            };
-
-            document.addEventListener('click', (e) => {
-                if (!orgQuickAddBtn.contains(e.target) && !orgQuickAddMenu.contains(e.target)) {
-                    orgQuickAddMenu.hidden = true;
-                    orgQuickAddBtn.setAttribute('aria-expanded', 'false');
-                }
-            });
-        }
     },
 
     async renderOrganizations(forceRefresh = false) {
@@ -316,7 +336,7 @@ const Organizations = {
         if (!orgs || orgs.length === 0) {
             container.innerHTML = `
                 <div class="bands-empty-state">
-                    <div class="bands-empty-icon">🏢</div>
+                    <div class="bands-empty-icon">${this.getOrgInlineIcon('organization')}</div>
                     <h3>Keine Organisationen</h3>
                     <p>Du bist noch kein Mitglied einer Organisation. Erstelle eine neue oder lass dich einladen.</p>
                 </div>
@@ -359,10 +379,155 @@ const Organizations = {
         const types = {
             'club': 'Verein',
             'agency': 'Agentur',
+            'label': 'Label / Verlag',
             'collective': 'Kollektiv',
             'other': 'Sonstiges'
         };
         return types[type] || type;
+    },
+
+    getOrgWebsiteHref(value = '') {
+        const website = String(value || '').trim();
+        if (!website) return '';
+        return /^https?:\/\//i.test(website) ? website : `https://${website}`;
+    },
+
+    getOrgInitials(name = '') {
+        return UI.getUserInitials(String(name || 'Organisation'));
+    },
+
+    getOrgInlineIcon(type = 'organization') {
+        const icons = {
+            organization: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 21h18"></path>
+                    <path d="M4 21V7l8-4 8 4v14"></path>
+                    <path d="M9 21v-7h6v7"></path>
+                </svg>
+            `,
+            members: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="9" cy="7" r="4"></circle>
+                    <path d="M22 21v-2a4 4 0 0 0-3-3.87"></path>
+                    <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+            `,
+            bands: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10 14 21 3"></path>
+                    <path d="m14 3 7 7"></path>
+                    <circle cx="8" cy="16" r="3"></circle>
+                    <path d="M6 18 3 21"></path>
+                </svg>
+            `,
+            songs: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 18V5l12-2v13"></path>
+                    <circle cx="6" cy="18" r="3"></circle>
+                    <circle cx="18" cy="16" r="3"></circle>
+                </svg>
+            `,
+            musicians: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M2 20a10 10 0 0 1 20 0"></path>
+                    <circle cx="12" cy="10" r="8"></circle>
+                </svg>
+            `,
+            locations: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 21h18"></path>
+                    <path d="M5 21V7l7-4 7 4v14"></path>
+                    <path d="M9 21v-6h6v6"></path>
+                </svg>
+            `,
+            activity: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 12h4l3 8 4-16 3 8h4"></path>
+                </svg>
+            `,
+            settings: `
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="3"></circle>
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"></path>
+                </svg>
+            `
+        };
+        return icons[type] || icons.organization;
+    },
+
+    updateOrgSettingsNamePreview(orgOrName = null) {
+        const preview = document.getElementById('orgSettingsNamePreview');
+        if (!preview) return;
+
+        const name = typeof orgOrName === 'string'
+            ? orgOrName
+            : (orgOrName?.name || document.getElementById('editOrgName')?.value || 'Organisation');
+
+        preview.textContent = String(name || '').trim() || 'Organisation';
+    },
+
+    renderOrgImage(target, org = {}) {
+        if (!target) return;
+
+        const name = String(org?.name || document.getElementById('editOrgName')?.value || 'Organisation').trim();
+        const imageUrl = org?.image_url || org?.imageUrl || '';
+        target.classList.remove('org-initials-fallback');
+        target.style.background = '';
+        target.style.backgroundImage = 'none';
+        target.style.backgroundSize = '';
+        target.style.backgroundPosition = '';
+        target.textContent = '';
+        target.innerHTML = '';
+
+        if (imageUrl) {
+            target.style.backgroundImage = `url(${imageUrl})`;
+            target.style.backgroundSize = 'cover';
+            target.style.backgroundPosition = 'center';
+            return;
+        }
+
+        target.classList.add('org-initials-fallback');
+        target.style.background = UI.getAvatarColor(name);
+        target.style.color = '#fff';
+        target.style.display = 'flex';
+        target.style.alignItems = 'center';
+        target.style.justifyContent = 'center';
+        target.style.fontWeight = '800';
+        target.textContent = this.getOrgInitials(name);
+    },
+
+    renderOrgDashboardInfo(org = {}) {
+        const container = document.getElementById('orgDashboardInfo');
+        if (!container) return;
+
+        const websiteHref = this.getOrgWebsiteHref(org.website);
+        const items = [
+            { label: 'Typ', value: this.getOrgTypeLabel(org.type || 'other') },
+            org.website ? { label: 'Website', value: org.website, href: websiteHref } : null,
+            org.email ? { label: 'E-Mail', value: org.email, href: `mailto:${org.email}` } : null,
+            org.phone ? { label: 'Telefon', value: org.phone, href: `tel:${String(org.phone).replace(/\s+/g, '')}` } : null,
+            org.description ? { label: 'Beschreibung', value: org.description, multiline: true } : null
+        ].filter(Boolean);
+
+        if (items.length === 0) {
+            container.innerHTML = '<p class="org-dashboard-info-empty">Noch keine Organisationsdetails hinterlegt.</p>';
+            return;
+        }
+
+        container.innerHTML = items.map(item => {
+            const value = this.escapeHtml(item.value);
+            const content = item.href
+                ? `<a href="${this.escapeHtmlAttr(item.href)}" target="${item.href.startsWith('http') ? '_blank' : '_self'}" rel="noopener">${value}</a>`
+                : `<span>${value}</span>`;
+
+            return `
+                <div class="org-dashboard-info-item ${item.multiline ? 'is-multiline' : ''}">
+                    <small>${this.escapeHtml(item.label)}</small>
+                    ${content}
+                </div>
+            `;
+        }).join('');
     },
 
     async handleCreateOrganization() {
@@ -382,6 +547,9 @@ const Organizations = {
                 name,
                 description,
                 type,
+                website,
+                email,
+                phone,
                 owner_id: user.id,
                 created_by: user.id
             };
@@ -436,43 +604,24 @@ const Organizations = {
 
         const coverEl = document.getElementById('orgDetailsCover');
         const imgPreview = document.getElementById('orgSettingsImagePreview');
-        
-        if (org.image_url) {
-            if (coverEl) {
-                coverEl.style.backgroundImage = `url(${org.image_url})`;
-                coverEl.style.backgroundSize = 'cover';
-                coverEl.style.backgroundPosition = 'center';
-                coverEl.textContent = '';
-            }
-            if (imgPreview) {
-                imgPreview.style.backgroundImage = `url(${org.image_url})`;
-                imgPreview.style.backgroundSize = 'cover';
-                imgPreview.style.backgroundPosition = 'center';
-                imgPreview.textContent = '';
-            }
-        } else {
-            if (coverEl) {
-                coverEl.style.backgroundImage = 'none';
-                coverEl.textContent = UI.getUserInitials(org.name);
-                coverEl.style.background = 'var(--color-bg-tertiary)';
-                coverEl.style.color = 'var(--color-primary)';
-                coverEl.style.display = 'flex';
-                coverEl.style.alignItems = 'center';
-                coverEl.style.justifyContent = 'center';
-                coverEl.style.fontSize = '2rem';
-                coverEl.style.fontWeight = '700';
-            }
-            if (imgPreview) {
-                imgPreview.style.backgroundImage = 'none';
-                imgPreview.innerHTML = '<span id="orgSettingsImagePlaceholder">🏢</span>';
-            }
-        }
+        this.renderOrgImage(coverEl, org);
+        this.renderOrgImage(imgPreview, org);
+        this.updateOrgSettingsNamePreview(org);
+        this.renderOrgDashboardInfo(org);
 
         // Update Settings Form
         const editName = document.getElementById('editOrgName');
+        const editType = document.getElementById('editOrgType');
         const editDesc = document.getElementById('editOrgDescription');
+        const editWebsite = document.getElementById('editOrgWebsite');
+        const editEmail = document.getElementById('editOrgEmail');
+        const editPhone = document.getElementById('editOrgPhone');
         if (editName) editName.value = org.name;
+        if (editType) editType.value = org.type || 'other';
         if (editDesc) editDesc.value = org.description || '';
+        if (editWebsite) editWebsite.value = org.website || '';
+        if (editEmail) editEmail.value = org.email || '';
+        if (editPhone) editPhone.value = org.phone || '';
 
         this.applyOrgPermissions(permissions);
 
@@ -483,6 +632,11 @@ const Organizations = {
     switchTab(tabId) {
         if (typeof tabId === 'string' && tabId.endsWith('Tab')) {
             tabId = tabId.slice(0, -3);
+        }
+
+        if (tabId === 'org-settings' && !this.currentUserIsAdmin) {
+            this.switchTab('org-overview');
+            return;
         }
 
         const orgModalTabs = document.getElementById('orgModalTabs');
@@ -536,11 +690,18 @@ const Organizations = {
     async loadOverview() {
         try {
             const user = Auth.getCurrentUser();
-            const [members, bands, songs] = await Promise.all([
+            const [org, members, bands, songs, musicians, locations] = await Promise.all([
+                Storage.getOrganization(this.currentOrgId),
                 Storage.getOrganizationMembers(this.currentOrgId),
                 Storage.getOrganizationBands(this.currentOrgId),
-                Storage.getSongpoolSongs(user.id, { organizationId: this.currentOrgId })
+                Storage.getSongpoolSongs(user.id, { organizationId: this.currentOrgId }),
+                Storage.getOrganizationMusicians(this.currentOrgId),
+                Storage.getLocations(this.currentOrgId)
             ]);
+
+            if (org) {
+                this.renderOrgDashboardInfo(org);
+            }
 
             const memCount = document.getElementById('orgMemberCount');
             if (memCount) memCount.textContent = members.length;
@@ -550,6 +711,20 @@ const Organizations = {
             
             const songCount = document.getElementById('orgSongCount');
             if (songCount) songCount.textContent = songs.length;
+
+            const musicianCount = document.getElementById('orgMusicianCount');
+            if (musicianCount) musicianCount.textContent = musicians.length;
+
+            const locationCount = document.getElementById('orgLocationCount');
+            if (locationCount) locationCount.textContent = locations.length;
+
+            const health = document.getElementById('orgDashboardHealth');
+            if (health) {
+                health.innerHTML = `
+                    <span class="org-dashboard-health-dot" aria-hidden="true"></span>
+                    ${members.length} aktive${members.length === 1 ? 'r Zugang' : ' Zugänge'}
+                `;
+            }
 
             // Update section summaries
             const memSummary = document.getElementById('orgDetailsMembersSummary');
@@ -804,7 +979,7 @@ const Organizations = {
             if (bands.length === 0) {
                 container.innerHTML = `
                     <div class="bands-empty-state">
-                        <div class="bands-empty-icon">🎸</div>
+                        <div class="bands-empty-icon">${this.getOrgInlineIcon('bands')}</div>
                         <h3>Keine Bands verknüpft</h3>
                         <p>Es sind noch keine Bands mit dieser Organisation verknüpft.</p>
                     </div>
@@ -1109,7 +1284,7 @@ const Organizations = {
             if (songs.length === 0) {
                 container.innerHTML = `
                     <div class="bands-empty-state">
-                        <div class="bands-empty-icon">🎵</div>
+                        <div class="bands-empty-icon">${this.getOrgInlineIcon('songs')}</div>
                         <h3>Keine Songs im Pool</h3>
                         <p>${canManage ? 'Füge Songs hinzu, um sie mit der Organisation zu teilen.' : 'Sobald Songs hinzugefügt wurden, erscheinen sie hier.'}</p>
                     </div>
@@ -1192,6 +1367,66 @@ const Organizations = {
         }
     },
 
+    getMusicianInstrumentText(musician = {}) {
+        if (Array.isArray(musician.instruments)) {
+            return musician.instruments.filter(Boolean).join(', ');
+        }
+        return musician.instruments || musician.instrument || musician.instrumentType || '';
+    },
+
+    openCreateMusicianModal() {
+        const form = document.getElementById('createOrgMusicianForm');
+        if (form) form.reset();
+        UI.openModal('createOrgMusicianModal');
+        setTimeout(() => document.getElementById('orgMusicianFirstName')?.focus(), 80);
+    },
+
+    async handleCreateMusician() {
+        const permissions = await this.getCurrentOrgPermissions();
+        if (!permissions.canManage) {
+            UI.showToast('Nur Admins oder Manager können Musiker im Organisationspool anlegen.', 'warning');
+            return;
+        }
+
+        const firstName = document.getElementById('orgMusicianFirstName')?.value?.trim() || '';
+        const lastName = document.getElementById('orgMusicianLastName')?.value?.trim() || '';
+        const instruments = document.getElementById('orgMusicianInstruments')?.value?.trim() || '';
+        const user = Auth.getCurrentUser();
+
+        if (!firstName || !lastName) {
+            UI.showToast('Bitte Vorname und Nachname angeben.', 'warning');
+            return;
+        }
+
+        UI.showLoading('Musiker wird gespeichert...');
+        try {
+            await Storage.createOrganizationMusician(this.currentOrgId, {
+                first_name: firstName,
+                last_name: lastName,
+                instruments,
+                created_by: user?.id || null
+            });
+
+            if (user?.id) {
+                await Storage.logOrganizationActivity(this.currentOrgId, user.id, 'create_musician');
+            }
+
+            UI.showToast('Musiker wurde angelegt', 'success');
+            UI.closeModal('createOrgMusicianModal');
+            document.getElementById('createOrgMusicianForm')?.reset();
+            await this.loadMusikpool();
+
+            if (typeof Musikpool !== 'undefined' && typeof Musikpool.loadGroupData === 'function') {
+                Musikpool.loadGroupData(true);
+            }
+        } catch (error) {
+            Logger.error('[Organizations] Error creating musician:', error);
+            UI.showToast(error.message || 'Musiker konnte nicht gespeichert werden.', 'error');
+        } finally {
+            UI.hideLoading();
+        }
+    },
+
     async loadMusikpool() {
         const container = document.getElementById('orgMusikpoolList');
         if (!container) return;
@@ -1203,7 +1438,7 @@ const Organizations = {
             if (musicians.length === 0) {
                 container.innerHTML = `
                     <div class="bands-empty-state">
-                        <div class="bands-empty-icon">🎤</div>
+                        <div class="bands-empty-icon">${this.getOrgInlineIcon('musicians')}</div>
                         <h3>Musikerpool leer</h3>
                         <p>Noch keine Musiker in dieser Organisation gelistet.</p>
                     </div>
@@ -1213,6 +1448,8 @@ const Organizations = {
 
             container.innerHTML = musicians.map((m, index) => {
                 const name = `${m.first_name || ''} ${m.last_name || ''}`.trim() || 'Unbekannter Musiker';
+                const instruments = this.getMusicianInstrumentText(m);
+                const sourceLabel = m.source === 'organization_musician' ? 'Pool-Musiker' : 'Organisationsmitglied';
                 return `
                     <div class="member-row animated-fade-in" style="animation-delay: ${index * 0.05}s">
                         <div class="member-avatar-col">
@@ -1223,9 +1460,10 @@ const Organizations = {
                         <div class="member-main-col">
                             <div class="member-name-row">
                                 <span class="member-name">${this.escapeHtml(name)}</span>
+                                <span class="org-musician-source-badge">${this.escapeHtml(sourceLabel)}</span>
                             </div>
                             <div class="member-meta-row">
-                                <span class="text-xs text-secondary">${this.escapeHtml(m.instrument || 'Kein Instrument')}</span>
+                                <span class="text-xs text-secondary">${this.escapeHtml(instruments || 'Kein Instrument')}</span>
                             </div>
                         </div>
                     </div>
@@ -1251,7 +1489,7 @@ const Organizations = {
             if (locations.length === 0) {
                 container.innerHTML = `
                     <div class="bands-empty-state">
-                        <div class="bands-empty-icon">🏛️</div>
+                        <div class="bands-empty-icon">${this.getOrgInlineIcon('locations')}</div>
                         <h3>Keine Ressourcen</h3>
                         <p>Keine Räume oder Studios dieser Organisation zugeordnet.</p>
                     </div>
@@ -1263,7 +1501,7 @@ const Organizations = {
                 <div class="location-card animated-fade-in mb-3 p-4 card" style="animation-delay: ${index * 0.05}s">
                     <div class="flex items-center justify-between">
                         <div class="flex items-center gap-3">
-                            <div class="location-icon" style="font-size: 1.5rem;">🏛️</div>
+                            <div class="location-icon org-location-icon" aria-hidden="true">${this.getOrgInlineIcon('locations')}</div>
                             <div>
                                 <div class="font-bold">${this.escapeHtml(loc.name)}</div>
                                 <div class="text-xs text-secondary">${this.escapeHtml(loc.address || 'Keine Adresse')}</div>
@@ -1290,23 +1528,96 @@ const Organizations = {
         try {
             const logs = await Storage.getOrganizationActivityLog(this.currentOrgId);
             if (logs.length === 0) {
-                container.innerHTML = '<p class="text-secondary p-8 text-center opacity-50">Noch keine Aktivitäten aufgezeichnet.</p>';
+                container.innerHTML = `
+                    <div class="org-activity-empty">
+                        <span aria-hidden="true">${this.getOrgInlineIcon('activity')}</span>
+                        <strong>Noch keine Aktivitäten</strong>
+                        <p>Neue Einladungen, Änderungen und Verknüpfungen erscheinen hier automatisch.</p>
+                    </div>
+                `;
                 return;
             }
 
-            container.innerHTML = logs.slice(0, 10).map((log, index) => `
-                <div class="activity-item animated-fade-in p-3 border-b last:border-0 border-white/5" style="animation-delay: ${index * 0.03}s">
-                    <div class="flex justify-between items-start mb-1">
-                        <span class="text-xs font-semibold text-primary uppercase tracking-wider">${this.formatAction(log.action)}</span>
-                        <span class="text-xs text-secondary opacity-70">${new Date(log.created_at).toLocaleString('de-DE')}</span>
+            container.innerHTML = logs.slice(0, 12).map((log, index) => {
+                const iconType = this.getOrgActivityIconType(log.action);
+                const description = this.getOrgActivityDescription(log);
+                return `
+                    <div class="org-activity-entry animated-fade-in" style="animation-delay: ${index * 0.03}s">
+                        <span class="org-activity-icon" aria-hidden="true">${this.getOrgInlineIcon(iconType)}</span>
+                        <div class="org-activity-copy">
+                            <div class="org-activity-topline">
+                                <strong>${this.escapeHtml(this.formatAction(log.action))}</strong>
+                                <time>${this.escapeHtml(this.formatOrgActivityDate(log.created_at))}</time>
+                            </div>
+                            <p>${this.escapeHtml(description)}</p>
+                        </div>
                     </div>
-                    <p class="text-sm opacity-90">Aktion durch Benutzer</p>
-                </div>
-            `).join('');
+                `;
+            }).join('');
         } catch (error) {
             Logger.error('[Organizations] Error loading history:', error);
             container.innerHTML = '<p class="error-text">Verlauf konnte nicht geladen werden.</p>';
         }
+    },
+
+    getOrgActivityIconType(action = '') {
+        const iconMap = {
+            create_organization: 'organization',
+            update_settings: 'settings',
+            add_member: 'members',
+            invite_member: 'members',
+            accept_member_invite: 'members',
+            decline_member_invite: 'members',
+            accept_join_request: 'members',
+            decline_join_request: 'members',
+            remove_member: 'members',
+            link_band: 'bands',
+            invite_band: 'bands',
+            request_band_link: 'bands',
+            accept_band_invite: 'bands',
+            decline_band_invite: 'bands',
+            withdraw_band_invite: 'bands',
+            unlink_band: 'bands',
+            create_musician: 'musicians'
+        };
+        return iconMap[action] || 'activity';
+    },
+
+    getOrgActivityDescription(log = {}) {
+        const details = typeof log.details === 'object' && log.details !== null ? log.details : {};
+        const role = details.role ? ` Rolle: ${this.getRoleLabel(details.role)}.` : '';
+        const descriptions = {
+            create_organization: 'Die Organisation wurde angelegt und ist einsatzbereit.',
+            update_settings: 'Profil, Kontakt oder Organisationsdaten wurden aktualisiert.',
+            add_member: `Ein neues Mitglied wurde der Organisation hinzugefügt.${role}`,
+            invite_member: `Eine Einladung an ein Organisationsmitglied wurde versendet.${role}`,
+            accept_member_invite: 'Eine Einladung wurde angenommen.',
+            decline_member_invite: 'Eine Einladung wurde abgelehnt.',
+            accept_join_request: 'Eine Beitrittsanfrage wurde angenommen.',
+            decline_join_request: 'Eine Beitrittsanfrage wurde abgelehnt.',
+            remove_member: 'Ein Mitglied wurde aus der Organisation entfernt.',
+            link_band: 'Eine Band wurde mit der Organisation verknüpft.',
+            invite_band: 'Eine Band wurde zur Organisation eingeladen.',
+            request_band_link: 'Eine Band-Verknüpfung wurde angefragt.',
+            accept_band_invite: 'Eine Band-Einladung wurde angenommen.',
+            decline_band_invite: 'Eine Band-Einladung wurde abgelehnt.',
+            withdraw_band_invite: 'Eine ausstehende Band-Einladung wurde zurückgezogen.',
+            unlink_band: 'Eine Band-Verknüpfung wurde gelöst.',
+            create_musician: 'Ein Musiker wurde im Organisations-Musikerpool angelegt.'
+        };
+        return descriptions[log.action] || 'Eine Organisationsaktion wurde protokolliert.';
+    },
+
+    formatOrgActivityDate(value) {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return '';
+        return date.toLocaleString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     },
 
     formatAction(action) {
@@ -1326,7 +1637,8 @@ const Organizations = {
             'accept_band_invite': 'Band-Einladung angenommen',
             'decline_band_invite': 'Band-Einladung abgelehnt',
             'withdraw_band_invite': 'Band-Einladung zurückgezogen',
-            'unlink_band': 'Band-Verknüpfung gelöst'
+            'unlink_band': 'Band-Verknüpfung gelöst',
+            'create_musician': 'Musiker angelegt'
         };
         return actions[action] || action;
     },
@@ -1346,16 +1658,29 @@ const Organizations = {
 
         const nameInput = document.getElementById('editOrgName');
         if (nameInput) nameInput.value = org.name;
+
+        const typeInput = document.getElementById('editOrgType');
+        if (typeInput) typeInput.value = org.type || 'other';
         
         const descInput = document.getElementById('editOrgDescription');
         if (descInput) descInput.value = org.description || '';
+
+        const websiteInput = document.getElementById('editOrgWebsite');
+        if (websiteInput) websiteInput.value = org.website || '';
+
+        const emailInput = document.getElementById('editOrgEmail');
+        if (emailInput) emailInput.value = org.email || '';
+
+        const phoneInput = document.getElementById('editOrgPhone');
+        if (phoneInput) phoneInput.value = org.phone || '';
 
         // Reset dirty state and image preview
         this.orgSettingsDirty = false;
         window._orgSettingsDirty = false;
         this.orgImageDraftFile = null;
         this.orgImageRemovalPending = false;
-        this.updateImagePreview(org.image_url);
+        this.updateOrgSettingsNamePreview(org);
+        this.updateImagePreview(org.image_url, { org });
     },
 
     handleImageSelect(e) {
@@ -1379,20 +1704,39 @@ const Organizations = {
         reader.readAsDataURL(file);
     },
 
-    updateImagePreview(url) {
+    handleRemoveImage() {
+        this.orgImageDraftFile = null;
+        this.orgImageRemovalPending = true;
+        this.orgSettingsDirty = true;
+        window._orgSettingsDirty = true;
+        const input = document.getElementById('orgImageInput');
+        if (input) input.value = '';
+        this.updateImagePreview(null);
+        UI.showToast('Organisationsbild wird nach dem Speichern entfernt', 'info');
+    },
+
+    updateImagePreview(url, options = {}) {
         const preview = document.getElementById('orgSettingsImagePreview');
-        const placeholder = document.getElementById('orgSettingsImagePlaceholder');
-        if (!preview || !placeholder) return;
+        if (!preview) return;
+
+        if (options.preserveCurrentImage && (this.orgImageDraftFile || preview.style.backgroundImage.includes('url('))) {
+            return;
+        }
 
         if (url) {
-            preview.style.backgroundImage = `url(${url})`;
-            preview.style.backgroundSize = 'cover';
-            preview.style.backgroundPosition = 'center';
-            placeholder.style.display = 'none';
-        } else {
-            preview.style.backgroundImage = 'none';
-            placeholder.style.display = 'flex';
+            this.renderOrgImage(preview, {
+                ...(options.org || {}),
+                name: options.org?.name || document.getElementById('editOrgName')?.value || '',
+                image_url: url
+            });
+            return;
         }
+
+        this.renderOrgImage(preview, {
+            ...(options.org || {}),
+            name: options.org?.name || document.getElementById('editOrgName')?.value || '',
+            image_url: null
+        });
     },
 
     async handleSaveSettings() {
@@ -1403,8 +1747,11 @@ const Organizations = {
         }
 
         const name = document.getElementById('editOrgName').value.trim();
+        const type = document.getElementById('editOrgType')?.value || 'other';
         const description = document.getElementById('editOrgDescription').value.trim();
-        const imageFile = document.getElementById('orgImageInput').files[0];
+        const website = document.getElementById('editOrgWebsite')?.value?.trim() || '';
+        const email = document.getElementById('editOrgEmail')?.value?.trim() || '';
+        const phone = document.getElementById('editOrgPhone')?.value?.trim() || '';
 
         if (!name) return;
 
@@ -1415,7 +1762,7 @@ const Organizations = {
                 imageUrl = await Storage.uploadOrganizationImage(this.currentOrgId, this.orgImageDraftFile);
             }
 
-            const updates = { name, description };
+            const updates = { name, type, description, website, email, phone };
             if (imageUrl) updates.image_url = imageUrl;
             if (this.orgImageRemovalPending) updates.image_url = null;
 
@@ -1432,19 +1779,14 @@ const Organizations = {
             // Refresh view
             const org = await Storage.getOrganization(this.currentOrgId);
             document.getElementById('orgDetailsName').textContent = org.name;
+            const subtitleEl = document.getElementById('orgDetailsSubtitle');
+            if (subtitleEl) subtitleEl.textContent = this.getOrgTypeLabel(org.type);
             
             const coverEl = document.getElementById('orgDetailsCover');
-            if (coverEl) {
-                if (org.image_url) {
-                    coverEl.style.backgroundImage = `url(${org.image_url})`;
-                    coverEl.style.backgroundSize = 'cover';
-                    coverEl.style.backgroundPosition = 'center';
-                    coverEl.textContent = '';
-                } else {
-                    coverEl.style.backgroundImage = 'none';
-                    coverEl.textContent = org.name ? org.name.charAt(0).toUpperCase() : 'O';
-                }
-            }
+            this.renderOrgImage(coverEl, org);
+            this.renderOrgImage(document.getElementById('orgSettingsImagePreview'), org);
+            this.updateOrgSettingsNamePreview(org);
+            this.renderOrgDashboardInfo(org);
 
             this.renderOrganizations(true);
         } catch (error) {
@@ -1462,17 +1804,30 @@ const Organizations = {
             return;
         }
 
-        if (!confirm('Bist du sicher, dass du diese Organisation löschen möchtest? Alle Verknüpfungen gehen verloren.')) return;
+        const confirmed = await UI.confirmAction(
+            'Das Löschen entfernt die Organisation, Mitglieder, Band-Verknüpfungen, Organisations-Songs und Aktivitäten unwiderruflich.',
+            'Organisation löschen?',
+            'Organisation löschen',
+            'btn-danger',
+            {
+                kicker: 'Gefahrenzone',
+                cancelText: 'Abbrechen'
+            }
+        );
+        if (!confirmed) return;
 
         UI.showLoading('Organisation wird gelöscht...');
         try {
             await Storage.deleteOrganization(this.currentOrgId);
+            this.orgSettingsDirty = false;
+            window._orgSettingsDirty = false;
             UI.showToast('Organisation gelöscht', 'success');
             UI.closeModal('orgDetailsModal');
-            this.renderOrganizations(true);
+            this.currentOrgId = null;
+            await this.renderOrganizations(true);
         } catch (error) {
             Logger.error('Error deleting organization:', error);
-            UI.showToast('Fehler beim Löschen', 'error');
+            UI.showToast(error.message || 'Fehler beim Löschen', 'error');
         } finally {
             UI.hideLoading();
         }
@@ -1855,6 +2210,10 @@ const Organizations = {
         const div = document.createElement('div');
         div.textContent = text;
         return div.innerHTML;
+    },
+
+    escapeHtmlAttr(text) {
+        return this.escapeHtml(text).replace(/"/g, '&quot;');
     },
 
     async browseOrganizations() {

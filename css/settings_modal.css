@@ -1495,6 +1495,128 @@
     justify-content: center;
 }
 
+#orgDetailsModal .org-settings-profile-grid {
+    display: grid;
+    grid-template-columns: minmax(240px, 280px) minmax(0, 1fr);
+    gap: 1rem;
+    align-items: start;
+}
+
+#orgDetailsModal .org-settings-sidebar {
+    position: sticky;
+    top: 0;
+    align-self: start;
+}
+
+#orgDetailsModal .org-settings-summary-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.9rem;
+    width: 100%;
+    padding: 1rem;
+    border-radius: 20px;
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    background: var(--color-surface);
+    text-align: center;
+}
+
+#orgDetailsModal .settings-column-kicker {
+    display: inline-flex;
+    margin-bottom: 0.3rem;
+    font-size: 0.66rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+}
+
+#orgDetailsModal .profile-summary-copy {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+    text-align: center;
+}
+
+#orgDetailsModal .profile-summary-copy h4 {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+}
+
+#orgDetailsModal .profile-summary-copy p {
+    margin: 0;
+    color: var(--color-text-secondary);
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+#orgDetailsModal .org-settings-avatar-wrapper {
+    width: 112px;
+    height: 112px;
+    margin: 0 auto;
+}
+
+#orgDetailsModal .org-settings-avatar-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    cursor: default;
+}
+
+#orgDetailsModal .org-settings-image-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    width: 100%;
+}
+
+#orgDetailsModal .org-settings-image-actions .btn {
+    width: 100%;
+    justify-content: center;
+}
+
+#orgDetailsModal .org-settings-main-column {
+    min-width: 0;
+}
+
+#orgDetailsModal .org-danger-section {
+    border-color: rgba(239, 68, 68, 0.18);
+}
+
+#orgDetailsModal .org-settings-danger-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+#orgDetailsModal .org-settings-danger-note {
+    width: auto;
+    max-width: 520px;
+    flex: 1 1 320px;
+}
+
+#orgDetailsModal .org-settings-form-actions {
+    justify-content: flex-end;
+}
+
+@media (max-width: 900px) {
+    #orgDetailsModal .org-settings-profile-grid {
+        grid-template-columns: 1fr;
+    }
+
+    #orgDetailsModal .org-settings-sidebar {
+        position: static;
+    }
+}
+
 #settingsModal .settings-meta-links {
     margin-left: auto;
     display: flex;
