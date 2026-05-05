@@ -6,7 +6,7 @@
 
 const Logger = {
     // Config
-    debugMode: window.location.search.includes('debug=true'), // Set to false in production or activate via ?debug=true
+    debugMode: true, // window.location.search.includes('debug=true'), // Set to true by default as requested
 
     /**
      * Log a user interaction or clear action.

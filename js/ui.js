@@ -847,10 +847,11 @@ const UI = {
             loader.style.display = 'none';
             loader.innerHTML = `
                 <div class="loader-overlay">
-                    <div class="loader-content">
-                        <div class="loader-chip">Bandmate</div>
-                        <div class="loader-spinner"></div>
-                        <p class="loader-message">${message}</p>
+                    <div class="loader-content glass-card premium-loader">
+                        <div class="loader-spinner">
+                            <div class="loader-logo-spinner"></div>
+                        </div>
+                        <p class="loader-message" style="margin-top: 1rem; font-weight: 600; color: white;">${message}</p>
                     </div>
                 </div>
             `;

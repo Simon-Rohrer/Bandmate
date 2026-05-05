@@ -1144,3 +1144,899 @@ html.dark .multiselect-option-indicator {
         grid-column: 1 / -1;
     }
 }
+
+/* =========================================
+   ORGANIZATIONS (Hub Redesign)
+   ========================================= */
+.org-hero-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-2xl);
+    padding: var(--spacing-2xl);
+    margin-bottom: var(--spacing-xl);
+    box-shadow: var(--shadow-xl);
+    position: relative;
+    overflow: hidden;
+}
+
+.org-hero-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, var(--color-primary) 0%, transparent 70%);
+    opacity: 0.05;
+    filter: blur(50px);
+}
+
+.org-hero-content {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2xl);
+    position: relative;
+    z-index: 1;
+}
+
+.org-hero-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: var(--radius-2xl);
+    background: var(--color-bg-tertiary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3rem;
+    font-weight: 800;
+    color: var(--color-primary);
+    box-shadow: var(--shadow-lg);
+}
+
+.org-hero-info h2 {
+    font-size: 2.25rem;
+    margin-bottom: var(--spacing-xs);
+}
+
+.org-hero-description {
+    font-size: 1.1rem;
+    color: var(--color-text-secondary);
+    max-width: 600px;
+    margin-bottom: var(--spacing-lg);
+}
+
+.org-hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xl);
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    text-decoration: none;
+    transition: color var(--transition-base);
+}
+
+a.meta-item:hover {
+    color: var(--color-primary);
+}
+
+.org-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: var(--spacing-xl);
+}
+
+@media (max-width: 1024px) {
+    .org-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.activity-feed {
+    display: flex;
+    flex-direction: column;
+}
+
+.sticky-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-bg-primary);
+    padding: var(--spacing-sm) 0;
+}
+
+/* Choice Modal - Removed redundant styles (now using global songpool classes) */
+
+/* Animated List */
+.animated-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.browse-org-item {
+    padding: var(--spacing-lg);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.browse-org-item:hover {
+    background: var(--color-bg-tertiary);
+    transform: scale(1.02);
+}
+
+/* =========================================
+   ORGANIZATION DASHBOARD & COMPONENTS
+   ========================================= */
+.org-dashboard-grid {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+@media (max-width: 992px) {
+    .org-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.org-dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* Compact Songpool Grid */
+.songpool-grid-compact {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.song-card-compact {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    transition: all var(--transition-base);
+    text-decoration: none;
+    color: inherit;
+}
+
+.song-card-compact:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-primary-soft);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.song-card-icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-md);
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.song-card-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.song-card-title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+
+.song-card-artist {
+    font-size: 0.8rem;
+    color: var(--color-text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Animation for Tab Content */
+.tab-content.active {
+    animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUpFade {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Section Header Enhancements */
+.section-header-mobile-adjust {
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+@media (max-width: 640px) {
+    .section-header-mobile-adjust {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .section-header-mobile-adjust .btn {
+        width: 100%;
+    }
+}
+
+/* =========================================
+   ORG DETAILS MODAL — VISUAL PARITY WITH BAND MODAL
+   All #bandDetailsModal-scoped rules mirrored here so
+   #orgDetailsModal renders identically.
+   ========================================= */
+
+/* --- Tab pill container --- */
+#orgDetailsModal .tab-buttons.band-details-tabs {
+    display: inline-flex;
+    align-self: flex-start;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 0;
+    padding: 0.45rem;
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.08);
+}
+
+/* --- Individual tab buttons --- */
+#orgDetailsModal .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.78rem 1rem;
+    border-radius: 14px;
+    border-bottom: none;
+    margin-bottom: 0;
+    color: var(--color-text-secondary);
+    font-weight: 700;
+    background: transparent;
+    cursor: pointer;
+    transition: all var(--transition-base);
+    font-size: 0.875rem;
+}
+
+#orgDetailsModal .tab-btn:hover {
+    color: var(--color-text);
+    background: rgba(255, 255, 255, 0.07);
+}
+
+#orgDetailsModal .tab-btn.active {
+    color: var(--color-text);
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(59, 130, 246, 0.12));
+    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.24);
+}
+
+/* --- Tab icon sizing --- */
+#orgDetailsModal .band-details-tab-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+#orgDetailsModal .band-details-tab-icon svg {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
+/* --- Tab content --- */
+#orgDetailsModal .tab-content {
+    padding-top: 0;
+    display: none;
+}
+
+#orgDetailsModal .tab-content.active {
+    display: block;
+}
+
+/* --- Members list --- */
+#orgDetailsModal .members-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    padding: 0;
+}
+
+/* --- Member rows --- */
+#orgDetailsModal .member-row {
+    background:
+        radial-gradient(circle at top right, rgba(99, 102, 241, 0.08), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+        rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(148, 163, 184, 0.14);
+    border-radius: 18px;
+    padding: 0.95rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: none;
+    transition: all var(--transition-base);
+}
+
+#orgDetailsModal .member-row:hover {
+    transform: translateY(-1px);
+    border-color: rgba(99, 102, 241, 0.24);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.1);
+    background:
+        radial-gradient(circle at top right, rgba(99, 102, 241, 0.12), transparent 36%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent),
+        rgba(15, 23, 42, 0.1);
+}
+
+#orgDetailsModal .member-avatar {
+    width: 52px;
+    height: 52px;
+    border-radius: 16px;
+}
+
+#orgDetailsModal .member-name {
+    font-size: 1.02rem;
+    font-weight: 700;
+}
+
+#orgDetailsModal .member-actions-col {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    flex-shrink: 0;
+    margin-left: auto;
+}
+
+/* --- Section header --- */
+#orgDetailsModal .band-details-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+/* --- Panel section card look --- */
+#orgDetailsModal .band-details-panel-section {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--color-surface);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 22px;
+    padding: 1.2rem 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+/* --- Intro panel --- */
+#orgDetailsModal .band-details-panel-intro {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--color-surface);
+    border: 1px solid rgba(148, 163, 184, 0.12);
+    border-radius: 22px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-sm);
+}
+
+/* --- Section h3 top margin fix --- */
+#orgDetailsModal .section h3 {
+    margin-top: 0;
+}
+
+/* --- Responsive: stack tabs on small screens --- */
+@media (max-width: 640px) {
+    #orgDetailsModal .tab-buttons.band-details-tabs {
+        width: 100%;
+    }
+    #orgDetailsModal .tab-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 0.6rem 0.5rem;
+        font-size: 0.8rem;
+    }
+    #orgDetailsModal .band-details-section-header {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 480px) {
+    #orgDetailsModal .tab-btn span:not(.band-details-tab-icon) {
+        display: none;
+    }
+    #orgDetailsModal .tab-btn {
+        padding: 0.7rem;
+    }
+}
+
+/* =========================================
+   ORG DETAILS MODAL — REFINED PARITY BLOCK
+   Uses exact same values as #bandDetailsModal lines 24384–24530
+   ========================================= */
+
+#orgDetailsModal .band-details-modal-header {
+    padding: 22px 24px 18px;
+}
+
+#orgDetailsModal .band-details-modal-body {
+    padding: 0 24px 24px;
+    gap: 16px;
+}
+
+#orgDetailsModal .band-details-cover {
+    width: 76px;
+    height: 76px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    color: white;
+}
+
+/* Pill tab container — overrides global .band-details-tabs */
+#orgDetailsModal .band-details-tabs {
+    display: flex !important;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-self: stretch;
+    padding: 6px;
+    border-radius: 16px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+}
+
+/* Tab button base — overrides global .tab-btn border-bottom styles */
+#orgDetailsModal .tab-btn {
+    position: relative;
+    display: inline-flex !important;
+    align-items: center;
+    gap: 0.48rem;
+    min-height: 42px;
+    padding: 0.7rem 0.95rem;
+    border: 1px solid transparent !important;
+    border-bottom: 1px solid transparent !important;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 0.92rem;
+    font-weight: 600;
+    margin-bottom: 0 !important;
+    transition: background var(--transition-base), color var(--transition-base), border-color var(--transition-base);
+}
+
+#orgDetailsModal .tab-btn:hover {
+    color: var(--color-text);
+    border-color: var(--color-border) !important;
+    background: var(--color-surface-hover);
+}
+
+#orgDetailsModal .tab-btn.active {
+    background: linear-gradient(135deg, rgba(14, 165, 233, 0.15), rgba(14, 165, 233, 0.05));
+    border-color: rgba(14, 165, 233, 0.35) !important;
+    color: var(--color-text);
+    box-shadow: 0 12px 22px -18px rgba(14, 165, 233, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transform: translateY(-1px);
+}
+
+#orgDetailsModal .tab-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 14px;
+    right: 14px;
+    bottom: 6px;
+    height: 2px;
+    border-radius: 999px;
+    background: var(--color-primary);
+}
+
+/* Tab icon — constrain SVG to 16px like band modal */
+#orgDetailsModal .band-details-tab-icon {
+    width: 16px !important;
+    height: 16px !important;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--color-text-secondary);
+    transition: color var(--transition-base);
+}
+
+#orgDetailsModal .tab-btn.active .band-details-tab-icon {
+    color: var(--color-primary);
+}
+
+#orgDetailsModal .band-details-tab-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+    display: block;
+}
+
+/* Panel sections */
+#orgDetailsModal .band-details-panel-section,
+#orgDetailsModal .band-details-panel-intro {
+    border-radius: 18px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: none;
+}
+
+/* Songpool View Switch */
+.songpool-view-switch {
+    display: flex;
+    background: color-mix(in srgb, var(--surface-secondary) 40%, transparent);
+    padding: 3px;
+    border-radius: 20px;
+    border: 1px solid color-mix(in srgb, var(--border) 40%, transparent);
+    margin-right: 1rem;
+}
+
+.songpool-view-switch .switch-btn {
+    padding: 6px 14px;
+    border-radius: 17px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.songpool-view-switch .switch-btn.active {
+    background: var(--color-primary);
+    color: white;
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--color-primary) 30%, transparent);
+}
+
+.songpool-view-switch .switch-btn:not(.active):hover {
+    color: var(--text-primary);
+    background: color-mix(in srgb, var(--surface-secondary) 60%, transparent);
+}
+
+@media (max-width: 768px) {
+    .songpool-view-switch {
+        margin-right: 0;
+        margin-bottom: 0.75rem;
+        width: 100%;
+        justify-content: center;
+    }
+    .songpool-view-switch .switch-btn {
+        flex: 1;
+        text-align: center;
+    }
+}
+
+
+/* Roles Overview in Organization Settings */
+.roles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+    margin-top: 1rem;
+}
+
+.role-group-card {
+    background: color-mix(in srgb, var(--surface-secondary) 30%, transparent);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: var(--spacing-md);
+}
+
+.role-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.role-count {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background: var(--surface-tertiary);
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.role-group-users {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.role-user-tag {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    background: var(--surface-secondary);
+    border-radius: 6px;
+    color: var(--text-primary);
+}
+
+.org-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+    .org-settings-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =========================================
+   UNIFIED PREMIUM LOADER (LOGO SPINNER)
+   ========================================= */
+
+.loader-container { 
+    position: fixed; 
+    inset: 0; 
+    z-index: 9999; 
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    background: #08111F; 
+    transition: opacity 0.35s ease-out; 
+}
+
+.premium-loader {
+    width: 340px;
+    max-width: calc(100vw - 2rem);
+    padding: 2.5rem;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 20px;
+    box-shadow: 0 24px 64px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255,255,255,0.04);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.loader-spinner {
+    width: 80px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.loader-logo-spinner {
+    width: 60px;
+    height: 60px;
+    background: url('../images/branding/bandmate-logo-only-dark.svg') no-repeat center;
+    background-size: contain;
+    animation: spin 2s linear infinite;
+}
+
+.glass-card {
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.1); opacity: 0.8; }
+}
+
+/* Global Spinner Overrides */
+.spinner, .loading-spinner, .loading-spinner-circle {
+    width: 48px;
+    height: 48px;
+    background: url('../images/branding/bandmate-logo-only-dark.svg') no-repeat center !important;
+    background-size: contain !important;
+    animation: spin 2s linear infinite !important;
+    border: none !important;
+    border-radius: 0 !important;
+}
+
+.spinner-sm {
+    width: 24px;
+    height: 24px;
+    background: url('../images/branding/bandmate-logo-only-dark.svg') no-repeat center !important;
+    background-size: contain !important;
+    animation: spin 2s linear infinite !important;
+    border: none !important;
+}
+
+/* Organization Band Card Members Preview */
+.members-avatars-row {
+    display: flex;
+    align-items: center;
+}
+
+.member-avatar-sm {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: white;
+    border: 2px solid var(--color-bg-secondary);
+    margin-right: -8px; /* Stacking effect */
+    transition: transform 0.2s ease;
+    position: relative;
+    z-index: 1;
+}
+
+.member-avatar-sm:hover {
+    transform: translateY(-2px);
+    z-index: 10;
+}
+
+.member-avatar-sm img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.member-avatar-more {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+    margin-left: 12px;
+    padding-bottom: 2px;
+}
+
+/* Compact Member List for Confirmation Modals */
+.compact-member-list-alt {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 12px;
+    background: var(--color-bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--color-border);
+}
+
+.compact-member-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+}
+
+.compact-member-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+}
+
+.compact-member-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.compact-member-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.compact-member-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.compact-member-role {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+}
+
+/* Band Card Mini Members List */
+.band-card-members-list-compact {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.band-member-mini-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.member-avatar-xs {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: white;
+}
+
+.member-avatar-xs img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.member-mini-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.member-mini-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.member-mini-role {
+    font-size: 10px;
+    color: var(--color-text-secondary);
+}
+
+.member-mini-more {
+    font-size: 11px;
+    color: var(--color-text-secondary);
+    padding-top: 4px;
+    font-style: italic;
+}

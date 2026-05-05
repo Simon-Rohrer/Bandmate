@@ -567,6 +567,7 @@ const Storage = {
         return await this.save('bands', band);
     },
 
+
     async getBand(bandId) {
         return await this.getById('bands', bandId);
     },
@@ -583,6 +584,65 @@ const Storage = {
         await this.delete('bands', bandId);
         // Supabase CASCADE handles deletion of related records
         return true;
+    },
+
+    async searchBandsNotInOrg(query, orgId, offset = 0, limit = 20) {
+        const sb = SupabaseClient.getClient();
+        
+        const { data: orgBands, error: orgBandsError } = await sb
+            .from('organization_bands')
+            .select('band_id')
+            .eq('organization_id', orgId);
+            
+        if (orgBandsError) { Logger.error('Supabase get org bands error', orgBandsError); return []; }
+        
+        const existingBandIds = orgBands.map(ob => ob.band_id);
+        
+        let queryBuilder = sb
+            .from('bands')
+            .select('id, name, image_url, color')
+            .range(offset, offset + limit - 1)
+            .order('name', { ascending: true });
+            
+        if (query) {
+            queryBuilder = queryBuilder.ilike('name', `%${query}%`);
+        }
+            
+        if (existingBandIds.length > 0) {
+            queryBuilder = queryBuilder.not('id', 'in', `(${existingBandIds.join(',')})`);
+        }
+        
+        const { data, error } = await queryBuilder;
+        if (error) { Logger.error('Supabase searchBandsNotInOrg error', error); return []; }
+        return data || [];
+    },
+
+    async getUserBandsNotInOrg(userId, orgId) {
+        const sb = SupabaseClient.getClient();
+        
+        const { data: orgBands, error: orgBandsError } = await sb
+            .from('organization_bands')
+            .select('band_id')
+            .eq('organization_id', orgId);
+            
+        if (orgBandsError) { Logger.error('Supabase get org bands error', orgBandsError); return []; }
+        
+        const existingBandIds = orgBands.map(ob => ob.band_id);
+        
+        const { data: userBands, error: userBandsError } = await sb
+            .from('bandMembers')
+            .select('bandId, bands(id, name, image_url, color)')
+            .eq('userId', userId);
+            
+        if (userBandsError) { Logger.error('Supabase getUserBands error', userBandsError); return []; }
+        
+        const bands = userBands.map(ub => ub.bands).filter(b => b);
+        
+        if (existingBandIds.length > 0) {
+            return bands.filter(b => !existingBandIds.includes(b.id));
+        }
+        
+        return bands;
     },
 
     async getBandByJoinCode(joinCode) {
@@ -950,7 +1010,383 @@ const Storage = {
         return data || [];
     },
 
+    // Organization operations
+    async getOrganizations(userId) {
+        if (!userId) return [];
+        const sb = SupabaseClient.getClient();
+        
+        // Get orgs where user is a member
+        const { data: memberData, error: memberError } = await sb
+            .from('organization_members')
+            .select('organization_id')
+            .eq('user_id', userId);
+            
+        if (memberError) {
+            Logger.error('Supabase getOrganizations member error', memberError);
+            return [];
+        }
+        
+        if (!memberData || memberData.length === 0) return [];
+        
+        const orgIds = memberData.map(m => m.organization_id);
+        
+        const { data, error } = await sb
+            .from('organizations')
+            .select('*')
+            .in('id', orgIds);
+            
+        if (error) {
+            Logger.error('Supabase getOrganizations error', error);
+            return [];
+        }
+        
+        return data || [];
+    },
+
+    async getOrganization(orgId) {
+        return await this.getById('organizations', orgId);
+    },
+
+    async createOrganization(orgData) {
+        const org = {
+            ...orgData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        const result = await this.save('organizations', org);
+        
+        // Explicitly add creator as admin
+        if (result && result.id && orgData.created_by) {
+            await this.addOrganizationMember(result.id, orgData.created_by, 'admin');
+        }
+        
+        return result;
+    },
+
+    async uploadOrganizationImage(orgId, file) {
+        const sb = SupabaseClient.getClient();
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const fileName = `${orgId}/${Date.now()}-org.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await sb.storage
+            .from('organization-images')
+            .upload(filePath, file, {
+                upsert: true
+            });
+
+        if (uploadError) {
+            if (uploadError.message === 'Bucket not found') {
+                throw new Error('Speicher-Ordner "organization-images" wurde nicht gefunden. Bitte erstelle diesen Bucket in Supabase.');
+            }
+            throw new Error('Fehler beim Bilder-Upload: ' + uploadError.message);
+        }
+
+        const { data } = sb.storage
+            .from('organization-images')
+            .getPublicUrl(filePath);
+
+        return data?.publicUrl || null;
+    },
+
+    async updateOrganization(orgId, updates) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('organizations')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', orgId);
+        if (error) throw error;
+        return data;
+    },
+
+    async deleteOrganization(orgId) {
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb.from('organizations').delete().eq('id', orgId);
+        if (error) throw error;
+        return true;
+    },
+
+    async getOrganizationMembers(orgId) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('organization_members')
+            .select('*')
+            .eq('organization_id', orgId);
+        if (error) { Logger.error('Supabase getOrganizationMembers error', error); return []; }
+        return data || [];
+    },
+
+    async addOrganizationMember(orgId, userId, role = 'member', invitedBy = null) {
+        const member = {
+            organization_id: orgId,
+            user_id: userId,
+            role,
+            status: 'active',
+            invited_by: invitedBy,
+            joined_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        return await this.save('organization_members', member);
+    },
+
+    async removeOrganizationMember(orgId, userId) {
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb
+            .from('organization_members')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    },
+
+    async addOrganizationJoinRequest(orgId, userId) {
+        const sb = SupabaseClient.getClient();
+        
+        // 1. Create the membership record as 'pending'
+        const memberResult = await this.addOrganizationMember(orgId, userId, 'pending');
+        
+        // 2. Notify admins/managers of the organization
+        try {
+            const [org, requester, leaders] = await Promise.all([
+                this.getById('organizations', orgId),
+                this.getById('users', userId),
+                this.getOrganizationLeadershipMembers(orgId)
+            ]);
+            
+            if (org && requester && leaders.length > 0) {
+                const requesterName = UI.getUserDisplayName(requester);
+                const requesterImage = requester.profile_image_url || '';
+                
+                const notificationPromises = leaders.map(leader => 
+                    this.createNotification({
+                        userId: leader.user_id,
+                        type: 'org_join_request_received',
+                        title: 'Neue Org-Anfrage',
+                        message: `${requesterName} möchte der Organisation "${org.name}" beitreten.`,
+                        actionType: 'review_org_join_request',
+                        actionStatus: 'pending',
+                        actorUserId: userId,
+                        actorName: requesterName,
+                        actorImageUrl: requesterImage,
+                        organizationId: orgId,
+                        organizationName: org.name,
+                        targetUserId: userId // The user who wants to join
+                    })
+                );
+                
+                await Promise.all(notificationPromises);
+            }
+        } catch (error) {
+            Logger.warn('[Storage] Could not create org join notifications:', error);
+        }
+        
+        return memberResult;
+    },
+
+    async getOrganizationLeadershipMembers(orgId) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('organization_members')
+            .select('user_id, role')
+            .eq('organization_id', orgId)
+            .in('role', ['admin', 'manager']);
+            
+        if (error) {
+            Logger.error('Supabase getOrganizationLeadershipMembers error', error);
+            return [];
+        }
+        return data || [];
+    },
+
+    async getPendingOrgMembershipRequestsForUserContext(userId, leaderOrgIds = []) {
+        const sb = SupabaseClient.getClient();
+        
+        // Find 'pending' members in organizations where user is admin/manager
+        // OR 'pending' records for the user themselves
+        const { data, error } = await sb
+            .from('organization_members')
+            .select('*')
+            .eq('role', 'pending')
+            .or(`user_id.eq.${userId}${leaderOrgIds.length > 0 ? `,organization_id.in.(${leaderOrgIds.join(',')})` : ''}`);
+
+        if (error) {
+            Logger.error('Supabase getPendingOrgMembershipRequestsForUserContext error', error);
+            return [];
+        }
+        return data || [];
+    },
+
+    async getNotificationsByOrgRequest(orgId, userId) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('notifications')
+            .select('*')
+            .eq('organizationId', orgId)
+            .eq('targetUserId', userId);
+        if (error) return [];
+        return data || [];
+    },
+
+    async getOrganizationMembershipRequest(orgId, userId) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('organization_members')
+            .select('*')
+            .eq('organization_id', orgId)
+            .eq('user_id', userId)
+            .maybeSingle();
+        if (error) throw error;
+        return data;
+    },
+
+    async updateOrganizationMemberStatus(orgId, userId, role) {
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb
+            .from('organization_members')
+            .update({ 
+                role: role, 
+                status: 'active',
+                updated_at: new Date().toISOString(),
+                joined_at: new Date().toISOString()
+            })
+            .eq('organization_id', orgId)
+            .eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    },
+
+    async updateOrganizationMemberRole(orgId, userId, newRole) {
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb
+            .from('organization_members')
+            .update({ role: newRole, updated_at: new Date().toISOString() })
+            .eq('organization_id', orgId)
+            .eq('user_id', userId);
+        if (error) throw error;
+        return true;
+    },
+
+    async getOrganizationBands(orgId) {
+        const sb = SupabaseClient.getClient();
+        const { data: linkData, error: linkError } = await sb
+            .from('organization_bands')
+            .select('band_id, status')
+            .eq('organization_id', orgId);
+            
+        if (linkError) {
+            Logger.error('Supabase getOrganizationBands error', linkError);
+            return [];
+        }
+        
+        if (!linkData || linkData.length === 0) return [];
+        
+        const bandIds = linkData.map(l => l.band_id);
+        
+        const { data, error } = await sb
+            .from('bands')
+            .select('*')
+            .in('id', bandIds);
+            
+        if (error) {
+            Logger.error('Supabase getOrganizationBands details error', error);
+            return [];
+        }
+        
+        return data.map(band => {
+            const link = linkData.find(l => l.band_id === band.id);
+            return { ...band, linkStatus: link ? link.status : 'active' };
+        });
+    },
+
+    async linkBandToOrganization(orgId, bandId, addedBy = null) {
+        const link = {
+            organization_id: orgId,
+            band_id: bandId,
+            status: 'pending',
+            added_by: addedBy,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb.from('organization_bands')
+            .upsert(link, { onConflict: 'organization_id,band_id' })
+            .select('*');
+            
+        if (error) {
+            Logger.error('Supabase linkBandToOrganization error', error);
+            throw error;
+        }
+        return Array.isArray(data) ? data[0] : (data || link);
+    },
+
+    async unlinkBandFromOrganization(orgId, bandId) {
+        const sb = SupabaseClient.getClient();
+        const { error } = await sb
+            .from('organization_bands')
+            .delete()
+            .eq('organization_id', orgId)
+            .eq('band_id', bandId);
+        if (error) throw error;
+        return true;
+    },
+
+    async logOrganizationActivity(orgId, actorId, action, targetType = null, targetId = null, metadata = {}) {
+        const log = {
+            organization_id: orgId,
+            actor_id: actorId,
+            action,
+            target_type: targetType,
+            target_id: String(targetId),
+            details: metadata, // Fixed: database column is 'details', not 'metadata'
+            created_at: new Date().toISOString()
+        };
+        return await this.save('organization_activity_log', log);
+    },
+
+    async getOrganizationActivityLog(orgId) {
+        const sb = SupabaseClient.getClient();
+        const { data, error } = await sb
+            .from('organization_activity_log')
+            .select('*')
+            .eq('organization_id', orgId)
+            .order('created_at', { ascending: false });
+        if (error) { Logger.error('Supabase getOrganizationActivityLog error', error); return []; }
+        return data || [];
+    },
+
+    async getOrganizationMusicians(orgId) {
+        const sb = SupabaseClient.getClient();
+        const { data: memberData, error: memberError } = await sb
+            .from('organization_members')
+            .select('user_id')
+            .eq('organization_id', orgId);
+            
+        if (memberError) {
+            Logger.error('Supabase getOrganizationMusicians member error', memberError);
+            return [];
+        }
+        
+        if (!memberData || memberData.length === 0) return [];
+        
+        const userIds = memberData.map(m => m.user_id);
+        
+        const { data, error } = await sb
+            .from('users')
+            .select('*')
+            .in('id', userIds);
+            
+        if (error) {
+            Logger.error('Supabase getOrganizationMusicians details error', error);
+            return [];
+        }
+        
+        return data || [];
+    },
+
     // Event operations
+
     async createEvent(eventData) {
         const event = {
             id: this.generateId(),
@@ -1325,14 +1761,25 @@ const Storage = {
         return await this.save('locations', location);
     },
 
-    async getLocations() {
-        if (this.locationsCache && (Date.now() - this.locationsCacheTimestamp < this.CACHE_DURATION)) {
+    async getLocations(organizationId = null) {
+        if (!organizationId && this.locationsCache && (Date.now() - this.locationsCacheTimestamp < this.CACHE_DURATION)) {
             return this.locationsCache;
         }
 
-        const data = await this.getAll('locations'); // uses select('*')
+        const sb = SupabaseClient.getClient();
+        let query = sb.from('locations').select('*');
+        
+        if (organizationId) {
+            query = query.eq('organizationId', organizationId);
+        }
 
-        if (data) {
+        const { data, error } = await query;
+        if (error) {
+            Logger.error('Supabase getLocations error', error);
+            return [];
+        }
+
+        if (data && !organizationId) {
             this.locationsCache = data;
             this.locationsCacheTimestamp = Date.now();
         }
@@ -1988,7 +2435,22 @@ const Storage = {
 
         const includeAll = options.includeAll === true;
         const includePublic = options.includePublic === true;
+        const organizationId = options.organizationId;
         const sb = SupabaseClient.getClient();
+
+        if (organizationId) {
+            // Strict organization query: Only songs for THIS organization
+            // Or public organization songs if intended
+            const { data, error } = await sb
+                .from('songpool_songs')
+                .select('*')
+                .or(`organizationId.eq.${organizationId},and(contextType.eq.organization,visibility.eq.public)`);
+            
+            if (error) {
+                throw new Error(this._getSongpoolErrorMessage(error, 'Songpool-Songs konnten nicht geladen werden.'));
+            }
+            return data || [];
+        }
 
         if (includeAll) {
             const { data, error } = await sb
@@ -2002,16 +2464,19 @@ const Storage = {
             return data || [];
         }
 
-        const ownSongsQuery = sb
+        // Personal View: songs created by user AND NOT belonging to an organization
+        let ownSongsQuery = sb
             .from('songpool_songs')
             .select('*')
-            .eq('createdBy', userId);
+            .eq('createdBy', userId)
+            .is('organizationId', null);
 
         const publicSongsQuery = includePublic
             ? sb
                 .from('songpool_songs')
                 .select('*')
                 .eq('visibility', 'public')
+                .is('organizationId', null) // Only show non-org public songs in personal pool? 
                 .neq('createdBy', userId)
             : Promise.resolve({ data: [], error: null });
 

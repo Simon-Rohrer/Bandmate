@@ -734,14 +734,15 @@ const App = {
             pdftochordproView: 'pdftochordpro',
             kalenderView: 'kalender',
             musikpoolView: 'musikpool',
-            settingsView: 'settings'
+            settingsView: 'settings',
+            organizationsView: 'organizations'
         };
 
         return viewMap[activeView.id] || 'dashboard';
     },
 
     rememberCurrentView(view = this.getActiveBaseView()) {
-        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'songpool', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool']);
+        const restorableViews = new Set(['dashboard', 'bands', 'events', 'rehearsals', 'statistics', 'news', 'songpool', 'probeorte', 'pdftochordpro', 'kalender', 'musikpool', 'organizations']);
         if (!restorableViews.has(view)) return;
         this.setPersistedNavigationState({ view });
     },
@@ -4598,6 +4599,7 @@ const App = {
         
         // Initialize security/protection
         if (typeof Security !== 'undefined') Security.init();
+        if (typeof Organizations !== 'undefined') Organizations.init();
         
         Logger.info('[App.init] Boot sequence started...');
 
@@ -5436,10 +5438,13 @@ const App = {
         });
 
         // Logout button
-        document.getElementById('logoutBtn').addEventListener('click', () => {
-            Logger.userAction('Button', 'logoutBtn', 'Click', { action: 'Logout from Header' });
-            this.handleLogout();
-        });
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                Logger.userAction('Button', 'logoutBtn', 'Click', { action: 'Logout from Header' });
+                this.handleLogout();
+            });
+        }
 
 
 
@@ -5482,10 +5487,13 @@ const App = {
         }
 
         // Add member button
-        document.getElementById('addMemberBtn').addEventListener('click', () => {
-            Logger.userAction('Button', 'addMemberBtn', 'Click', { action: 'Open Add Member Modal' });
-            UI.openModal('addMemberModal');
-        });
+        const addMemberBtn = document.getElementById('addMemberBtn');
+        if (addMemberBtn) {
+            addMemberBtn.addEventListener('click', () => {
+                Logger.userAction('Button', 'addMemberBtn', 'Click', { action: 'Open Add Member Modal' });
+                UI.openModal('addMemberModal');
+            });
+        }
 
         // Band Rider button
         const bandRiderBtn = document.getElementById('bandRiderBtn');
@@ -5501,18 +5509,24 @@ const App = {
         }
 
         // Add member form
-        document.getElementById('addMemberForm').addEventListener('submit', (e) => {
-            e.preventDefault();
-            this.handleAddMember();
-        });
+        const addMemberForm = document.getElementById('addMemberForm');
+        if (addMemberForm) {
+            addMemberForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleAddMember();
+            });
+        }
 
         // Delete band button
-        document.getElementById('deleteBandBtn').addEventListener('click', async () => {
-            Logger.userAction('Button', 'deleteBandBtn', 'Click', { bandId: Bands.currentBandId });
-            if (Bands.currentBandId) {
-                await Bands.deleteBand(Bands.currentBandId);
-            }
-        });
+        const deleteBandBtn = document.getElementById('deleteBandBtn');
+        if (deleteBandBtn) {
+            deleteBandBtn.addEventListener('click', async () => {
+                Logger.userAction('Button', 'deleteBandBtn', 'Click', { bandId: Bands.currentBandId });
+                if (Bands.currentBandId) {
+                    await Bands.deleteBand(Bands.currentBandId);
+                }
+            });
+        }
 
 
         // Show 'Probetermine hinzufügen' button only if user is in at least one band
@@ -5676,25 +5690,33 @@ const App = {
         }
 
         // Delete rehearsal button
-        document.getElementById('deleteRehearsalBtn').addEventListener('click', async () => {
-            const rehearsalId = document.getElementById('editRehearsalId').value;
-            Logger.userAction('Button', 'deleteRehearsalBtn', 'Click', { rehearsalId });
-            if (rehearsalId) {
-                await Rehearsals.deleteRehearsal(rehearsalId);
-                UI.closeModal('createRehearsalModal');
-            }
-        });
+        const deleteRehearsalBtn = document.getElementById('deleteRehearsalBtn');
+        if (deleteRehearsalBtn) {
+            deleteRehearsalBtn.addEventListener('click', async () => {
+                const rehearsalId = document.getElementById('editRehearsalId').value;
+                Logger.userAction('Button', 'deleteRehearsalBtn', 'Click', { rehearsalId });
+                if (rehearsalId) {
+                    await Rehearsals.deleteRehearsal(rehearsalId);
+                    UI.closeModal('createRehearsalModal');
+                }
+            });
+        }
 
         // Band filter
-        document.getElementById('bandFilter').addEventListener('change', (e) => {
-            Rehearsals.currentFilter = e.target.value;
-            Rehearsals.renderRehearsals(e.target.value);
-        });
+        const bandFilter = document.getElementById('bandFilter');
+        if (bandFilter) {
+            bandFilter.addEventListener('change', (e) => {
+                Rehearsals.currentFilter = e.target.value;
+                Rehearsals.renderRehearsals(e.target.value);
+            });
+        }
 
 
 
         // Create event button
-        document.getElementById('createEventBtn').addEventListener('click', async () => {
+        const createEventBtn = document.getElementById('createEventBtn');
+        if (createEventBtn) {
+            createEventBtn.addEventListener('click', async () => {
             Logger.userAction('Button', 'createEventBtn', 'Click', { action: 'Open New Event Modal' });
             // Reset form for new event
             document.getElementById('eventModalTitle').textContent = 'Neuen Auftritt erstellen';
@@ -5777,8 +5799,9 @@ const App = {
                 }
             }
         });
+    }
 
-        // Create event form
+    // Create event form
         const createEventForm = document.getElementById('createEventForm');
         if (createEventForm) {
             createEventForm.onsubmit = async (e) => {
@@ -6429,9 +6452,9 @@ const App = {
         });
 
         // Setup logout button
-        const logoutBtn = document.getElementById('sidebarLogoutBtn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
+        const sidebarLogoutBtn = document.getElementById('sidebarLogoutBtn');
+        if (sidebarLogoutBtn) {
+            sidebarLogoutBtn.addEventListener('click', () => {
                 Auth.logout();
             });
         }
@@ -6490,7 +6513,8 @@ const App = {
                 'kalender': 'kalenderView',
                 'musikpool': 'musikpoolView',
                 'private-finanzen': 'private-finanzenView',
-                'settings': 'settingsView'
+                'settings': 'settingsView',
+                'organizations': 'organizationsView'
             };
 
             const viewId = viewMap[view];
@@ -6525,7 +6549,8 @@ const App = {
                     pdftochordpro: '#4f46e5', // indigo
                     kalender: '#f43f5e', // rose
                     musikpool: '#0ea5e9', // cyan
-                    'private-finanzen': '#10b981' // emerald/green
+                    'private-finanzen': '#10b981', // emerald/green
+                    organizations: '#0ea5e9' // primary blue
                 };
                 const navColor = navActiveColorMap[view] || getComputedStyle(document.documentElement).getPropertyValue('--color-primary').trim();
                 document.documentElement.style.setProperty('--nav-active-color', navColor);
@@ -6665,6 +6690,10 @@ const App = {
                     // Render dynamic calendar tabs first
                     await this.renderProbeorteCalendarTabs();
                     // Redundant loading logic removed - handled by renderProbeorteCalendarTabs
+                } else if (view === 'organizations') {
+                    if (typeof Organizations !== 'undefined') {
+                        await Organizations.renderOrganizations();
+                    }
                 } else if (view === 'musikpool') {
                     // Check if user is admin - Musikerpool is restricted
                     const musikpoolSection = document.getElementById('churchToolsMusikpoolSection');
@@ -9806,7 +9835,7 @@ const App = {
         };
     },
 
-    createSongpoolDraftFromBandSong(song, visibility = 'public') {
+    createSongpoolDraftFromBandSong(song, visibility = 'public', options = {}) {
         if (!song) return null;
 
         return {
@@ -9828,12 +9857,14 @@ const App = {
             ccli: song.ccli || null,
             info: song.info || null,
             pdf_url: song.pdf_url || null,
-            visibility: this.normalizeSongpoolVisibility(visibility)
+            visibility: this.normalizeSongpoolVisibility(visibility),
+            organizationId: options.organizationId || null,
+            contextType: options.organizationId ? 'organization' : null
         };
     },
 
-    async createSongpoolDraftFromBandSongFile(song, visibility = 'public', file = null, draftOverrides = {}) {
-        const baseDraft = this.createSongpoolDraftFromBandSong(song, visibility);
+    async createSongpoolDraftFromBandSongFile(song, visibility = 'public', file = null, draftOverrides = {}, options = {}) {
+        const baseDraft = this.createSongpoolDraftFromBandSong(song, visibility, options);
         if (!baseDraft) return null;
         if (!file) {
             return {
@@ -11199,8 +11230,11 @@ const App = {
         }
     },
 
-    openSongpoolImportPreview(drafts = []) {
-        this.songpoolImportDrafts = Array.isArray(drafts) ? drafts.filter(Boolean) : [];
+    openSongpoolImportPreview(drafts = [], options = {}) {
+        this.songpoolImportDrafts = (Array.isArray(drafts) ? drafts.filter(Boolean) : []).map(d => ({
+            ...d,
+            organizationId: options.organizationId || null
+        }));
         this.renderSongpoolImportPreview();
         UI.openModal('songpoolImportModal');
     },
@@ -11372,12 +11406,24 @@ const App = {
 
             if (result.successCount > 0) {
                 await this.renderSongpoolView();
+                
+                // Refresh organization view if applicable
+                const anyOrgId = drafts.find(d => d.organizationId)?.organizationId;
+                if (anyOrgId && typeof Organizations !== 'undefined') {
+                    await Organizations.loadSongpool();
+                }
             }
 
             if (result.duplicateReviewCanceled) {
                 this.songpoolImportDrafts = [];
                 UI.closeModal('songpoolImportModal');
                 await this.renderSongpoolView();
+                
+                // Refresh organization view if applicable
+                const anyOrgId = drafts.find(d => d.organizationId)?.organizationId;
+                if (anyOrgId && typeof Organizations !== 'undefined') {
+                    await Organizations.loadSongpool();
+                }
                 if (result.successCount > 0) {
                     UI.showToast(`Import abgebrochen. ${result.successCount} eindeutige Song${result.successCount === 1 ? '' : 's'} wurden bereits gespeichert.`, 'warning');
                 } else {
@@ -11955,7 +12001,9 @@ const App = {
                         info: manualSongInfo,
                         ccli: ccli || null,
                         leadVocal: leadVocal || null,
-                        visibility
+                        visibility,
+                        organizationId: modalContext?.organizationId || null,
+                        contextType: modalContext?.organizationId ? 'organization' : null
                     }
                 ], { user });
 
@@ -12054,6 +12102,8 @@ const App = {
             };
             if (isSongpoolSong) {
                 songData.visibility = visibility;
+                songData.organizationId = modalContext?.organizationId || null;
+                songData.contextType = modalContext?.organizationId ? 'organization' : null;
             }
 
             if (pdfFileInput && pdfFileInput.files.length > 0 && isPdfUpload) {
@@ -12129,6 +12179,11 @@ const App = {
                     UI.showToast(isSongpoolSong ? 'Songpool-Song hinzugefügt' : 'Song hinzugefügt', 'success');
                     if (isSongpoolSong) {
                         await this.renderSongpoolView();
+                        
+                        // Refresh organization view if applicable
+                        if (modalContext?.organizationId && typeof Organizations !== 'undefined') {
+                            await Organizations.loadSongpool();
+                        }
                     } else if (bandId) {
                         // Nach dem Hinzufügen eines Songs zur Band-Setlist sofort neu rendern
                         await this.renderBandSongs(bandId);
@@ -12156,6 +12211,11 @@ const App = {
                 // For updates, refresh the current list
                 if (isSongpoolSong) {
                     await this.renderSongpoolView();
+                    
+                    // Refresh organization view if applicable
+                    if (modalContext?.organizationId && typeof Organizations !== 'undefined') {
+                        await Organizations.loadSongpool();
+                    }
                 } else if (eventId) {
                     await this.renderEventSongs(eventId);
                 } else if (bandId) {
@@ -12900,7 +12960,7 @@ const App = {
         });
     },
 
-    openSongpoolAddEntryModal() {
+    openSongpoolAddEntryModal(options = {}) {
         const tempModal = document.createElement('div');
         tempModal.className = 'modal active';
         tempModal.innerHTML = `
@@ -12957,20 +13017,21 @@ const App = {
             this.lastSongModalContext = {
                 origin: 'songpool',
                 collection: 'songpool_songs',
-                defaultVisibility: 'public'
+                defaultVisibility: 'public',
+                organizationId: options.organizationId || null
             };
             this.openSongModal(null, null, null);
         });
 
         tempModal.querySelector('[data-action="bandpool"]').addEventListener('click', async () => {
             closeModal();
-            await this.openSongpoolBandImportModal();
+            await this.openSongpoolBandImportModal(options);
         });
 
         this.bindSongpoolTempModalBackdropClose(tempModal, closeModal);
     },
 
-    async openSongpoolBandImportModal() {
+    async openSongpoolBandImportModal(options = {}) {
         const user = Auth.getCurrentUser();
         if (!user) {
             UI.showToast('Du musst angemeldet sein, um Songs aus dem Bandpool zu übernehmen.', 'error');
@@ -13256,7 +13317,7 @@ const App = {
                 const visibility = tempModal.querySelector('input[name="importVisibility"]:checked')?.value || 'public';
 
                 closeModal();
-                await this.copyBandSongsToSongpool(selectedIds, visibility);
+                await this.copyBandSongsToSongpool(selectedIds, visibility, options);
             });
 
             searchInput.addEventListener('input', () => {
@@ -13271,7 +13332,7 @@ const App = {
         }
     },
 
-    async copyBandSongsToSongpool(songIds, visibility = 'private') {
+    async copyBandSongsToSongpool(songIds, visibility = 'private', options = {}) {
         const user = Auth.getCurrentUser();
         if (!user) {
             UI.showToast('Du musst angemeldet sein, um Songs in den Songpool zu übernehmen.', 'error');
@@ -13322,8 +13383,8 @@ const App = {
             }
 
             const initialDrafts = [
-                ...readyBandSongs.map((song) => this.createSongpoolDraftFromBandSong(song, visibility)),
-                ...missingDocumentSongs.map((song) => this.createSongpoolDraftFromBandSong(song, visibility))
+                ...readyBandSongs.map((song) => this.createSongpoolDraftFromBandSong(song, visibility, options)),
+                ...missingDocumentSongs.map((song) => this.createSongpoolDraftFromBandSong(song, visibility, options))
             ].filter(Boolean);
 
             let selectedDrafts = initialDrafts;
@@ -13417,7 +13478,7 @@ const App = {
                 return;
             }
 
-            this.openSongpoolImportPreview(drafts);
+            this.openSongpoolImportPreview(drafts, options);
 
             if (loadErrorCount > 0) {
                 UI.showToast(`${loadErrorCount} Song${loadErrorCount === 1 ? '' : 's'} konnten nicht geladen werden.`, 'warning');
@@ -13896,6 +13957,9 @@ const App = {
         if (!user) return;
         const isAdmin = Auth.isAdmin();
 
+        // Default to private if not set
+        if (!this.songpoolViewMode) this.songpoolViewMode = 'private';
+
         const showPublicSongs = this.getSongpoolShowPublicPreference();
         const previousSearchInput = document.getElementById('songpoolSongSearch');
         const searchInputValue = previousSearchInput?.value || '';
@@ -13905,10 +13969,25 @@ const App = {
         const previousSelectionEnd = previousSearchInput?.selectionEnd;
 
         let songs = [];
+        let orgName = '';
+
         try {
-            songs = await Storage.getSongpoolSongs(user.id, {
-                includePublic: showPublicSongs
-            });
+            if (this.songpoolViewMode === 'org') {
+                const userOrgs = await Storage.getOrganizations(user.id);
+                const currentOrg = userOrgs[0];
+                if (currentOrg) {
+                    orgName = currentOrg.name;
+                    songs = await Storage.getSongpoolSongs(user.id, {
+                        organizationId: currentOrg.id
+                    });
+                } else {
+                    songs = [];
+                }
+            } else {
+                songs = await Storage.getSongpoolSongs(user.id, {
+                    includePublic: showPublicSongs
+                });
+            }
         } catch (error) {
             Logger.error('[Songpool] View could not be rendered:', error);
             container.innerHTML = `
@@ -14032,7 +14111,7 @@ const App = {
                         >
                     </td>
                     <td class="band-setlist-actions-cell" style="padding: var(--spacing-sm); text-align: center;" data-label="Aktionen">
-                        ${song.canManage ? `
+                        ${(this.songpoolViewMode === 'private' && song.canManage) ? `
                             <div style="display: flex; gap: 8px; justify-content: center;">
                                 <button type="button" class="btn-icon edit-songpool-song" data-id="${song.id}" title="Bearbeiten" aria-label="Song bearbeiten">${this.getRundownInlineIcon('edit')}</button>
                                 <button type="button" class="btn-icon delete-songpool-song" data-id="${song.id}" title="Löschen" aria-label="Song löschen">${this.getRundownInlineIcon('trash')}</button>
@@ -14040,8 +14119,8 @@ const App = {
                         ` : `
                             <div
                                 class="songpool-readonly-cell"
-                                title="Dieser Song wurde nicht von dir erstellt. Du kannst nur eigene Songs bearbeiten oder löschen."
-                                aria-label="Dieser Song wurde nicht von dir erstellt. Du kannst nur eigene Songs bearbeiten oder löschen."
+                                title="${this.songpoolViewMode === 'org' ? 'Songs der Organisation können nur im Organisations-Bereich bearbeitet werden.' : 'Dieser Song wurde nicht von dir erstellt. Du kannst nur eigene Songs bearbeiten oder löschen.'}"
+                                aria-label="${this.songpoolViewMode === 'org' ? 'Songs der Organisation können nur im Organisations-Bereich bearbeitet werden.' : 'Dieser Song wurde nicht von dir erstellt. Du kannst nur eigene Songs bearbeiten oder löschen.'}"
                             >—</div>
                         `}
                     </td>
@@ -14078,19 +14157,25 @@ const App = {
                     <div class="band-setlist-titleblock">
                         <span class="band-setlist-kicker">Studio</span>
                         <div class="songpool-heading-row">
-                            <h3>Songpool <span class="band-setlist-count">(${this.currentSongpoolSongs.length})</span></h3>
+                            <h3>${this.songpoolViewMode === 'org' ? (orgName || 'Organisation') : 'Songpool'} <span class="band-setlist-count">(${this.currentSongpoolSongs.length})</span></h3>
                             <button type="button" class="btn btn-secondary btn-sm songpool-help-button" onclick="UI.openModal('songpoolHelpModal')">
                                 Was ist der Songpool?
                             </button>
                         </div>
-                        <p class="band-setlist-description">${this.escapeHtml(description)}</p>
+                        <p class="band-setlist-description">${this.songpoolViewMode === 'org' ? `Songs der Organisation ${orgName || ''}` : this.escapeHtml(description)}</p>
                     </div>
                     <div class="band-setlist-toolbar-actions">
-                        <input type="file" id="songpoolFileUpload" accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf" multiple style="display: none;">
-                        <button id="songpoolImportBtn" class="btn btn-secondary btn-sm" title="PDFs oder ChordPro-Dateien importieren">
-                            <i data-lucide="file-up" class="btn-icon-lucide"></i><span class="btn-text-mobile-hide">PDF / ChordPro import</span>
-                        </button>
-                        <button id="addSongpoolSongBtn" class="btn btn-primary btn-sm">+ Song hinzufügen</button>
+                        <div class="songpool-view-switch">
+                            <button class="switch-btn ${this.songpoolViewMode === 'private' ? 'active' : ''}" id="songpoolViewPrivateBtn">Privat</button>
+                            <button class="switch-btn ${this.songpoolViewMode === 'org' ? 'active' : ''}" id="songpoolViewOrgBtn">Organisation</button>
+                        </div>
+                        ${this.songpoolViewMode === 'private' ? `
+                            <input type="file" id="songpoolFileUpload" accept=".pdf,.cho,.chordpro,.chopro,.pro,.crd,.txt,.cp,.chord,text/plain,application/pdf" multiple style="display: none;">
+                            <button id="songpoolImportBtn" class="btn btn-secondary btn-sm" title="PDFs oder ChordPro-Dateien importieren">
+                                <i data-lucide="file-up" class="btn-icon-lucide"></i><span class="btn-text-mobile-hide">PDF / ChordPro import</span>
+                            </button>
+                            <button id="addSongpoolSongBtn" class="btn btn-primary btn-sm">+ Song hinzufügen</button>
+                        ` : ''}
                     </div>
                 </div>
                 <div class="band-setlist-toolbar-main songpool-toolbar-main">
@@ -14204,6 +14289,22 @@ const App = {
             addButton.addEventListener('click', () => {
                 this.openSongpoolAddEntryModal();
             });
+        }
+
+        // View Switch Listeners
+        const privateBtn = document.getElementById('songpoolViewPrivateBtn');
+        const orgBtn = document.getElementById('songpoolViewOrgBtn');
+        if (privateBtn && orgBtn) {
+            privateBtn.onclick = () => {
+                if (this.songpoolViewMode === 'private') return;
+                this.songpoolViewMode = 'private';
+                this.renderSongpoolView();
+            };
+            orgBtn.onclick = () => {
+                if (this.songpoolViewMode === 'org') return;
+                this.songpoolViewMode = 'org';
+                this.renderSongpoolView();
+            };
         }
 
         const checkboxRows = container.querySelectorAll('.songpool-song-checkbox-row');

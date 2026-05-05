@@ -172,10 +172,12 @@ const Notifications = {
                 Storage.getUnreadNotificationCount(user.id)
             ]);
 
-            const repairedNotifications = this.repairDisabled
-                ? 0
-                : await this.repairPendingMembershipNotifications(user);
-            if (repairedNotifications > 0) {
+            const [repairedBands, repairedOrgs] = await Promise.all([
+                this.repairDisabled ? 0 : this.repairPendingMembershipNotifications(user),
+                this.repairDisabled ? 0 : this.repairPendingOrgMembershipNotifications(user)
+            ]);
+            
+            if (repairedBands > 0 || repairedOrgs > 0) {
                 [notifications, unreadCount] = await Promise.all([
                     Storage.getNotificationsForUser(user.id, { limit: 30 }),
                     Storage.getUnreadNotificationCount(user.id)
@@ -238,6 +240,88 @@ const Notifications = {
             Logger.error('[Notifications.repairPendingMembershipNotifications] Error:', error);
             return 0;
         }
+    },
+
+    async repairPendingOrgMembershipNotifications(user) {
+        if (!user?.id) return 0;
+
+        try {
+            const userOrgs = await Storage.getOrganizations(user.id);
+            const leaderOrgIds = (Array.isArray(userOrgs) ? userOrgs : [])
+                .filter(o => o.role === 'admin' || o.role === 'manager')
+                .map(o => o.id);
+
+            const pendingRequests = await Storage.getPendingOrgMembershipRequestsForUserContext(user.id, leaderOrgIds);
+            if (!Array.isArray(pendingRequests) || pendingRequests.length === 0) return 0;
+
+            let repairedCount = 0;
+            for (const request of pendingRequests) {
+                try {
+                    repairedCount += await this.ensurePendingOrgRequestNotifications(request, user.id);
+                } catch (error) {
+                    if (String(error?.message).includes('notifications"')) {
+                        this.repairDisabled = true;
+                        break;
+                    }
+                    throw error;
+                }
+            }
+            return repairedCount;
+        } catch (error) {
+            Logger.error('[Notifications.repairPendingOrgMembershipNotifications] Error:', error);
+            return 0;
+        }
+    },
+
+    async ensurePendingOrgRequestNotifications(request, currentUserId) {
+        if (!request || request.role !== 'pending') return 0;
+        
+        const existing = await Storage.getNotificationsByOrgRequest(request.organization_id, request.user_id);
+        const existingRecipients = new Set(existing.map(n => n.userId));
+        
+        const notificationsToCreate = [];
+        const org = await Storage.getOrganization(request.organization_id);
+        const requester = await Storage.getById('users', request.user_id);
+        if (!org || !requester) return 0;
+        
+        const requesterName = UI.getUserDisplayName(requester);
+        
+        // 1. For Leaders
+        const isLeader = await Auth.canManageOrganization(request.organization_id);
+        if (isLeader && !existingRecipients.has(currentUserId)) {
+            notificationsToCreate.push({
+                userId: currentUserId,
+                type: 'org_join_request_received',
+                title: 'Neue Org-Anfrage',
+                message: `${requesterName} möchte der Organisation "${org.name}" beitreten.`,
+                actionType: 'review_org_join_request',
+                actionStatus: 'pending',
+                actorUserId: request.user_id,
+                actorName: requesterName,
+                actorImageUrl: requester.profile_image_url || '',
+                organizationId: org.id,
+                organizationName: org.name,
+                targetUserId: request.user_id
+            });
+        }
+        
+        // 2. For the Requester (the user themselves)
+        if (request.user_id === currentUserId && !existingRecipients.has(currentUserId)) {
+             notificationsToCreate.push({
+                userId: currentUserId,
+                type: 'org_join_request_pending',
+                title: 'Org-Anfrage gesendet',
+                message: `Deine Anfrage für "${org.name}" wurde gesendet.`,
+                actorUserId: currentUserId,
+                actorName: requesterName,
+                organizationId: org.id,
+                organizationName: org.name
+            });
+        }
+        
+        if (notificationsToCreate.length === 0) return 0;
+        await Promise.all(notificationsToCreate.map(n => Storage.createNotification(n)));
+        return notificationsToCreate.length;
     },
 
     async ensurePendingRequestNotifications(request, options = {}) {
@@ -360,16 +444,47 @@ const Notifications = {
                 .map(value => String(value))
         )];
 
-        if (requestIds.length === 0) return notifications;
+        const orgRequests = notifications.filter(n => n.type === 'org_join_request_received' || n.actionType === 'review_org_join_request');
 
-        const requests = await Storage.getBatchByIds('bandMembershipRequests', requestIds);
-        const requestMap = new Map(
-            (Array.isArray(requests) ? requests : [])
-                .filter(request => request?.id)
-                .map(request => [String(request.id), request])
-        );
+        let requestMap = new Map();
+        if (requestIds.length > 0) {
+            const requests = await Storage.getBatchByIds('bandMembershipRequests', requestIds);
+            requestMap = new Map(
+                (Array.isArray(requests) ? requests : [])
+                    .filter(request => request?.id)
+                    .map(request => [String(request.id), request])
+            );
+        }
+
+        const orgMemberPromises = orgRequests.map(async (n) => {
+            try {
+                if (n.actionType === 'review_org_join_request' && n.requestId && n.targetUserId) {
+                    return await Storage.getOrganizationMembershipRequest(n.requestId, n.targetUserId);
+                }
+                return null;
+            } catch (e) {
+                return null;
+            }
+        });
+        const orgMembers = await Promise.all(orgMemberPromises);
+        const orgMemberMap = new Map();
+        orgRequests.forEach((n, i) => {
+            if (orgMembers[i]) {
+                orgMemberMap.set(`${n.requestId}:${n.targetUserId}`, orgMembers[i]);
+            }
+        });
 
         return notifications.map(notification => {
+            if (notification.type === 'org_join_request_received' || notification.actionType === 'review_org_join_request') {
+                const member = orgMemberMap.get(`${notification.requestId}:${notification.targetUserId}`);
+                const status = member ? (member.role === 'pending' ? 'pending' : 'accepted') : 'declined';
+                return {
+                    ...notification,
+                    requestStatus: status,
+                    actionStatus: status
+                };
+            }
+
             if (!notification?.requestId) return notification;
 
             const request = requestMap.get(String(notification.requestId));
@@ -495,8 +610,8 @@ const Notifications = {
         const timestamp = this.escapeHtml(this.formatTimestamp(notification.createdAt));
         const unreadClass = notification.status === 'unread' ? ' is-unread' : '';
         const actionableClass = this.shouldShowActions(notification) ? ' is-actionable' : '';
-        const badgeMarkup = notification.bandName
-            ? `<span class="notification-meta-pill">${this.escapeHtml(notification.bandName)}</span>`
+        const badgeMarkup = (notification.bandName || notification.organizationName)
+            ? `<span class="notification-meta-pill">${this.escapeHtml(notification.bandName || notification.organizationName)}</span>`
             : '';
         const statusMarkup = this.getStatusMarkup(notification);
         const actionsMarkup = this.getActionsMarkup(notification);
@@ -607,7 +722,6 @@ const Notifications = {
     shouldShowActions(notification) {
         return Boolean(
             notification &&
-            notification.requestId &&
             notification.actionType &&
             this.getEffectiveActionStatus(notification) === 'pending'
         );
@@ -677,9 +791,107 @@ const Notifications = {
         const notificationId = button.dataset.notificationId;
         const action = button.dataset.notificationAction;
 
-        if (!requestId || !action) return;
+        if (!notificationId || !action) return;
+
+        const notification = this.currentNotifications.find(n => String(n.id) === String(notificationId));
+        
+        if (notification && notification.actionType === 'review_org_band_invitation') {
+            await this.respondToOrgBandInvitation(notification, action);
+            return;
+        }
+
+        if (!requestId) return;
 
         await this.respondToRequest(requestId, action, notificationId);
+    },
+
+    async respondToOrgBandInvitation(notification, action) {
+        const user = Auth.getCurrentUser();
+        if (!user) return;
+        
+        const isBusyKey = `org_invite_${notification.id}`;
+        if (this.pendingActionRequestIds.has(isBusyKey)) return;
+
+        this.pendingActionRequestIds.add(isBusyKey);
+        this.renderNotifications(this.currentNotifications);
+
+        try {
+            const decision = action === 'accept' ? 'accepted' : 'declined';
+            
+            // Validate band link exists and is pending
+            const { data: bands, error } = await window.supabase
+                .from('organization_bands')
+                .select('*')
+                .eq('organization_id', notification.requestId)
+                .eq('band_id', notification.bandId)
+                .limit(1);
+                
+            if (error || !bands || bands.length === 0) {
+                throw new Error('Verknüpfung nicht gefunden.');
+            }
+            
+            const link = bands[0];
+            if (link.status !== 'pending') {
+                await Storage.updateNotification(notification.id, { actionStatus: link.status });
+                UI.showToast(`Diese Anfrage wurde bereits ${link.status === 'active' ? 'angenommen' : 'abgelehnt'}.`, 'info');
+                await this.refresh({ quiet: true, skipAutoRead: true });
+                return;
+            }
+
+            if (decision === 'accepted') {
+                // Update link status to active
+                const { error: updateError } = await window.supabase
+                    .from('organization_bands')
+                    .update({ status: 'active' })
+                    .eq('id', link.id);
+                    
+                if (updateError) throw updateError;
+                
+                // Notify all band members about the successful link
+                const bandMembers = await Storage.getBandMembers(notification.bandId);
+                if (Array.isArray(bandMembers)) {
+                    const notifyPromises = bandMembers.map(member => 
+                        Storage.createNotification({
+                            userId: member.userId,
+                            type: 'band_linked_to_org',
+                            title: 'Band verknüpft',
+                            message: `Deine Band "${notification.bandName}" wurde mit einer Organisation verknüpft.`,
+                            actorUserId: user.id,
+                            actorName: UI.getUserDisplayName(user),
+                            requestId: notification.requestId,
+                            bandId: notification.bandId,
+                            bandName: notification.bandName
+                        })
+                    );
+                    await Promise.all(notifyPromises);
+                }
+                
+                UI.showToast('Band erfolgreich verknüpft.', 'success');
+            } else {
+                // Remove the link request entirely
+                const { error: deleteError } = await window.supabase
+                    .from('organization_bands')
+                    .delete()
+                    .eq('id', link.id);
+                    
+                if (deleteError) throw deleteError;
+                UI.showToast('Einladung zur Organisation abgelehnt.', 'info');
+            }
+
+            // Update the notification status
+            await Storage.updateNotification(notification.id, { actionStatus: decision });
+            await this.refresh({ quiet: true, skipAutoRead: true });
+
+            if (typeof Organizations !== 'undefined' && Organizations.currentOrgId === notification.requestId) {
+                await Organizations.loadBands();
+            }
+        } catch (error) {
+            Logger.error('[Notifications] Error responding to org band invitation:', error);
+            UI.showToast(error.message || 'Fehler beim Antworten auf die Einladung.', 'error');
+        } finally {
+            this.pendingActionRequestIds.delete(isBusyKey);
+            this.renderNotifications(this.currentNotifications);
+        }
     },
 
     async handleRemoveButton(button) {
@@ -848,6 +1060,40 @@ const Notifications = {
 
                 UI.showToast(
                     decision === 'accepted' ? 'Mitglied erfolgreich freigegeben.' : 'Anfrage abgelehnt.',
+                    decision === 'accepted' ? 'success' : 'info'
+                );
+            } else if (notification.actionType === 'review_org_join_request') {
+                const orgId = notification.requestId;
+                const targetUserId = notification.targetUserId;
+                
+                if (!orgId || !targetUserId) throw new Error('Unvollständige Daten für die Anfrage.');
+
+                if (decision === 'accepted') {
+                    await Storage.updateOrganizationMemberStatus(orgId, targetUserId, 'member');
+                } else {
+                    await Storage.removeOrganizationMember(orgId, targetUserId);
+                }
+
+                await Storage.createNotification({
+                    userId: targetUserId,
+                    type: decision === 'accepted' ? 'org_join_request_accepted' : 'org_join_request_declined',
+                    title: decision === 'accepted' ? 'Org-Anfrage angenommen' : 'Org-Anfrage abgelehnt',
+                    message: decision === 'accepted'
+                        ? `Deine Anfrage für "${notification.bandName}" wurde angenommen.`
+                        : `Deine Anfrage für "${notification.bandName}" wurde abgelehnt.`,
+                    actorUserId: user.id,
+                    actorName: UI.getUserDisplayName(user),
+                    actorImageUrl: user.profile_image_url || '',
+                    requestId: orgId,
+                    bandName: notification.bandName
+                });
+
+                if (decision === 'accepted' && typeof Organizations !== 'undefined' && Organizations.currentOrgId === orgId) {
+                    await Organizations.showOrgDetail(orgId);
+                }
+
+                UI.showToast(
+                    decision === 'accepted' ? 'Beitrittsanfrage erfolgreich angenommen.' : 'Beitrittsanfrage abgelehnt.',
                     decision === 'accepted' ? 'success' : 'info'
                 );
             } else {
