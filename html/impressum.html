@@ -7,6 +7,29 @@
     <title>Impressum - Bandmate</title>
     <meta name="description" content="Impressum von Bandmate mit den Anbieterangaben und Kontaktinformationen.">
     <link rel="stylesheet" href="../css/landing.css">
+    <link rel="icon" type="image/svg+xml" href="../images/branding/bandmate-logo-only-dark.svg" id="faviconSvg">
+    <link rel="apple-touch-icon" href="../images/branding/bandmate-logo-only-dark.svg" id="appleTouchIcon">
+    
+    <!-- Theme-aware favicon based on system color scheme preference -->
+    <script>
+        function updateFavicon() {
+            const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const faviconPath = isDarkMode 
+                ? '../images/branding/bandmate-logo-only-dark.svg' 
+                : '../images/branding/bandmate-logo-only.svg';
+            
+            const favicon = document.getElementById('faviconSvg');
+            const appleTouchIcon = document.getElementById('appleTouchIcon');
+            
+            if (favicon) favicon.href = faviconPath;
+            if (appleTouchIcon) appleTouchIcon.href = faviconPath;
+        }
+        
+        // Update favicon on page load and when system preference changes
+        updateFavicon();
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', updateFavicon);
+    </script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
