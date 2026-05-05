@@ -11,6 +11,64 @@ const Organizations = {
         this.bindEvents();
     },
 
+    async getCurrentOrgMembership() {
+        const user = Auth.getCurrentUser();
+        if (!this.currentOrgId || !user?.id) return null;
+        return await Storage.getOrganizationMember(this.currentOrgId, user.id);
+    },
+
+    async getCurrentOrgPermissions() {
+        const membership = await this.getCurrentOrgMembership();
+        const role = String(membership?.role || '').toLowerCase();
+        const isActive = membership?.status === 'active';
+
+        return {
+            membership,
+            role,
+            canView: isActive,
+            canManage: isActive && ['admin', 'manager'].includes(role),
+            canAdmin: isActive && role === 'admin'
+        };
+    },
+
+    setElementVisible(elementOrId, visible, display = 'inline-flex') {
+        const element = typeof elementOrId === 'string'
+            ? document.getElementById(elementOrId)
+            : elementOrId;
+        if (element) element.style.display = visible ? display : 'none';
+    },
+
+    applyOrgPermissions(permissions) {
+        const canManage = !!permissions?.canManage;
+        const canAdmin = !!permissions?.canAdmin;
+
+        this.setElementVisible('inviteOrgMemberBtn', canManage);
+        this.setElementVisible('linkBandBtn', canManage);
+        this.setElementVisible('addOrgSongBtn', canManage);
+        this.setElementVisible('addOrgLocationBtn', canManage);
+        this.setElementVisible('orgQuickAddBtn', canManage);
+
+        const quickAddMenu = document.getElementById('orgQuickAddMenu');
+        if (quickAddMenu && !canManage) {
+            quickAddMenu.hidden = true;
+        }
+
+        const settingsTabBtn = document.querySelector('.tab-btn[data-tab="org-settings"]');
+        if (settingsTabBtn) {
+            settingsTabBtn.style.display = canAdmin ? 'block' : 'none';
+        }
+
+        const inviteRoleSelect = document.getElementById('inviteOrgRole');
+        const inviteAdminOption = inviteRoleSelect?.querySelector('option[value="admin"]');
+        if (inviteAdminOption) {
+            inviteAdminOption.hidden = !canAdmin;
+            inviteAdminOption.disabled = !canAdmin;
+            if (!canAdmin && inviteRoleSelect.value === 'admin') {
+                inviteRoleSelect.value = 'member';
+            }
+        }
+    },
+
     bindEvents() {
         // List Actions
         const openChoiceBtn = document.getElementById('openOrgChoiceBtn');
@@ -343,8 +401,28 @@ const Organizations = {
 
     async showOrgDetail(orgId) {
         this.currentOrgId = orgId;
-        const org = await Storage.getOrganization(orgId);
+        const [org, permissions] = await Promise.all([
+            Storage.getOrganization(orgId),
+            (async () => {
+                const user = Auth.getCurrentUser();
+                const membership = user?.id ? await Storage.getOrganizationMember(orgId, user.id) : null;
+                const role = String(membership?.role || '').toLowerCase();
+                const isActive = membership?.status === 'active';
+                return {
+                    membership,
+                    role,
+                    canView: isActive,
+                    canManage: isActive && ['admin', 'manager'].includes(role),
+                    canAdmin: isActive && role === 'admin'
+                };
+            })()
+        ]);
         if (!org) return;
+
+        if (!permissions.canView) {
+            UI.showToast('Du hast noch keinen Zugriff auf diese Organisation.', 'warning');
+            return;
+        }
 
         // Open Modal
         UI.openModal('orgDetailsModal');
@@ -396,11 +474,17 @@ const Organizations = {
         if (editName) editName.value = org.name;
         if (editDesc) editDesc.value = org.description || '';
 
+        this.applyOrgPermissions(permissions);
+
         // Reset to Overview
         this.switchTab('org-overview');
     },
 
     switchTab(tabId) {
+        if (typeof tabId === 'string' && tabId.endsWith('Tab')) {
+            tabId = tabId.slice(0, -3);
+        }
+
         const orgModalTabs = document.getElementById('orgModalTabs');
         if (!orgModalTabs) return;
 
@@ -491,16 +575,17 @@ const Organizations = {
         container.innerHTML = '<div class="loading-inline">Mitglieder werden geladen...</div>';
         
         try {
-            const members = await Storage.getOrganizationMembers(this.currentOrgId);
             const user = Auth.getCurrentUser();
-            
-            const currentUserMember = members.find(m => String(m.user_id) === String(user.id));
-            const canManage = currentUserMember && (['admin', 'manager'].includes(currentUserMember.role?.toLowerCase()));
-            const canChangeRoles = currentUserMember && (['admin'].includes(currentUserMember.role?.toLowerCase()));
+            const permissions = await this.getCurrentOrgPermissions();
+            const canManage = permissions.canManage;
+            const canChangeRoles = permissions.canAdmin;
+            const members = await Storage.getOrganizationMembers(this.currentOrgId, { includePending: canManage });
+
+            this.applyOrgPermissions(permissions);
 
             if (Logger.debugMode) {
                 console.log('[Organizations] Member list loaded:', members);
-                console.log('[Organizations] Current user member state:', currentUserMember);
+                console.log('[Organizations] Current user member state:', permissions.membership);
                 console.log('[Organizations] canManage:', canManage);
             }
 
@@ -519,10 +604,14 @@ const Organizations = {
                 const name = m.profile ? `${m.profile.first_name || ''} ${m.profile.last_name || ''}`.trim() || m.profile.email : 'Unbekannter User';
                 const initials = UI.getUserInitials(name);
                 const isCurrentUser = m.user_id === user.id;
+                const isPending = m.status !== 'active';
+                const statusText = isPending
+                    ? (m.invited_by || (m.status && m.status !== 'pending') ? 'Einladung offen' : 'Anfrage offen')
+                    : 'Aktiv';
                 
                 // Role selector
                 let roleDisplay;
-                if (canChangeRoles && !isCurrentUser) {
+                if (canChangeRoles && !isCurrentUser && !isPending) {
                     roleDisplay = `
                         <select class="role-select" data-user-id="${m.user_id}">
                             <option value="member" ${m.role === 'member' ? 'selected' : ''}>Mitglied</option>
@@ -555,7 +644,7 @@ const Organizations = {
                             </div>
                             <div class="member-meta-row">
                                 <span class="status-indicator status-${m.status || 'active'}"></span>
-                                <span class="text-xs text-secondary">${m.status === 'active' ? 'Aktiv' : 'Eingeladen'}</span>
+                                <span class="text-xs text-secondary">${statusText}</span>
                             </div>
                         </div>
 
@@ -631,10 +720,11 @@ const Organizations = {
         const target = document.getElementById('orgRolesOverview');
         if (!target) return;
 
+        const activeMembers = memberProfiles.filter(member => member.status === 'active');
         const roleGroups = {
-            admin: memberProfiles.filter(m => m.role === 'admin'),
-            manager: memberProfiles.filter(m => m.role === 'manager'),
-            member: memberProfiles.filter(m => m.role === 'member')
+            admin: activeMembers.filter(m => m.role === 'admin'),
+            manager: activeMembers.filter(m => m.role === 'manager'),
+            member: activeMembers.filter(m => m.role === 'member')
         };
 
         target.innerHTML = `
@@ -705,7 +795,12 @@ const Organizations = {
         container.innerHTML = '<div class="loading-state-sm"><div class="spinner-sm"></div></div>';
 
         try {
-            const bands = await Storage.getOrganizationBands(this.currentOrgId);
+            const permissions = await this.getCurrentOrgPermissions();
+            const canManage = permissions.canManage;
+            const bands = await Storage.getOrganizationBands(this.currentOrgId, { includePending: canManage });
+
+            this.applyOrgPermissions(permissions);
+
             if (bands.length === 0) {
                 container.innerHTML = `
                     <div class="bands-empty-state">
@@ -716,11 +811,6 @@ const Organizations = {
                 `;
                 return;
             }
-
-            const members = await Storage.getOrganizationMembers(this.currentOrgId);
-            const user = Auth.getCurrentUser();
-            const currentUserMember = members.find(m => String(m.user_id) === String(user.id));
-            const canManage = currentUserMember && (['admin', 'manager'].includes(currentUserMember.role?.toLowerCase()));
 
             // Fetch members for each band to display them
             const bandsWithMembers = await Promise.all(bands.map(async band => {
@@ -807,6 +897,12 @@ const Organizations = {
     },
 
     async handleUnlinkBand(bandId) {
+        const permissions = await this.getCurrentOrgPermissions();
+        if (!permissions.canManage) {
+            UI.showToast('Nur Admins oder Manager können Band-Verknüpfungen bearbeiten.', 'warning');
+            return;
+        }
+
         const band = await Storage.getBand(bandId);
         if (!band) return;
 
@@ -875,6 +971,12 @@ const Organizations = {
                         );
                         await Promise.all(notifyPromises);
                     }
+                    if (typeof Notifications !== 'undefined') {
+                        await Notifications.refresh({ quiet: true, skipAutoRead: true });
+                    }
+                    if (typeof App !== 'undefined' && typeof App.updateDashboard === 'function') {
+                        await App.updateDashboard();
+                    }
                 } catch (notifyErr) {
                     Logger.warn('[Organizations] Could not send unlink notifications:', notifyErr);
                 }
@@ -905,13 +1007,17 @@ const Organizations = {
         try {
             const user = Auth.getCurrentUser();
             const songs = await Storage.getSongpoolSongs(user.id, { organizationId: this.currentOrgId });
-            
+            const permissions = await this.getCurrentOrgPermissions();
+            const canManage = permissions.canManage;
+
+            this.applyOrgPermissions(permissions);
+
             if (songs.length === 0) {
                 container.innerHTML = `
                     <div class="bands-empty-state">
                         <div class="bands-empty-icon">🎵</div>
                         <h3>Keine Songs im Pool</h3>
-                        <p>Füge Songs hinzu, um sie mit der Organisation zu teilen.</p>
+                        <p>${canManage ? 'Füge Songs hinzu, um sie mit der Organisation zu teilen.' : 'Sobald Songs hinzugefügt wurden, erscheinen sie hier.'}</p>
                     </div>
                 `;
                 return;
@@ -924,10 +1030,12 @@ const Organizations = {
                         <table class="songs-table band-setlist-table songpool-table" style="width: 100%; border-collapse: collapse;">
                             <thead>
                                 <tr style="border-bottom: 2px solid var(--color-border);">
-                                    <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">
-                                        <input type="checkbox" id="selectAllOrgSongpoolSongs">
-                                    </th>
-                                    <th style="padding: var(--spacing-sm); text-align: center; width: 60px;">Aktionen</th>
+                                    ${canManage ? `
+                                        <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">
+                                            <input type="checkbox" id="selectAllOrgSongpoolSongs">
+                                        </th>
+                                        <th style="padding: var(--spacing-sm); text-align: center; width: 60px;">Aktionen</th>
+                                    ` : ''}
                                     <th style="padding: var(--spacing-sm); text-align: center; width: 40px;">PDF</th>
                                     <th style="padding: var(--spacing-sm); text-align: left;">Titel</th>
                                     <th style="padding: var(--spacing-sm); text-align: left;">Interpret</th>
@@ -939,15 +1047,17 @@ const Organizations = {
                             <tbody>
                                 ${songs.map((song) => `
                                     <tr style="border-bottom: 1px solid var(--color-border);">
-                                        <td style="padding: var(--spacing-sm); text-align: center;">
-                                            <input type="checkbox" class="org-songpool-song-checkbox-row" value="${song.id}">
-                                        </td>
-                                        <td style="padding: var(--spacing-sm); text-align: center;">
-                                            <div style="display: flex; gap: 8px; justify-content: center;">
-                                                <button type="button" class="btn-icon edit-org-songpool-song" data-id="${song.id}" title="Bearbeiten">${App.getRundownInlineIcon('edit')}</button>
-                                                <button type="button" class="btn-icon delete-org-songpool-song" data-id="${song.id}" title="Löschen">${App.getRundownInlineIcon('trash')}</button>
-                                            </div>
-                                        </td>
+                                        ${canManage ? `
+                                            <td style="padding: var(--spacing-sm); text-align: center;">
+                                                <input type="checkbox" class="org-songpool-song-checkbox-row" value="${song.id}">
+                                            </td>
+                                            <td style="padding: var(--spacing-sm); text-align: center;">
+                                                <div style="display: flex; gap: 8px; justify-content: center;">
+                                                    <button type="button" class="btn-icon edit-org-songpool-song" data-id="${song.id}" title="Bearbeiten">${App.getRundownInlineIcon('edit')}</button>
+                                                    <button type="button" class="btn-icon delete-org-songpool-song" data-id="${song.id}" title="Löschen">${App.getRundownInlineIcon('trash')}</button>
+                                                </div>
+                                            </td>
+                                        ` : ''}
                                         <td style="padding: var(--spacing-sm); text-align: center;">
                                             ${App.renderSongDocumentPreviewButtons(song)}
                                         </td>
@@ -974,13 +1084,14 @@ const Organizations = {
             `;
             container.innerHTML = html;
 
-            // Bind actions
-            container.querySelectorAll('.edit-org-songpool-song').forEach(btn => {
-                btn.onclick = (e) => { e.stopPropagation(); App.openEditSongpoolSongModal(btn.dataset.id); };
-            });
-            container.querySelectorAll('.delete-org-songpool-song').forEach(btn => {
-                btn.onclick = (e) => { e.stopPropagation(); App.handleDeleteSongpoolSong(btn.dataset.id); };
-            });
+            if (canManage) {
+                container.querySelectorAll('.edit-org-songpool-song').forEach(btn => {
+                    btn.onclick = (e) => { e.stopPropagation(); App.openEditSongpoolSongModal(btn.dataset.id); };
+                });
+                container.querySelectorAll('.delete-org-songpool-song').forEach(btn => {
+                    btn.onclick = (e) => { e.stopPropagation(); App.handleDeleteSongpoolSong(btn.dataset.id); };
+                });
+            }
         } catch (error) {
             Logger.error('[Organizations] Error loading songpool:', error);
             container.innerHTML = '<p class="error-text">Songs konnten nicht geladen werden.</p>';
@@ -1039,6 +1150,9 @@ const Organizations = {
         container.innerHTML = '<div class="loading-state-sm"><div class="spinner-sm"></div></div>';
 
         try {
+            const permissions = await this.getCurrentOrgPermissions();
+            this.applyOrgPermissions(permissions);
+
             const locations = await Storage.getLocations(this.currentOrgId);
             if (locations.length === 0) {
                 container.innerHTML = `
@@ -1106,14 +1220,32 @@ const Organizations = {
             'create_organization': 'Organisation erstellt',
             'update_settings': 'Einstellungen aktualisiert',
             'add_member': 'Mitglied hinzugefügt',
+            'invite_member': 'Mitglied eingeladen',
+            'accept_member_invite': 'Einladung angenommen',
+            'decline_member_invite': 'Einladung abgelehnt',
+            'accept_join_request': 'Beitrittsanfrage angenommen',
+            'decline_join_request': 'Beitrittsanfrage abgelehnt',
             'remove_member': 'Mitglied entfernt',
             'link_band': 'Band verknüpft',
+            'invite_band': 'Band eingeladen',
+            'request_band_link': 'Band eingeladen',
+            'accept_band_invite': 'Band-Einladung angenommen',
+            'decline_band_invite': 'Band-Einladung abgelehnt',
             'unlink_band': 'Band-Verknüpfung gelöst'
         };
         return actions[action] || action;
     },
 
     async loadSettings() {
+        const permissions = await this.getCurrentOrgPermissions();
+        this.applyOrgPermissions(permissions);
+
+        if (!permissions.canAdmin) {
+            UI.showToast('Nur Admins können die Organisationseinstellungen bearbeiten.', 'warning');
+            this.switchTab('org-overview');
+            return;
+        }
+
         const org = await Storage.getOrganization(this.currentOrgId);
         if (!org) return;
 
@@ -1169,6 +1301,12 @@ const Organizations = {
     },
 
     async handleSaveSettings() {
+        const permissions = await this.getCurrentOrgPermissions();
+        if (!permissions.canAdmin) {
+            UI.showToast('Nur Admins können die Organisationseinstellungen bearbeiten.', 'warning');
+            return;
+        }
+
         const name = document.getElementById('editOrgName').value.trim();
         const description = document.getElementById('editOrgDescription').value.trim();
         const imageFile = document.getElementById('orgImageInput').files[0];
@@ -1223,6 +1361,12 @@ const Organizations = {
     },
 
     async handleDeleteOrganization() {
+        const permissions = await this.getCurrentOrgPermissions();
+        if (!permissions.canAdmin) {
+            UI.showToast('Nur Admins können Organisationen löschen.', 'warning');
+            return;
+        }
+
         if (!confirm('Bist du sicher, dass du diese Organisation löschen möchtest? Alle Verknüpfungen gehen verloren.')) return;
 
         UI.showLoading('Organisation wird gelöscht...');
@@ -1248,41 +1392,89 @@ const Organizations = {
 
         UI.showLoading('Einladung wird gesendet...');
         try {
+            const permissions = await this.getCurrentOrgPermissions();
+            if (!permissions.canManage) {
+                UI.showToast('Nur Admins oder Manager können Mitglieder einladen.', 'warning');
+                return;
+            }
+            if (role === 'admin' && !permissions.canAdmin) {
+                UI.showToast('Nur Admins können weitere Admins einladen.', 'warning');
+                return;
+            }
+
             const invitedUser = await Storage.getUserByEmail(email);
             if (!invitedUser) {
                 UI.showToast('User mit dieser E-Mail nicht gefunden', 'error');
                 return;
             }
 
-            const members = await Storage.getOrganizationMembers(this.currentOrgId);
-            if (members.some(m => m.user_id === invitedUser.id)) {
-                UI.showToast('User ist bereits Mitglied dieser Organisation', 'warning');
+            if (String(invitedUser.id) === String(user.id)) {
+                UI.showToast('Du bist bereits Mitglied dieser Organisation.', 'warning');
                 return;
             }
 
-            await Storage.addOrganizationMember(this.currentOrgId, invitedUser.id, role, user.id);
-            await Storage.logOrganizationActivity(this.currentOrgId, user.id, 'add_member', 'user', invitedUser.id);
+            const existingMembership = await Storage.getOrganizationMember(this.currentOrgId, invitedUser.id);
+            if (existingMembership?.status === 'active') {
+                UI.showToast('User ist bereits Mitglied dieser Organisation', 'warning');
+                return;
+            }
+            if (existingMembership) {
+                if (typeof Notifications !== 'undefined') {
+                    await Notifications.ensurePendingOrgRequestNotifications(existingMembership, user.id);
+                    await Notifications.refresh({ quiet: true, skipAutoRead: true });
+                }
+                UI.showToast('Für diesen User ist bereits eine Anfrage oder Einladung offen.', 'info');
+                return;
+            }
+
+            const pendingMembership = await Storage.addOrganizationMember(this.currentOrgId, invitedUser.id, role, 'pending', user.id);
+            await Storage.logOrganizationActivity(this.currentOrgId, user.id, 'invite_member', 'user', invitedUser.id, { role });
             
-            // Notify the invited user
             try {
                 const org = await Storage.getOrganization(this.currentOrgId);
                 if (org) {
-                    await Storage.createNotification({
-                        userId: invitedUser.id,
-                        type: 'org_member_invited',
-                        title: 'Organisations-Einladung',
-                        message: `Du wurdest von ${UI.getUserDisplayName(user)} zur Organisation "${org.name}" als ${role === 'admin' ? 'Administrator' : role === 'manager' ? 'Manager' : 'Mitglied'} hinzugefügt.`,
-                        actorUserId: user.id,
-                        actorName: UI.getUserDisplayName(user),
-                        requestId: org.id,
-                        bandName: org.name
-                    });
+                    const roleLabel = this.getRoleLabel(role);
+                    await Promise.all([
+                        Storage.createNotification({
+                            userId: invitedUser.id,
+                            type: 'org_invite_received',
+                            title: 'Organisations-Einladung',
+                            message: `${UI.getUserDisplayName(user)} hat dich als ${roleLabel} zur Organisation "${org.name}" eingeladen.`,
+                            actionType: 'respond_org_invite',
+                            actionStatus: 'pending',
+                            actorUserId: user.id,
+                            actorName: UI.getUserDisplayName(user),
+                            actorImageUrl: user.profile_image_url || '',
+                            requestId: org.id,
+                            organizationId: org.id,
+                            organizationName: org.name,
+                            targetUserId: invitedUser.id,
+                            requestedRole: role
+                        }),
+                        Storage.createNotification({
+                            userId: user.id,
+                            type: 'org_invite_pending',
+                            title: 'Organisations-Einladung versendet',
+                            message: `${UI.getUserDisplayName(invitedUser)} wurde als ${roleLabel} zu "${org.name}" eingeladen.`,
+                            actorUserId: invitedUser.id,
+                            actorName: UI.getUserDisplayName(invitedUser),
+                            actorImageUrl: invitedUser.profile_image_url || '',
+                            requestId: org.id,
+                            organizationId: org.id,
+                            organizationName: org.name,
+                            targetUserId: invitedUser.id,
+                            requestedRole: role
+                        })
+                    ]);
                 }
             } catch (notifyErr) {
                 Logger.warn('[Organizations] Could not send member invite notification:', notifyErr);
+                if (typeof Notifications !== 'undefined') {
+                    await Notifications.ensurePendingOrgRequestNotifications(pendingMembership, user.id);
+                }
             }
             
-            UI.showToast('Mitglied erfolgreich hinzugefügt', 'success');
+            UI.showToast('Einladung gesendet', 'success');
             UI.closeModal('inviteOrgMemberModal');
             document.getElementById('inviteOrgMemberForm').reset();
             await this.loadMembers();
@@ -1369,6 +1561,12 @@ const Organizations = {
 
         UI.showLoading('Einladung wird gesendet...');
         try {
+            const permissions = await this.getCurrentOrgPermissions();
+            if (!permissions.canManage) {
+                UI.showToast('Nur Admins oder Manager können Bands einladen.', 'warning');
+                return;
+            }
+
             const band = await Storage.getBand(bandId);
             if (!band) {
                 UI.showToast('Band nicht gefunden', 'error');
@@ -1376,46 +1574,55 @@ const Organizations = {
             }
 
             const user = Auth.getCurrentUser();
-            
-            // Remove any pre-existing pending link to avoid UNIQUE constraint violation
-            try {
-                await Storage.unlinkBandFromOrganization(this.currentOrgId, band.id);
-            } catch (e) {
-                // No existing link - that's fine, continue
+
+            const existingLink = await Storage.getOrganizationBandLink(this.currentOrgId, band.id);
+            if (existingLink?.status === 'active') {
+                UI.showToast(`"${band.name}" ist bereits mit dieser Organisation verknüpft.`, 'info');
+                return;
+            }
+            if (existingLink?.status === 'pending') {
+                UI.showToast(`Für "${band.name}" ist bereits eine Einladung offen.`, 'info');
+                return;
             }
             
-            // Link band as pending
-            await Storage.linkBandToOrganization(this.currentOrgId, band.id, user.id);
-            await Storage.logOrganizationActivity(this.currentOrgId, user.id, 'request_band_link', 'band', band.id);
-            
-            // Invite band leaders and co-leaders
             const org = await Storage.getOrganization(this.currentOrgId);
             const bandMembers = await Storage.getBandMembers(band.id);
+            const leaders = Array.isArray(bandMembers)
+                ? bandMembers.filter(m => ['leader', 'co-leader'].includes(m.role))
+                : [];
             
-            if (org && Array.isArray(bandMembers)) {
-                const leaders = bandMembers.filter(m => ['leader', 'co-leader'].includes(m.role));
-                
-                if (leaders.length === 0) {
-                    UI.showToast('Die Band hat keine Leiter. Einladung konnte nicht gesendet werden.', 'error');
-                } else {
-                    const invitePromises = leaders.map(leader => 
-                        Storage.createNotification({
-                            userId: leader.userId,
-                            type: 'org_band_invitation',
-                            title: 'Organisationseinladung',
-                            message: `Die Organisation "${org.name}" möchte deine Band "${band.name}" verknüpfen.`,
-                            actorUserId: user.id,
-                            actorName: UI.getUserDisplayName(user),
-                            requestId: org.id,
-                            bandId: band.id,
-                            bandName: band.name,
-                            actionType: 'review_org_band_invitation',
-                            actionStatus: 'pending'
-                        })
-                    );
-                    await Promise.all(invitePromises);
-                }
+            if (!org) {
+                UI.showToast('Organisation nicht gefunden', 'error');
+                return;
             }
+
+            if (leaders.length === 0) {
+                UI.showToast('Die Band hat keine Leiter. Einladung konnte nicht gesendet werden.', 'error');
+                return;
+            }
+
+            await Storage.linkBandToOrganization(this.currentOrgId, band.id, user.id);
+            await Storage.logOrganizationActivity(this.currentOrgId, user.id, 'invite_band', 'band', band.id);
+
+            const invitePromises = leaders.map(leader =>
+                Storage.createNotification({
+                    userId: leader.userId,
+                    type: 'org_band_invitation',
+                    title: 'Organisationseinladung',
+                    message: `Die Organisation "${org.name}" möchte deine Band "${band.name}" verknüpfen.`,
+                    actorUserId: user.id,
+                    actorName: UI.getUserDisplayName(user),
+                    actorImageUrl: user.profile_image_url || '',
+                    requestId: org.id,
+                    organizationId: org.id,
+                    organizationName: org.name,
+                    bandId: band.id,
+                    bandName: band.name,
+                    actionType: 'review_org_band_invitation',
+                    actionStatus: 'pending'
+                })
+            );
+            await Promise.all(invitePromises);
 
             UI.showToast(`Einladung an "${band.name}" gesendet`, 'success');
             
@@ -1447,6 +1654,12 @@ const Organizations = {
 
         UI.showLoading('Ressource wird erstellt...');
         try {
+            const permissions = await this.getCurrentOrgPermissions();
+            if (!permissions.canManage) {
+                UI.showToast('Nur Admins oder Manager können Ressourcen hinzufügen.', 'warning');
+                return;
+            }
+
             await Storage.createLocation({
                 organization_id: this.currentOrgId,
                 name: name,
@@ -1466,10 +1679,16 @@ const Organizations = {
         }
     },
 
-    handleAddOrgSong() {
+    async handleAddOrgSong() {
         if (!this.currentOrgId) {
             console.error('[Organizations] Cannot add song: currentOrgId is missing');
             UI.showToast('Fehler: Keine Organisation ausgewählt', 'error');
+            return;
+        }
+
+        const permissions = await this.getCurrentOrgPermissions();
+        if (!permissions.canManage) {
+            UI.showToast('Nur Admins oder Manager können Songs hinzufügen.', 'warning');
             return;
         }
 
@@ -1486,6 +1705,12 @@ const Organizations = {
     },
 
     async handleLinkBand() {
+        const permissions = await this.getCurrentOrgPermissions();
+        if (!permissions.canManage) {
+            UI.showToast('Nur Admins oder Manager können Bands einladen.', 'warning');
+            return;
+        }
+
         UI.openModal('linkOrgBandModal');
         const searchInput = document.getElementById('orgBandSearchInput');
         if (searchInput) searchInput.value = '';
@@ -1507,11 +1732,14 @@ const Organizations = {
         try {
             const allOrgs = await Storage.getAll('organizations');
             const user = Auth.getCurrentUser();
-            const userOrgs = await Storage.getOrganizations(user.id);
-            const userOrgIds = userOrgs.map(o => o.id);
+            const [visibleOrgs, pendingMemberships] = await Promise.all([
+                Storage.getOrganizations(user.id),
+                Storage.getPendingOrgMembershipRequestsForUserContext(user.id, [])
+            ]);
+            const visibleOrgIds = visibleOrgs.map(o => o.id);
+            const pendingOrgIds = (pendingMemberships || []).map(m => m.organization_id);
 
-            // Filter out orgs user is already in
-            this.browseCache = allOrgs.filter(o => !userOrgIds.includes(o.id));
+            this.browseCache = allOrgs.filter(o => !visibleOrgIds.includes(o.id) && !pendingOrgIds.includes(o.id));
             this.renderBrowseList(this.browseCache);
         } catch (error) {
             Logger.error('[Organizations] Browse error:', error);
@@ -1591,7 +1819,26 @@ const Organizations = {
         const user = Auth.getCurrentUser();
         UI.showLoading('Anfrage wird gesendet...');
         try {
-            await Storage.addOrganizationJoinRequest(orgId, user.id);
+            const existingMembership = await Storage.getOrganizationMember(orgId, user.id);
+            if (existingMembership?.status === 'active') {
+                UI.showToast('Du bist bereits Mitglied dieser Organisation.', 'info');
+                return;
+            }
+            if (existingMembership) {
+                if (typeof Notifications !== 'undefined') {
+                    await Notifications.ensurePendingOrgRequestNotifications(existingMembership, user.id);
+                    await Notifications.refresh({ quiet: true, skipAutoRead: true });
+                }
+                UI.showToast('Deine Beitrittsanfrage ist bereits offen.', 'info');
+                return;
+            }
+
+            const pendingMembership = await Storage.addOrganizationJoinRequest(orgId, user.id);
+            if (typeof Notifications !== 'undefined') {
+                await Notifications.ensurePendingOrgRequestNotifications(pendingMembership, user.id);
+                await Notifications.refresh({ quiet: true, skipAutoRead: true });
+            }
+
             UI.showToast('Beitrittsanfrage gesendet', 'success');
             UI.closeModal('orgPreviewModal');
             UI.closeModal('browseOrgsModal');

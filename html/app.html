@@ -50,8 +50,8 @@
 
     <!-- Manifest -->
     <link rel="manifest" href="../manifest.json">
-    <link rel="icon" type="image/svg+xml" href="../images/branding/bandmate-logo-only.svg" id="faviconSvg">
-    <link rel="apple-touch-icon" href="../images/branding/bandmate-logo-only.svg" id="appleTouchIcon">
+    <link rel="icon" type="image/svg+xml" href="../images/branding/bandmate-logo-only-dark.svg" id="faviconSvg">
+    <link rel="apple-touch-icon" href="../images/branding/bandmate-logo-only-dark.svg" id="appleTouchIcon">
 
     <!-- Stylesheets -->
     <link rel="stylesheet" href="../css/ui.css?v=20260504">
@@ -2886,7 +2886,7 @@
                                                 </span>
                                                 <span>Band verknüpfen</span>
                                             </button>
-                                            <button class="header-quick-add-item" onclick="Organizations.switchTab('org-songpoolTab')" type="button" role="menuitem">
+                                            <button class="header-quick-add-item" onclick="Organizations.switchTab('org-songpool')" type="button" role="menuitem">
                                                 <span class="header-quick-add-item-icon" aria-hidden="true">
                                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                                                         <path d="M9 18V5l12-2v13"></path>
@@ -3051,7 +3051,6 @@
                             </div>
                             <div class="flex justify-between items-center w-full">
                                 <button class="btn btn-danger band-details-danger-action" id="deleteOrgBtn">Organisation löschen</button>
-                                <button class="btn btn-primary" id="saveOrgSettingsBtn">Speichern</button>
                             </div>
                         </div>
                     </div>
@@ -3092,7 +3091,7 @@
                         </div>
                         <div class="form-group">
                             <label for="orgWebsite">Website</label>
-                            <input type="url" id="orgWebsite" placeholder="https://...">
+                            <input type="text" id="orgWebsite" placeholder="www.domain.de">
                         </div>
                     </div>
 

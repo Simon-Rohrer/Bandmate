@@ -274,53 +274,121 @@ const Notifications = {
     },
 
     async ensurePendingOrgRequestNotifications(request, currentUserId) {
-        if (!request || request.role !== 'pending') return 0;
-        
-        const existing = await Storage.getNotificationsByOrgRequest(request.organization_id, request.user_id);
-        const existingRecipients = new Set(existing.map(n => n.userId));
-        
+        if (!request || request.status === 'active') return 0;
+
+        const [existing, org, targetUser] = await Promise.all([
+            Storage.getNotificationsByOrgRequest(request.organization_id, request.user_id),
+            Storage.getOrganization(request.organization_id),
+            Storage.getById('users', request.user_id)
+        ]);
+
+        if (!org || !targetUser) return 0;
+
+        const requestCreatedAt = new Date(request.created_at || request.joined_at || 0).getTime();
+        const existingByUserAndType = new Set(
+            (Array.isArray(existing) ? existing : [])
+                .filter(notification => {
+                    if (!Number.isFinite(requestCreatedAt) || requestCreatedAt <= 0) return true;
+                    const notificationCreatedAt = new Date(notification.createdAt || 0).getTime();
+                    return Number.isFinite(notificationCreatedAt) && notificationCreatedAt >= requestCreatedAt;
+                })
+                .map(notification => `${String(notification.userId || '')}::${String(notification.type || '')}`)
+        );
         const notificationsToCreate = [];
-        const org = await Storage.getOrganization(request.organization_id);
-        const requester = await Storage.getById('users', request.user_id);
-        if (!org || !requester) return 0;
-        
-        const requesterName = UI.getUserDisplayName(requester);
-        
-        // 1. For Leaders
-        const isLeader = await Auth.canManageOrganization(request.organization_id);
-        if (isLeader && !existingRecipients.has(currentUserId)) {
-            notificationsToCreate.push({
-                userId: currentUserId,
-                type: 'org_join_request_received',
-                title: 'Neue Org-Anfrage',
-                message: `${requesterName} möchte der Organisation "${org.name}" beitreten.`,
-                actionType: 'review_org_join_request',
-                actionStatus: 'pending',
-                actorUserId: request.user_id,
-                actorName: requesterName,
-                actorImageUrl: requester.profile_image_url || '',
-                organizationId: org.id,
-                organizationName: org.name,
-                targetUserId: request.user_id
-            });
+        const targetName = UI.getUserDisplayName(targetUser);
+        const targetImage = targetUser.profile_image_url || '';
+        const requestedRole = request.role || 'member';
+        const requestedRoleLabel = this.getOrgRoleLabel(requestedRole);
+        const hasNotification = (userId, type) => existingByUserAndType.has(`${String(userId || '')}::${String(type || '')}`);
+
+        const legacyInviterId = request.status && !['active', 'pending'].includes(String(request.status))
+            ? request.status
+            : null;
+        const invitedBy = request.invited_by || legacyInviterId;
+
+        if (invitedBy) {
+            const inviter = await Storage.getById('users', invitedBy);
+            const inviterName = UI.getUserDisplayName(inviter || { name: 'Bandmate' });
+
+            if (String(request.user_id) === String(currentUserId) && !hasNotification(currentUserId, 'org_invite_received')) {
+                notificationsToCreate.push({
+                    userId: request.user_id,
+                    type: 'org_invite_received',
+                    title: 'Organisations-Einladung',
+                    message: `${inviterName} hat dich als ${requestedRoleLabel} zur Organisation "${org.name}" eingeladen.`,
+                    actionType: 'respond_org_invite',
+                    actionStatus: 'pending',
+                    actorUserId: invitedBy,
+                    actorName: inviterName,
+                    actorImageUrl: inviter?.profile_image_url || '',
+                    requestId: org.id,
+                    organizationId: org.id,
+                    organizationName: org.name,
+                    targetUserId: request.user_id,
+                    requestedRole
+                });
+            }
+
+            if (String(invitedBy) === String(currentUserId) && !hasNotification(currentUserId, 'org_invite_pending')) {
+                notificationsToCreate.push({
+                    userId: invitedBy,
+                    type: 'org_invite_pending',
+                    title: 'Organisations-Einladung versendet',
+                    message: `${targetName} wurde als ${requestedRoleLabel} zu "${org.name}" eingeladen.`,
+                    actorUserId: request.user_id,
+                    actorName: targetName,
+                    actorImageUrl: targetImage,
+                    requestId: org.id,
+                    organizationId: org.id,
+                    organizationName: org.name,
+                    targetUserId: request.user_id,
+                    requestedRole
+                });
+            }
+        } else {
+            const currentUserMember = await Storage.getOrganizationMember(request.organization_id, currentUserId);
+            const isLeader = currentUserMember?.status === 'active'
+                && ['admin', 'manager'].includes(String(currentUserMember.role || '').toLowerCase());
+
+            if (isLeader && !hasNotification(currentUserId, 'org_join_request_received')) {
+                notificationsToCreate.push({
+                    userId: currentUserId,
+                    type: 'org_join_request_received',
+                    title: 'Neue Org-Anfrage',
+                    message: `${targetName} möchte der Organisation "${org.name}" beitreten.`,
+                    actionType: 'review_org_join_request',
+                    actionStatus: 'pending',
+                    actorUserId: request.user_id,
+                    actorName: targetName,
+                    actorImageUrl: targetImage,
+                    requestId: org.id,
+                    organizationId: org.id,
+                    organizationName: org.name,
+                    targetUserId: request.user_id,
+                    requestedRole
+                });
+            }
+
+            if (String(request.user_id) === String(currentUserId) && !hasNotification(currentUserId, 'org_join_request_pending')) {
+                notificationsToCreate.push({
+                    userId: currentUserId,
+                    type: 'org_join_request_pending',
+                    title: 'Org-Anfrage gesendet',
+                    message: `Deine Anfrage für "${org.name}" wartet auf Freigabe.`,
+                    actorUserId: currentUserId,
+                    actorName: targetName,
+                    actorImageUrl: targetImage,
+                    requestId: org.id,
+                    organizationId: org.id,
+                    organizationName: org.name,
+                    targetUserId: request.user_id,
+                    requestedRole
+                });
+            }
         }
-        
-        // 2. For the Requester (the user themselves)
-        if (request.user_id === currentUserId && !existingRecipients.has(currentUserId)) {
-             notificationsToCreate.push({
-                userId: currentUserId,
-                type: 'org_join_request_pending',
-                title: 'Org-Anfrage gesendet',
-                message: `Deine Anfrage für "${org.name}" wurde gesendet.`,
-                actorUserId: currentUserId,
-                actorName: requesterName,
-                organizationId: org.id,
-                organizationName: org.name
-            });
-        }
-        
+
         if (notificationsToCreate.length === 0) return 0;
-        await Promise.all(notificationsToCreate.map(n => Storage.createNotification(n)));
+        await Promise.all(notificationsToCreate.map(notification => Storage.createNotification(notification)));
         return notificationsToCreate.length;
     },
 
@@ -444,7 +512,12 @@ const Notifications = {
                 .map(value => String(value))
         )];
 
-        const orgRequests = notifications.filter(n => n.type === 'org_join_request_received' || n.actionType === 'review_org_join_request');
+        const orgRequests = notifications.filter(n => (
+            n?.type === 'org_join_request_received'
+            || n?.type === 'org_invite_received'
+            || n?.actionType === 'review_org_join_request'
+            || n?.actionType === 'respond_org_invite'
+        ));
 
         let requestMap = new Map();
         if (requestIds.length > 0) {
@@ -458,8 +531,10 @@ const Notifications = {
 
         const orgMemberPromises = orgRequests.map(async (n) => {
             try {
-                if (n.actionType === 'review_org_join_request' && n.requestId && n.targetUserId) {
-                    return await Storage.getOrganizationMembershipRequest(n.requestId, n.targetUserId);
+                const targetUserId = n.targetUserId || n.bandId;
+                const orgId = n.organizationId || n.requestId;
+                if (orgId && targetUserId) {
+                    return await Storage.getOrganizationMembershipRequest(orgId, targetUserId);
                 }
                 return null;
             } catch (e) {
@@ -470,14 +545,19 @@ const Notifications = {
         const orgMemberMap = new Map();
         orgRequests.forEach((n, i) => {
             if (orgMembers[i]) {
-                orgMemberMap.set(`${n.requestId}:${n.targetUserId}`, orgMembers[i]);
+                orgMemberMap.set(`${n.organizationId || n.requestId}:${n.targetUserId || n.bandId}`, orgMembers[i]);
             }
         });
 
         return notifications.map(notification => {
-            if (notification.type === 'org_join_request_received' || notification.actionType === 'review_org_join_request') {
-                const member = orgMemberMap.get(`${notification.requestId}:${notification.targetUserId}`);
-                const status = member ? (member.role === 'pending' ? 'pending' : 'accepted') : 'declined';
+            if (
+                notification.type === 'org_join_request_received'
+                || notification.type === 'org_invite_received'
+                || notification.actionType === 'review_org_join_request'
+                || notification.actionType === 'respond_org_invite'
+            ) {
+                const member = orgMemberMap.get(`${notification.organizationId || notification.requestId}:${notification.targetUserId || notification.bandId}`);
+                const status = member ? (member.status === 'active' ? 'accepted' : 'pending') : 'declined';
                 return {
                     ...notification,
                     requestStatus: status,
@@ -795,14 +875,172 @@ const Notifications = {
 
         const notification = this.currentNotifications.find(n => String(n.id) === String(notificationId));
         
-        if (notification && notification.actionType === 'review_org_band_invitation') {
+        if (notification && notification.type === 'org_band_invitation') {
             await this.respondToOrgBandInvitation(notification, action);
+            return;
+        }
+
+        if (notification && ['org_join_request_received', 'org_invite_received'].includes(notification.type)) {
+            await this.respondToOrgMembershipNotification(notification, action);
             return;
         }
 
         if (!requestId) return;
 
         await this.respondToRequest(requestId, action, notificationId);
+    },
+
+    async respondToOrgMembershipNotification(notification, action) {
+        const user = Auth.getCurrentUser();
+        if (!user || !notification) return;
+
+        const orgId = notification.organizationId || notification.requestId;
+        const targetUserId = notification.targetUserId || notification.bandId || notification.userId;
+        if (!orgId || !targetUserId) {
+            UI.showToast('Die Organisationsanfrage ist unvollständig.', 'error');
+            return;
+        }
+
+        const busyKey = `org_membership_${orgId}_${targetUserId}`;
+        if (this.pendingActionRequestIds.has(busyKey)) return;
+
+        this.pendingActionRequestIds.add(busyKey);
+        this.pendingActionRequestIds.add(String(orgId));
+        this.renderNotifications(this.currentNotifications);
+
+        try {
+            const [membership, org] = await Promise.all([
+                Storage.getOrganizationMembershipRequest(orgId, targetUserId),
+                Storage.getOrganization(orgId)
+            ]);
+
+            if (!org) {
+                throw new Error('Die Organisation wurde nicht gefunden.');
+            }
+
+            if (!membership || membership.status === 'active') {
+                const status = membership?.status === 'active' ? 'accepted' : 'declined';
+                await Storage.updateNotificationsByOrgRequest(orgId, targetUserId, { actionStatus: status });
+                await this.markNotificationRead(notification.id);
+                UI.showToast(
+                    status === 'accepted' ? 'Diese Anfrage wurde bereits angenommen.' : 'Diese Anfrage wurde bereits abgelehnt.',
+                    'info'
+                );
+                await this.refresh({ quiet: true, skipAutoRead: true });
+                return;
+            }
+
+            const decision = action === 'accept' ? 'accepted' : 'declined';
+            const actorName = UI.getUserDisplayName(user);
+            const actorImageUrl = user.profile_image_url || '';
+            const requestedRole = membership.role && membership.role !== 'pending'
+                ? membership.role
+                : (notification.requestedRole || 'member');
+
+            if (notification.type === 'org_join_request_received' || notification.actionType === 'review_org_join_request') {
+                const reviewerMembership = await Storage.getOrganizationMember(orgId, user.id);
+                const canReview = reviewerMembership?.status === 'active'
+                    && ['admin', 'manager'].includes(String(reviewerMembership.role || '').toLowerCase());
+
+                if (!canReview && !Auth.isAdmin()) {
+                    throw new Error('Nur Admins oder Manager dürfen diese Anfrage beantworten.');
+                }
+
+                if (decision === 'accepted') {
+                    await Storage.updateOrganizationMemberStatus(orgId, targetUserId, requestedRole || 'member');
+                } else {
+                    await Storage.removeOrganizationMember(orgId, targetUserId);
+                }
+
+                await Storage.updateNotificationsByOrgRequest(orgId, targetUserId, { actionStatus: decision });
+                await Storage.logOrganizationActivity(
+                    orgId,
+                    user.id,
+                    decision === 'accepted' ? 'accept_join_request' : 'decline_join_request',
+                    'user',
+                    targetUserId
+                );
+
+                await Storage.createNotification({
+                    userId: targetUserId,
+                    type: decision === 'accepted' ? 'org_join_request_accepted' : 'org_join_request_declined',
+                    title: decision === 'accepted' ? 'Org-Anfrage angenommen' : 'Org-Anfrage abgelehnt',
+                    message: decision === 'accepted'
+                        ? `Deine Anfrage für "${org.name}" wurde angenommen.`
+                        : `Deine Anfrage für "${org.name}" wurde abgelehnt.`,
+                    actorUserId: user.id,
+                    actorName,
+                    actorImageUrl,
+                    requestId: orgId,
+                    organizationId: orgId,
+                    organizationName: org.name,
+                    targetUserId
+                });
+
+                UI.showToast(
+                    decision === 'accepted' ? 'Beitrittsanfrage angenommen.' : 'Beitrittsanfrage abgelehnt.',
+                    decision === 'accepted' ? 'success' : 'info'
+                );
+            } else if (notification.type === 'org_invite_received' || notification.actionType === 'respond_org_invite') {
+                if (String(user.id) !== String(targetUserId) && !Auth.isAdmin()) {
+                    throw new Error('Nur der eingeladene Benutzer kann auf diese Einladung reagieren.');
+                }
+
+                if (decision === 'accepted') {
+                    await Storage.updateOrganizationMemberStatus(orgId, targetUserId, requestedRole || 'member');
+                } else {
+                    await Storage.removeOrganizationMember(orgId, targetUserId);
+                }
+
+                await Storage.updateNotificationsByOrgRequest(orgId, targetUserId, { actionStatus: decision });
+                await Storage.logOrganizationActivity(
+                    orgId,
+                    user.id,
+                    decision === 'accepted' ? 'accept_member_invite' : 'decline_member_invite',
+                    'user',
+                    targetUserId
+                );
+
+                const legacyInviterId = membership.status && !['active', 'pending'].includes(String(membership.status))
+                    ? membership.status
+                    : null;
+                const invitedBy = membership.invited_by || legacyInviterId;
+
+                if (invitedBy) {
+                    await Storage.createNotification({
+                        userId: invitedBy,
+                        type: decision === 'accepted' ? 'org_invite_accepted' : 'org_invite_declined',
+                        title: decision === 'accepted' ? 'Org-Einladung angenommen' : 'Org-Einladung abgelehnt',
+                        message: `${actorName} hat die Einladung zu "${org.name}" ${decision === 'accepted' ? 'angenommen' : 'abgelehnt'}.`,
+                        actorUserId: user.id,
+                        actorName,
+                        actorImageUrl,
+                        requestId: orgId,
+                        organizationId: orgId,
+                        organizationName: org.name,
+                        targetUserId
+                    });
+                }
+
+                UI.showToast(
+                    decision === 'accepted' ? `Du bist jetzt Mitglied von "${org.name}".` : `Einladung zu "${org.name}" abgelehnt.`,
+                    decision === 'accepted' ? 'success' : 'info'
+                );
+            } else {
+                throw new Error('Unbekannter Organisationstyp.');
+            }
+
+            await this.markNotificationRead(notification.id);
+            await this.refreshOrganizationContext(orgId);
+            await this.refresh({ quiet: true, skipAutoRead: true });
+        } catch (error) {
+            Logger.error('[Notifications] Error responding to org membership notification:', error);
+            UI.showToast(error.message || 'Die Organisationsanfrage konnte nicht verarbeitet werden.', 'error');
+        } finally {
+            this.pendingActionRequestIds.delete(busyKey);
+            this.pendingActionRequestIds.delete(String(orgId));
+            this.renderNotifications(this.currentNotifications);
+        }
     },
 
     async respondToOrgBandInvitation(notification, action) {
@@ -818,34 +1056,23 @@ const Notifications = {
         try {
             const decision = action === 'accept' ? 'accepted' : 'declined';
             
-            // Validate band link exists and is pending
-            const { data: bands, error } = await window.supabase
-                .from('organization_bands')
-                .select('*')
-                .eq('organization_id', notification.requestId)
-                .eq('band_id', notification.bandId)
-                .limit(1);
-                
-            if (error || !bands || bands.length === 0) {
+            const orgId = notification.organizationId || notification.requestId;
+            const link = await Storage.getOrganizationBandLink(orgId, notification.bandId);
+            if (!link) {
                 throw new Error('Verknüpfung nicht gefunden.');
             }
-            
-            const link = bands[0];
+
             if (link.status !== 'pending') {
-                await Storage.updateNotification(notification.id, { actionStatus: link.status });
+                await Storage.updateNotificationsByOrgBandInvitation(orgId, notification.bandId, {
+                    actionStatus: link.status === 'active' ? 'accepted' : link.status
+                });
                 UI.showToast(`Diese Anfrage wurde bereits ${link.status === 'active' ? 'angenommen' : 'abgelehnt'}.`, 'info');
                 await this.refresh({ quiet: true, skipAutoRead: true });
                 return;
             }
 
             if (decision === 'accepted') {
-                // Update link status to active
-                const { error: updateError } = await window.supabase
-                    .from('organization_bands')
-                    .update({ status: 'active' })
-                    .eq('id', link.id);
-                    
-                if (updateError) throw updateError;
+                await Storage.updateOrganizationBandStatus(orgId, notification.bandId, 'active');
                 
                 // Notify all band members about the successful link
                 const bandMembers = await Storage.getBandMembers(notification.bandId);
@@ -858,7 +1085,8 @@ const Notifications = {
                             message: `Deine Band "${notification.bandName}" wurde mit einer Organisation verknüpft.`,
                             actorUserId: user.id,
                             actorName: UI.getUserDisplayName(user),
-                            requestId: notification.requestId,
+                            organizationId: orgId,
+                            organizationName: notification.organizationName || '',
                             bandId: notification.bandId,
                             bandName: notification.bandName
                         })
@@ -866,23 +1094,19 @@ const Notifications = {
                     await Promise.all(notifyPromises);
                 }
                 
+                await Storage.logOrganizationActivity(orgId, user.id, 'accept_band_invite', 'band', notification.bandId);
                 UI.showToast('Band erfolgreich verknüpft.', 'success');
             } else {
-                // Remove the link request entirely
-                const { error: deleteError } = await window.supabase
-                    .from('organization_bands')
-                    .delete()
-                    .eq('id', link.id);
-                    
-                if (deleteError) throw deleteError;
+                await Storage.unlinkBandFromOrganization(orgId, notification.bandId);
+                await Storage.logOrganizationActivity(orgId, user.id, 'decline_band_invite', 'band', notification.bandId);
                 UI.showToast('Einladung zur Organisation abgelehnt.', 'info');
             }
 
             // Update the notification status
-            await Storage.updateNotification(notification.id, { actionStatus: decision });
+            await Storage.updateNotificationsByOrgBandInvitation(orgId, notification.bandId, { actionStatus: decision });
             await this.refresh({ quiet: true, skipAutoRead: true });
 
-            if (typeof Organizations !== 'undefined' && Organizations.currentOrgId === notification.requestId) {
+            if (typeof Organizations !== 'undefined' && Organizations.currentOrgId === orgId) {
                 await Organizations.loadBands();
             }
         } catch (error) {
@@ -1060,40 +1284,6 @@ const Notifications = {
 
                 UI.showToast(
                     decision === 'accepted' ? 'Mitglied erfolgreich freigegeben.' : 'Anfrage abgelehnt.',
-                    decision === 'accepted' ? 'success' : 'info'
-                );
-            } else if (notification.actionType === 'review_org_join_request') {
-                const orgId = notification.requestId;
-                const targetUserId = notification.targetUserId;
-                
-                if (!orgId || !targetUserId) throw new Error('Unvollständige Daten für die Anfrage.');
-
-                if (decision === 'accepted') {
-                    await Storage.updateOrganizationMemberStatus(orgId, targetUserId, 'member');
-                } else {
-                    await Storage.removeOrganizationMember(orgId, targetUserId);
-                }
-
-                await Storage.createNotification({
-                    userId: targetUserId,
-                    type: decision === 'accepted' ? 'org_join_request_accepted' : 'org_join_request_declined',
-                    title: decision === 'accepted' ? 'Org-Anfrage angenommen' : 'Org-Anfrage abgelehnt',
-                    message: decision === 'accepted'
-                        ? `Deine Anfrage für "${notification.bandName}" wurde angenommen.`
-                        : `Deine Anfrage für "${notification.bandName}" wurde abgelehnt.`,
-                    actorUserId: user.id,
-                    actorName: UI.getUserDisplayName(user),
-                    actorImageUrl: user.profile_image_url || '',
-                    requestId: orgId,
-                    bandName: notification.bandName
-                });
-
-                if (decision === 'accepted' && typeof Organizations !== 'undefined' && Organizations.currentOrgId === orgId) {
-                    await Organizations.showOrgDetail(orgId);
-                }
-
-                UI.showToast(
-                    decision === 'accepted' ? 'Beitrittsanfrage erfolgreich angenommen.' : 'Beitrittsanfrage abgelehnt.',
                     decision === 'accepted' ? 'success' : 'info'
                 );
             } else {
@@ -1291,6 +1481,37 @@ const Notifications = {
         return `Es gibt bereits eine offene Beitrittsanfrage fuer ${bandName}.`;
     },
 
+    getOrgRoleLabel(role) {
+        const labels = {
+            admin: 'Admin',
+            manager: 'Manager',
+            member: 'Mitglied'
+        };
+        return labels[String(role || '').toLowerCase()] || 'Mitglied';
+    },
+
+    async refreshOrganizationContext(orgId = null) {
+        if (typeof Organizations !== 'undefined') {
+            Organizations.organizationsCache = null;
+
+            if (Organizations.currentOrgId && (!orgId || String(Organizations.currentOrgId) === String(orgId))) {
+                try {
+                    await Organizations.showOrgDetail(Organizations.currentOrgId);
+                } catch (error) {
+                    Logger.warn('[Notifications] Could not refresh organization detail:', error);
+                }
+            }
+
+            if (document.getElementById('organizationsView')?.classList.contains('active') && typeof Organizations.renderOrganizations === 'function') {
+                await Organizations.renderOrganizations(true);
+            }
+        }
+
+        if (typeof App !== 'undefined' && typeof App.updateDashboard === 'function') {
+            await App.updateDashboard();
+        }
+    },
+
     async refreshBandMembershipContext() {
         if (typeof Auth !== 'undefined' && typeof Auth.updateCurrentUser === 'function') {
             await Auth.updateCurrentUser();
@@ -1323,7 +1544,11 @@ const Notifications = {
             notification &&
             (
                 notification.type === 'join_request_accepted' ||
+                notification.type === 'org_join_request_accepted' ||
+                notification.type === 'org_invite_accepted' ||
                 (notification.actionType === 'respond_invite' && notification.actionStatus === 'accepted')
+                || (notification.type === 'org_invite_received' && notification.actionStatus === 'accepted')
+                || (notification.actionType === 'respond_org_invite' && notification.actionStatus === 'accepted')
             )
         ));
 
@@ -1334,7 +1559,10 @@ const Notifications = {
             this.processedMembershipNotificationIds.add(notification.id);
         });
 
-        await this.refreshBandMembershipContext();
+        await Promise.all([
+            this.refreshBandMembershipContext(),
+            this.refreshOrganizationContext()
+        ]);
     },
 
     formatTimestamp(value) {

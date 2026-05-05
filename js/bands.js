@@ -1236,7 +1236,33 @@ const Bands = {
 
         const confirmed = await UI.confirmDelete(`Möchtest du die Band "${band.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`);
         if (confirmed) {
+            const members = await Storage.getBandMembers(bandId);
             await Storage.deleteBand(bandId);
+
+            try {
+                if (Array.isArray(members) && members.length > 0) {
+                    await Promise.all(members.map(member =>
+                        Storage.createNotification({
+                            userId: member.userId,
+                            type: 'band_deleted',
+                            title: 'Band gelöscht',
+                            message: `Die Band "${band.name}" wurde gelöscht.`,
+                            actorUserId: user.id,
+                            actorName: UI.getUserDisplayName(user),
+                            actorImageUrl: user.profile_image_url || '',
+                            bandId,
+                            bandName: band.name
+                        })
+                    ));
+                }
+            } catch (notifyErr) {
+                Logger.warn('[Bands] Could not send band deletion notifications:', notifyErr);
+            }
+
+            if (typeof Notifications !== 'undefined') {
+                await Notifications.refresh({ quiet: true, skipAutoRead: true });
+            }
+
             this.invalidateCache();
             UI.showToast('Band gelöscht', 'success');
             UI.closeModal('bandDetailsModal');

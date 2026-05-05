@@ -1,4 +1,4 @@
-const CACHE_NAME = 'band-planning-v9';
+const CACHE_NAME = 'band-planning-v10';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -29,7 +29,8 @@ const urlsToCache = [
   '/js/chordpro-converter.js',
   '/js/notifications.js',
   '/js/app.js',
-  '/images/branding/bandmate-logo-only.svg'
+  '/images/branding/bandmate-logo-only.svg',
+  '/images/branding/bandmate-logo-only-dark.svg'
 ];
 
 // Install Service Worker

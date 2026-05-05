@@ -10,7 +10,7 @@
   "scope": "/",
   "icons": [
     {
-      "src": "images/branding/bandmate-logo-only.svg",
+      "src": "images/branding/bandmate-logo-only-dark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any maskable"
@@ -28,7 +28,7 @@
       "url": "/?view=dashboard",
       "icons": [
         {
-          "src": "images/branding/bandmate-logo-only.svg",
+          "src": "images/branding/bandmate-logo-only-dark.svg",
           "sizes": "any",
           "type": "image/svg+xml"
         }
@@ -41,7 +41,7 @@
       "url": "/?view=rehearsals",
       "icons": [
         {
-          "src": "images/branding/bandmate-logo-only.svg",
+          "src": "images/branding/bandmate-logo-only-dark.svg",
           "sizes": "any",
           "type": "image/svg+xml"
         }

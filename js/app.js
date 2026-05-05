@@ -1350,6 +1350,7 @@ const App = {
         const logoOnlySrc = this.getAssetPath(resolvedMode === 'dark'
             ? 'images/branding/bandmate-logo-only-dark.svg'
             : 'images/branding/bandmate-logo-only.svg');
+        const appIconSrc = this.getAssetPath('images/branding/bandmate-logo-only-dark.svg');
         const logoShortSrc = this.getAssetPath(resolvedMode === 'dark'
             ? 'images/branding/bandmate-logo-short-dark.svg'
             : 'images/branding/bandmate-logo-short.svg');
@@ -1369,12 +1370,12 @@ const App = {
 
         const favicon = document.getElementById('faviconSvg');
         if (favicon) {
-            favicon.setAttribute('href', logoOnlySrc);
+            favicon.setAttribute('href', appIconSrc);
         }
 
         const appleTouchIcon = document.getElementById('appleTouchIcon');
         if (appleTouchIcon) {
-            appleTouchIcon.setAttribute('href', logoOnlySrc);
+            appleTouchIcon.setAttribute('href', appIconSrc);
         }
     },
 
@@ -1481,7 +1482,9 @@ const App = {
             news: { label: 'Neuigkeiten', description: 'Updates und Ankündigungen' },
             songpool: { label: 'Songpool', description: 'Persönliche und öffentliche Songs im Studio' },
             settings: { label: 'Einstellungen', description: 'Profil, Abwesenheiten und Verwaltung' },
-            pdftochordpro: { label: 'PDF to ChordPro', description: 'Songs konvertieren und zuordnen' }
+            pdftochordpro: { label: 'PDF to ChordPro', description: 'Songs konvertieren und zuordnen' },
+            'private-finanzen': { label: 'Private Finanzen', description: 'Persönliche finanzielle Übersicht' },
+            organizations: { label: 'Organisationen', description: 'Studios, Kollektive und Agenturen verwalten' }
         };
 
         const info = titleMap[view] || { label: 'Bandmate', description: 'Organisation für Bands und Termine' };
@@ -18059,7 +18062,33 @@ const App = {
                 const band = await Storage.getBand(bandId);
                 const confirmed = await UI.confirmDelete(`Möchtest du die Band "${band.name}" wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.`);
                 if (confirmed) {
+                    const members = await Storage.getBandMembers(bandId);
+                    const actor = Auth.getCurrentUser();
                     await Storage.deleteBand(bandId);
+
+                    try {
+                        if (Array.isArray(members) && members.length > 0 && actor) {
+                            await Promise.all(members.map(member =>
+                                Storage.createNotification({
+                                    userId: member.userId,
+                                    type: 'band_deleted',
+                                    title: 'Band gelöscht',
+                                    message: `Die Band "${band.name}" wurde gelöscht.`,
+                                    actorUserId: actor.id,
+                                    actorName: UI.getUserDisplayName(actor),
+                                    actorImageUrl: actor.profile_image_url || '',
+                                    bandId,
+                                    bandName: band.name
+                                })
+                            ));
+                        }
+                        if (typeof Notifications !== 'undefined') {
+                            await Notifications.refresh({ quiet: true, skipAutoRead: true });
+                        }
+                    } catch (notifyErr) {
+                        Logger.warn('[App] Could not send band deletion notifications:', notifyErr);
+                    }
+
                     this.allBandsCache = null; // Invalidate cache
                     await this.renderAllBandsList();
                     // Refresh band cards in "Meine Bands" view
@@ -19290,48 +19319,84 @@ const App = {
 
         // Handle Activities (needs News + Events + Rehearsals)
         try {
-            const [events, rehearsals, news, locations] = await Promise.all([
+            const [events, rehearsals, news, locations, notifications] = await Promise.all([
                 eventsPromise,
                 rehearsalsPromise,
                 newsPromise,
-                Storage.getLocations().catch(() => [])
+                Storage.getLocations().catch(() => []),
+                Storage.getNotificationsForUser(user.id, { limit: 10 }).catch(() => [])
             ]);
             const activitySection = document.getElementById('dashboardActivityList');
             if (activitySection) {
                 const locationMap = new Map((locations || []).map(loc => [String(loc.id), loc]));
                 const eventMap = new Map((events || []).map(e => [String(e.id), e]));
                 const rehearsalMap = new Map((rehearsals || []).map(r => [String(r.id), r]));
+                const getActivityDate = (...values) => {
+                    for (const value of values) {
+                        if (!value) continue;
+                        const date = new Date(value);
+                        if (!Number.isNaN(date.getTime())) return date;
+                    }
+                    return null;
+                };
                 let activities = [];
                 activities = activities.concat(
-                    (events || []).map(e => ({
-                        type: 'event',
-                        date: e.date,
-                        title: e.title,
-                        id: e.id,
-                        bandName: e.band?.name || '',
-                        metaSecondary: e.location || '',
-                        accent: e.band?.color || '#8b5cf6'
-                    })),
+                    (events || []).map(e => {
+                        const activityDate = getActivityDate(e.updatedAt, e.createdAt, e.updated_at, e.created_at);
+                        const displayDate = activityDate || getActivityDate(e.date);
+                        return {
+                            type: 'event',
+                            date: displayDate,
+                            sortTime: activityDate?.getTime() || 0,
+                            title: e.title,
+                            id: e.id,
+                            bandName: e.band?.name || '',
+                            metaSecondary: e.location || '',
+                            accent: e.band?.color || '#8b5cf6'
+                        };
+                    }),
                     (rehearsals || [])
-                        .map(r => ({
-                            type: 'rehearsal',
-                            date: this.getConfirmedRehearsalDate(r),
-                            title: r.title,
-                            id: r.id,
-                            bandName: r.band?.name || '',
-                            metaSecondary: r.locationId ? (locationMap.get(String(r.locationId))?.name || '') : '',
-                            accent: r.band?.color || '#5b8cff'
-                        }))
+                        .map(r => {
+                            const activityDate = getActivityDate(r.updatedAt, r.createdAt, r.updated_at, r.created_at);
+                            const displayDate = activityDate || getActivityDate(this.getConfirmedRehearsalDate(r));
+                            return {
+                                type: 'rehearsal',
+                                date: displayDate,
+                                sortTime: activityDate?.getTime() || 0,
+                                title: r.title,
+                                id: r.id,
+                                bandName: r.band?.name || '',
+                                metaSecondary: r.locationId ? (locationMap.get(String(r.locationId))?.name || '') : '',
+                                accent: r.band?.color || '#5b8cff'
+                            };
+                        })
                         .filter(r => r.date),
-                    (news || []).map(n => ({
-                        type: 'news',
-                        date: n.createdAt,
-                        title: n.title,
-                        id: n.id,
-                        bandName: '',
-                        metaSecondary: '',
-                        accent: '#8b5cf6'
-                    }))
+                    (news || []).map(n => {
+                        const activityDate = getActivityDate(n.updatedAt, n.createdAt, n.updated_at, n.created_at);
+                        return {
+                            type: 'news',
+                            date: activityDate,
+                            sortTime: activityDate?.getTime() || 0,
+                            title: n.title,
+                            id: n.id,
+                            bandName: '',
+                            metaSecondary: '',
+                            accent: '#8b5cf6'
+                        };
+                    }),
+                    (notifications || []).map(notification => {
+                        const activityDate = getActivityDate(notification.createdAt);
+                        return {
+                            type: 'notification',
+                            date: activityDate,
+                            sortTime: activityDate?.getTime() || 0,
+                            title: notification.title || 'Benachrichtigung',
+                            id: notification.id,
+                            bandName: notification.bandName || '',
+                            metaSecondary: notification.message || '',
+                            accent: String(notification.type || '').startsWith('org_') ? '#0ea5e9' : '#f59e0b'
+                        };
+                    })
                 );
 
                 try {
@@ -19346,9 +19411,11 @@ const App = {
                         if (!vote.createdAt || String(vote.userId) === String(user.id)) return;
                         const event = eventMap.get(String(vote.eventId));
                         if (!event) return;
+                        const activityDate = getActivityDate(vote.createdAt);
                         voteActivities.push({
                             type: 'vote-event',
-                            date: vote.createdAt,
+                            date: activityDate,
+                            sortTime: activityDate?.getTime() || 0,
                             title: event.title || 'Auftritt',
                             id: event.id,
                             bandName: event.band?.name || '',
@@ -19360,9 +19427,11 @@ const App = {
                         if (!vote.createdAt || String(vote.userId) === String(user.id)) return;
                         const rehearsal = rehearsalMap.get(String(vote.rehearsalId));
                         if (!rehearsal) return;
+                        const activityDate = getActivityDate(vote.createdAt);
                         voteActivities.push({
                             type: 'vote-rehearsal',
-                            date: vote.createdAt,
+                            date: activityDate,
+                            sortTime: activityDate?.getTime() || 0,
                             title: rehearsal.title || 'Probetermin',
                             id: rehearsal.id,
                             bandName: rehearsal.band?.name || '',
@@ -19375,7 +19444,10 @@ const App = {
                     Logger.warn('[dashboard] Could not load vote activities:', err);
                 }
 
-                activities = activities.filter(a => a.date).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
+                activities = activities
+                    .filter(a => a.date)
+                    .sort((a, b) => b.sortTime - a.sortTime)
+                    .slice(0, 3);
 
                 if (activities.length === 0) {
                     activitySection.innerHTML = '<div class="dashboard-empty-state"><strong>Keine neue Aktivität</strong><p>Neue Termine, bestätigte Proben oder News erscheinen hier automatisch.</p></div>';
@@ -19384,7 +19456,7 @@ const App = {
                     <div class="dashboard-activity-item upcoming-card clickable" data-type="${a.type}" data-id="${a.id || ''}" style="--upcoming-accent: ${a.accent}">
                         <div class="upcoming-card-content">
                             <div class="upcoming-card-topline">
-                                <span class="upcoming-card-type">${a.type === 'event' ? 'Auftritt' : a.type === 'rehearsal' ? 'Probetermin' : a.type === 'vote-event' ? 'Abstimmung (Auftritt)' : a.type === 'vote-rehearsal' ? 'Abstimmung (Probe)' : 'News'}</span>
+                                <span class="upcoming-card-type">${a.type === 'event' ? 'Auftritt' : a.type === 'rehearsal' ? 'Probetermin' : a.type === 'vote-event' ? 'Abstimmung (Auftritt)' : a.type === 'vote-rehearsal' ? 'Abstimmung (Probe)' : a.type === 'notification' ? 'Benachrichtigung' : 'News'}</span>
                                 ${a.bandName ? `<span class="upcoming-card-band">${Bands.escapeHtml(a.bandName)}</span>` : `<span class="upcoming-card-band">${UI.formatDateShort(a.date)}</span>`}
                             </div>
                             <div class="upcoming-card-title">${Bands.escapeHtml(a.title)}</div>
@@ -19402,6 +19474,7 @@ const App = {
                             const type = item.dataset.type;
                             if (type === 'event' || type === 'vote-event') self.navigateTo('events', 'dashboard-upcoming-list-event');
                             else if (type === 'rehearsal' || type === 'vote-rehearsal') self.navigateTo('rehearsals', 'dashboard-upcoming-list-rehearsal');
+                            else if (type === 'notification' && typeof Notifications !== 'undefined') Notifications.toggleDropdown(true);
                             else self.navigateTo('news', 'dashboard-upcoming-list-unknown');
                         });
                     });
